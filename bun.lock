@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "denice-ts",
+      "name": "@denice-aios/denice",
       "dependencies": {
         "js-yaml": "4.1.0",
         "react": "19.3.0",

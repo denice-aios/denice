@@ -15,7 +15,7 @@ namespace Denice.Cli;
 /// <summary>
 /// Hosts the entry point for the Denice command-line interface. It is the single composition point: it builds the
 /// one <see cref="ISystemServices"/> container with <see cref="SystemServices.Create"/> — the internal container
-/// factory in <c>Denice.Engine</c>, reached through Engine's <c>InternalsVisibleTo</c> grant to <c>guard</c> and
+/// factory in <c>Denice.Engine</c>, reached through Engine's <c>InternalsVisibleTo</c> grant to <c>denice</c> and
 /// the only Engine internal this assembly may reach (DN0041) — and threads it into every
 /// handler, so console, environment, version, and clock access all run through the owned services. It exposes the
 /// whole surface — <c>hook</c>, <c>install</c>, <c>init</c>, <c>remove</c>, <c>doctor</c> — through System.CommandLine,
@@ -157,7 +157,7 @@ internal sealed class Program
         {
             Description = "Repair the structural conditions.",
         };
-        var command = new Command("doctor", "Check (and with --fix, repair) the guard install and project wiring.")
+        var command = new Command("doctor", "Check (and with --fix, repair) the denice install and project wiring.")
         {
             fix,
         };
@@ -175,7 +175,7 @@ internal sealed class Program
         {
             if (!TryParseEvent(eventToken, out HookEvent hookEvent))
             {
-                services.Console.ErrorWriteLine("Usage: guard hook <pre|post>");
+                services.Console.ErrorWriteLine("Usage: denice hook <pre|post>");
                 return 2;
             }
 

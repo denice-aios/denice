@@ -89,7 +89,7 @@ public static class SetupCommands
 
         if (!context.FileReader.Exists(MachinePaths.BinGuard(context)))
         {
-            return CommandOutcome.Failed("the machine is not installed; run `guard install` first");
+            return CommandOutcome.Failed("the machine is not installed; run `denice install` first");
         }
 
         string? conflict = PreflightSettings(context);
@@ -111,7 +111,7 @@ public static class SetupCommands
     }
 
     /// <summary>
-    /// Removes the guard's project wiring: strips the guard hook entries from <c>.claude/settings.json</c> and
+    /// Removes the guard's project wiring: strips the denice hook entries from <c>.claude/settings.json</c> and
     /// removes the <c>.denice/</c> directory, leaving all non-guard content intact. Idempotent.
     /// </summary>
     /// <param name="context">The setup context.</param>
@@ -129,7 +129,7 @@ public static class SetupCommands
 
         var messages = new List<string>();
         CreationHelper.UnwireSettings(context);
-        messages.Add("removed the guard hook entries from .claude/settings.json");
+        messages.Add("removed the denice hook entries from .claude/settings.json");
         CreationHelper.RemoveDeniceDirectory(context);
         messages.Add("removed .denice/");
         return CommandOutcome.Ok(messages);

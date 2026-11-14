@@ -44,7 +44,7 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// The fake <c>Denice.Engine</c> assembly the access rules are exercised against, spelled once and referenced
     /// by every test class that needs the relocated container to come from a REAL second assembly: DN0041
-    /// (<c>EngineInternalsOneDoorAnalyzerTests</c>), which reaches it from the <c>guard</c> and
+    /// (<c>EngineInternalsOneDoorAnalyzerTests</c>), which reaches it from the <c>denice</c> and
     /// <c>Denice.TestHelpers</c> compilations, and DN0017's post-relocation regression
     /// (<c>GuardedConstructionAnalyzerTests</c>), which reaches it from an <c>Denice.Tests</c> compilation.
     /// <para>
@@ -69,7 +69,7 @@ internal static class SharedAnalyzerSources
     internal const string EngineAssemblySource = $$"""
         using System.Runtime.CompilerServices;
 
-        [assembly: InternalsVisibleTo("guard")]
+        [assembly: InternalsVisibleTo("denice")]
         [assembly: InternalsVisibleTo("Denice.TestHelpers")]
         [assembly: InternalsVisibleTo("Denice.Tests")]
 
@@ -146,11 +146,11 @@ internal static class SharedAnalyzerSources
     internal const string WrongContainerNamespace = EngineAssemblyName + ".Decoy";
 
     /// <summary>
-    /// The compiled assembly name of the CLI consumer the Engine grant reaches — <c>guard</c>, not the
+    /// The compiled assembly name of the CLI consumer the Engine grant reaches — <c>denice</c>, not the
     /// <c>Denice.Cli</c> root namespace. Held here once because more than one test class compiles a fixture as
     /// that consumer.
     /// </summary>
-    internal const string GuardAssemblyName = "guard";
+    internal const string GuardAssemblyName = "denice";
 
     /// <summary>
     /// The fully qualified name of the internal Engine type <see cref="EngineAssemblySource"/> declares, as a
@@ -481,7 +481,7 @@ internal static class SharedAnalyzerSources
     internal const string CrossPlatformUsing = "using " + CrossPlatformNamespace + ";";
 
     /// <summary>
-    /// Builds a CONSUMER compilation — the shell a gated consumer (<c>guard</c>, <c>Denice.TestHelpers</c>) or the
+    /// Builds a CONSUMER compilation — the shell a gated consumer (<c>denice</c>, <c>Denice.TestHelpers</c>) or the
     /// ungated <c>Denice.Tests</c> reaches the fake Engine assembly from. It is the counterpart of
     /// <see cref="EngineCompilation"/> on the other side of the reference: DN0041's gate and the shared carried-type
     /// lens both place their reach in exactly this shell, so it is spelled once here instead of once per test class.

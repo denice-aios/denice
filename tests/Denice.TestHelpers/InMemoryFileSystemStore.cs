@@ -562,7 +562,7 @@ internal sealed class InMemoryFileSystemStore
             string spliced = Path.GetFullPath(target, parent);
 
             // A relative target can itself route through an intermediate symlink component (production's launcher is a
-            // two-hop chain: bin/guard -> ../current/guard, and current -> versions/{v}). Re-resolve the spliced path's
+            // two-hop chain: bin/denice -> ../current/denice, and current -> versions/{v}). Re-resolve the spliced path's
             // parent so those intermediate links are followed, not just the entry the target names directly.
             string? splicedParent = Path.GetDirectoryName(spliced);
             current = splicedParent is null || splicedParent.Length == 0

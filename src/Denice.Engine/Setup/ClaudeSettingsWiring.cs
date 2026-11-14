@@ -13,9 +13,9 @@ namespace Denice.Engine.Setup;
 /// Merges, strips, inspects, and reads the guard's hook entries in <c>.claude/settings.json</c>. A guard entry is
 /// any matcher group carrying a hook whose command is the guard's own — a call to the guard binary running
 /// <c>hook pre</c>/<c>hook post</c> (see <see cref="HookCommand.IsGuardCommand"/>) — so it is identified by that
-/// command regardless of its launcher path and distinct from any user hook that merely invokes a <c>guard</c>
+/// command regardless of its launcher path and distinct from any user hook that merely invokes a <c>denice</c>
 /// subcommand. The guard writes a single group per event whose matcher covers every command-running tool. The
-/// merge preserves every non-guard key and every non-guard hook group unchanged, adds the guard entries when
+/// merge preserves every non-guard key and every non-denice hook group unchanged, adds the guard entries when
 /// absent, refreshes a guard entry whose path is stale, and refuses (leaving the file untouched) when the existing
 /// shape cannot be merged safely.
 /// </summary>
@@ -40,7 +40,7 @@ internal static class ClaudeSettingsWiring
     /// <summary>
     /// Builds the exact hook command for an event, embedding the absolute launcher path and the host.
     /// </summary>
-    /// <param name="absolutePath">The absolute launcher path (<c>~/.denice/bin/guard</c>).</param>
+    /// <param name="absolutePath">The absolute launcher path (<c>~/.denice/bin/denice</c>).</param>
     /// <param name="eventToken">The event token, <c>pre</c> or <c>post</c>.</param>
     /// <returns>The command string.</returns>
     internal static string Command(string absolutePath, string eventToken) =>
@@ -136,7 +136,7 @@ internal static class ClaudeSettingsWiring
     {
         if (string.IsNullOrWhiteSpace(existingJson))
         {
-            return new SettingsInspection(SettingsHealth.Missing, "no .claude/settings.json guard hook entries");
+            return new SettingsInspection(SettingsHealth.Missing, "no .claude/settings.json denice hook entries");
         }
 
         string? parseError = ParseObject(existingJson, out JsonObject? root);
@@ -336,7 +336,7 @@ internal static class ClaudeSettingsWiring
         JsonNode? node = hooks[eventKey];
         if (node is null)
         {
-            return new SettingsInspection(SettingsHealth.Missing, $"{eventKey} has no guard hook entry");
+            return new SettingsInspection(SettingsHealth.Missing, $"{eventKey} has no denice hook entry");
         }
 
         if (node is not JsonArray array)
@@ -347,16 +347,16 @@ internal static class ClaudeSettingsWiring
         JsonObject? group = FindGuardGroup(array);
         if (group is null)
         {
-            return new SettingsInspection(SettingsHealth.Missing, $"{eventKey} guard hook entry is missing");
+            return new SettingsInspection(SettingsHealth.Missing, $"{eventKey} denice hook entry is missing");
         }
 
         if (!string.Equals(GroupCommand(group), expectedCommand, StringComparison.Ordinal))
         {
             return new SettingsInspection(
-                SettingsHealth.Stale, $"{eventKey} guard hook entry points at a stale path");
+                SettingsHealth.Stale, $"{eventKey} denice hook entry points at a stale path");
         }
 
-        return new SettingsInspection(SettingsHealth.Ok, "guard hook entries present and current");
+        return new SettingsInspection(SettingsHealth.Ok, "denice hook entries present and current");
     }
 
     private static JsonObject? FindGuardGroup(JsonArray array)

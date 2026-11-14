@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace Denice.Engine.Setup;
 
 /// <summary>
-/// The project condition that the project's stamped guard version matches the installed machine version; a drift
+/// The project condition that the project's stamped denice version matches the installed machine version; a drift
 /// is reported and, with <c>--fix</c>, re-stamped.
 /// </summary>
 internal sealed class VersionStampCondition : ISetupCondition
@@ -55,7 +55,7 @@ internal sealed class VersionStampCondition : ISetupCondition
 
         if (project is null || string.IsNullOrEmpty(project.GuardVersion))
         {
-            return ConditionState.Broken(".denice/state.json has no guard version");
+            return ConditionState.Broken(".denice/state.json has no denice version");
         }
 
         string installed = machine.State!.Version;

@@ -125,7 +125,7 @@ public sealed class SetupHarness : IDisposable
     public string MakeSourceBinary(string content)
     {
         string directory = DirectoryWriter.CreateTempSubdirectory("denice-src-");
-        string path = System.IO.Path.Combine(directory, "guard");
+        string path = System.IO.Path.Combine(directory, "denice");
         FileWriter.WriteAllText(path, content);
         return path;
     }
@@ -191,7 +191,7 @@ public sealed class SetupHarness : IDisposable
         FileWriter.WriteAllText(ClaudeSettings, json);
     }
 
-    /// <summary>Relocates the guard hook entry's command to a stale launcher path, keeping it a guard command.</summary>
+    /// <summary>Relocates the denice hook entry's command to a stale launcher path, keeping it a guard command.</summary>
     /// <param name="eventKey">The event key.</param>
     public void MakeGuardEntryStale(string eventKey)
     {
@@ -199,7 +199,7 @@ public sealed class SetupHarness : IDisposable
         JsonObject group = SettingsProbe.GuardGroup(settings, eventKey)!;
         string current = SettingsProbe.CommandOf(group)!;
         group["hooks"]![0]!["command"] =
-            current.Replace(BinGuard, "/old/relocated/.denice/bin/guard", StringComparison.Ordinal);
+            current.Replace(BinGuard, "/old/relocated/.denice/bin/denice", StringComparison.Ordinal);
         FileWriter.WriteAllText(ClaudeSettings, settings.ToJsonString());
     }
 

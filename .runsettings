@@ -5,8 +5,8 @@
   flags. coverlet.collector writes one cobertura report per test project; CI merges them and gates the aggregate
   and each per-OS implementation at 75% (decisions threshold-75-hard-gate, covered-assemblies).
 
-  The counted set is exactly the product assemblies (Include). Denice.Cli builds as `guard.dll`, so its
-  assembly name is `guard`. Denice.Analyzers and every *.Tests assembly are excluded, so they are absent from
+  The counted set is exactly the product assemblies (Include). Denice.Cli builds as `denice.dll`, so its
+  assembly name is `denice`. Denice.Analyzers and every *.Tests assembly are excluded, so they are absent from
   the coverage number (decision covered-assemblies).
 -->
 <RunSettings>
@@ -15,7 +15,7 @@
       <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
-          <Include>[Denice.Engine]*,[guard]*,[Denice.CrossPlatform]*,[Denice.Boundaries]*,[Denice.CrossPlatform.MacOS]*,[Denice.CrossPlatform.Linux]*,[Denice.CrossPlatform.Windows]*</Include>
+          <Include>[Denice.Engine]*,[denice]*,[Denice.CrossPlatform]*,[Denice.Boundaries]*,[Denice.CrossPlatform.MacOS]*,[Denice.CrossPlatform.Linux]*,[Denice.CrossPlatform.Windows]*</Include>
           <Exclude>[Denice.Analyzers]*,[*.Tests]*</Exclude>
           <SkipAutoProps>true</SkipAutoProps>
           <UseSourceLink>false</UseSourceLink>

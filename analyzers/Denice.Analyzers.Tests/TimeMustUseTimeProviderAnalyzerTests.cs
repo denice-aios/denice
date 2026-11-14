@@ -189,7 +189,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
     [Fact]
     public async Task TimeProviderSystem_InProgramCaller_IsReported()
     {
-        // The composition CALLER (Program in Denice.Cli, compiled into the real assembly name "guard") is NOT the
+        // The composition CALLER (Program in Denice.Cli, compiled into the real assembly name "denice") is NOT the
         // clock construction site: Program calls the already-built factory, it does not acquire the clock. So a direct
         // TimeProvider.System there is RED (clock-legal-in-create-and-builder — the "painted into a corner" fix).
         const string source = """
@@ -205,7 +205,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "guard"));
+            await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "denice"));
         Assert.Equal("DN0015", diagnostic.Id);
     }
 

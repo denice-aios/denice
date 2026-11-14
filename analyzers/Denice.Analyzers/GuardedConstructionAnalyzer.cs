@@ -144,7 +144,7 @@ public sealed class GuardedConstructionAnalyzer : DiagnosticAnalyzer
         // DN0027: constructing the shared overlay InMemoryFileSystemStore is legal only inside SystemServicesBuilder,
         // and only in the Denice.TestHelpers compilation (store-single-construction-rule). The composition-point
         // walk (CompositionPoint.Encloses) reduces to "inside SystemServicesBuilder" here: the only OTHER composition
-        // caller it admits, Program, is anchored to the "guard" assembly and so never matches within the TestHelpers
+        // caller it admits, Program, is anchored to the "denice" assembly and so never matches within the TestHelpers
         // compilation this branch is gated to.
         if (TestHelperTypes.IsStoreConstruction(context.Operation, type)
             && string.Equals(context.Compilation.AssemblyName, TestAssembly.TestHelpersName, StringComparison.Ordinal)

@@ -8,7 +8,7 @@ using Denice.Abstractions.Contracts;
 namespace Denice.Engine.Setup;
 
 /// <summary>
-/// The hook integrity self-check that gates a <c>guard hook</c> run. It derives the install root from the
+/// The hook integrity self-check that gates a <c>denice hook</c> run. It derives the install root from the
 /// resolved running binary — never from <c>$HOME</c>, since a hook may run with a different or absent home — and
 /// fails closed on an unresolvable <c>current</c>, or a missing, unreadable, or mismatched hash record. This build
 /// does not claim the hash check defends the binary against a same-user agent; that is a later build. It is an
@@ -99,7 +99,7 @@ public sealed class InstallIntegrity
         if (!string.Equals(actual, state.Sha256, StringComparison.Ordinal))
         {
             return IntegrityReport.Deny(
-                "binary hash does not match the recorded install; re-run `guard install` from a trusted build");
+                "binary hash does not match the recorded install; re-run `denice install` from a trusted build");
         }
 
         return IntegrityReport.Allow();

@@ -252,7 +252,7 @@ public sealed class PlatformFileSystemSpecTests : IDisposable
         Justification = "This lone pointed-integration test proves the real PosixFileSystem.MakeExecutable adds only the execute bits and preserves the file's other permission bits — a 0755 replace would leak group/other read onto a private file. That is a real-disk security property the in-memory simulator cannot verify (its exec bit is a single boolean flag), and IPlatformFileSystem exposes no owned raw Unix-mode get/set by design (the engine never needs one). Tim approved this ordinary DN0101 suppression on 2026-08-21 as the interim mechanism: raw-primitive test exceptions are suppressed the existing way and monitored manually until the signed-exception system lands, which will flag every unsigned exception so the backlog can be signed.")]
     public void ExecutableFlag_IsUniformlyProvenByNeedsExecutableFlag()
     {
-        string file = Path.Combine(root, "guard");
+        string file = Path.Combine(root, "denice");
         WriteText(file, "binary");
 
         if (ExecutableBitsSupported())

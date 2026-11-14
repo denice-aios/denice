@@ -182,7 +182,7 @@ internal static class CompositionPoint
     {
         // The two identity signals are DISTINCT and matched separately by the shared WellKnownType.IsInAssembly
         // conjunction: the Program TYPE by its namespace (Denice.Cli) + name, and the ASSEMBLY by the CLI's real
-        // compiled name ("guard", set by <AssemblyName>guard</AssemblyName>). Using the root namespace for the assembly
+        // compiled name ("denice", set by <AssemblyName>denice</AssemblyName>). Using the root namespace for the assembly
         // check would never match the real Program and would permanently, falsely flag the one legitimate composition
         // point (LESSON 1).
         return WellKnownType.IsInAssembly(

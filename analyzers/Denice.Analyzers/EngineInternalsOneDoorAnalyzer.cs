@@ -8,7 +8,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Denice.Analyzers;
 
 /// <summary>
-/// Reports the CLI (compiled as <c>guard</c>) or <c>Denice.TestHelpers</c> reaching any internal type or internal
+/// Reports the CLI (compiled as <c>denice</c>) or <c>Denice.TestHelpers</c> reaching any internal type or internal
 /// member declared in <c>Denice.Engine</c>, in every position the language allows, with one exception: the
 /// <c>SystemServices</c> type named as the receiver of an invocation of its static <c>Create</c> method, and that
 /// <c>Create</c> member itself in that same invocation. Relocating the container into Engine requires Engine to grant

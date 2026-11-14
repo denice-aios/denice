@@ -3,7 +3,7 @@
 # platform's signatures and record a machine-checkable result artifact. No single runner hosts both codesign
 # and signtool, so each job proves its own native seals here and the release job trusts these artifacts.
 #
-# Verifies, over dist/guard-<rid>[<ext>]:
+# Verifies, over dist/denice-v<version>-<rid>[<ext>] (version from DENICE_ASSET_VERSION):
 #   - native codesign (mac)  : codesign --verify --strict
 #   - native signtool (win)  : signtool verify /pa /v  (self-signed cert already trusted on the runner)
 #   - none (linux)           : cosign only
@@ -39,15 +39,16 @@ ok=1
     if [ -z "$SIGNTOOL" ]; then echo "signtool.exe not found on the runner"; ok=0; fi
   fi
   for rid in "$@"; do
-    bin="dist/guard-$rid$EXT"
-    bundle="dist/guard-$rid.cosign.bundle"
+    name="denice-v${DENICE_ASSET_VERSION:?DENICE_ASSET_VERSION must be set}-$rid"
+    bin="dist/$name$EXT"
+    bundle="dist/$name.cosign.bundle"
     case "$NATIVE" in
       codesign)
-        echo "== codesign --verify --strict guard-$rid =="
+        echo "== codesign --verify --strict $name =="
         if codesign --verify --strict --verbose=2 "$bin" 2>&1; then echo "codesign PASS: $rid"; else echo "codesign FAIL: $rid"; ok=0; fi
         ;;
       signtool)
-        echo "== signtool verify /pa /v guard-$rid$EXT =="
+        echo "== signtool verify /pa /v $name$EXT =="
         # MSYS_NO_PATHCONV=1: signtool is a native Windows exe run from Git bash, whose POSIX->Windows path
         # conversion otherwise rewrites the /pa and /v switches into paths (C:/Program Files/Git/pa, V:/) so they
         # never reach signtool; without /pa it falls back to a policy that rejects our runner-trusted self-signed cert.
@@ -56,7 +57,7 @@ ok=1
       none) ;;
       *) echo "unknown native mode '$NATIVE'"; ok=0 ;;
     esac
-    echo "== cosign verify-blob guard-$rid$EXT =="
+    echo "== cosign verify-blob $name$EXT =="
     if cosign verify-blob --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" \
          --bundle "$bundle" "$bin" 2>&1; then echo "cosign PASS: $rid"; else echo "cosign FAIL: $rid"; ok=0; fi
   done

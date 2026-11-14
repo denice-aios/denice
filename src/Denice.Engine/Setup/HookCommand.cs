@@ -37,7 +37,7 @@ public static class HookCommand
     /// <summary>
     /// Builds the exact hook command for an event, embedding the absolute launcher path and the host.
     /// </summary>
-    /// <param name="absolutePath">The absolute launcher path (<c>~/.denice/bin/guard</c>).</param>
+    /// <param name="absolutePath">The absolute launcher path (<c>~/.denice/bin/denice</c>).</param>
     /// <param name="eventToken">The event token, <see cref="PreEvent"/> or <see cref="PostEvent"/>.</param>
     /// <returns>The command string.</returns>
     public static string ForEvent(string absolutePath, string eventToken) =>

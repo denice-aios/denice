@@ -45,13 +45,13 @@ public sealed class AcceptanceConfigProtectionTests
         using var fixture = new FixtureProject();
         fixture.WriteFile(
             CoreSystemPaths.ClaudeSettingsRelative,
-            ClaudeSettingsWiring.AddGuardEntries("{ \"model\": \"opus\" }", "/old/stale/guard").Json!);
+            ClaudeSettingsWiring.AddGuardEntries("{ \"model\": \"opus\" }", "/old/stale/denice").Json!);
         IPipeline pipeline = GuardEngine.CreatePipeline(TestSupport.Options(fixture.Root, new FakeTimeProvider()));
 
         Verdict verdict = await RunPrePostAsync(
             fixture,
             pipeline,
-            TestSupport.Bash("call-doctor", "guard doctor --fix"),
+            TestSupport.Bash("call-doctor", "denice doctor --fix"),
             () => fixture.WriteFile(
                 CoreSystemPaths.ClaudeSettingsRelative,
                 ClaudeSettingsWiring.AddGuardEntries(fixture.ReadText(CoreSystemPaths.ClaudeSettingsRelative), Launcher()).Json!));
@@ -164,7 +164,7 @@ public sealed class AcceptanceConfigProtectionTests
         Verdict verdict = await RunPrePostAsync(
             fixture,
             pipeline,
-            TestSupport.Bash("call-init", "guard init"),
+            TestSupport.Bash("call-init", "denice init"),
             () => fixture.WriteFile(CoreSystemPaths.ProjectConfigRelative, SetupJson.Serialize(ProjectConfig.Default())));
 
         verdict.Kind.Should().NotBe(VerdictKind.Deny);
@@ -329,13 +329,13 @@ public sealed class AcceptanceConfigProtectionTests
                 call,
                 () => fixture.WriteFile(
                     CoreSystemPaths.ClaudeSettingsRelative,
-                    ClaudeSettingsWiring.AddGuardEntries(original, "/tmp/evil/guard").Json!))
+                    ClaudeSettingsWiring.AddGuardEntries(original, "/tmp/evil/denice").Json!))
             .ConfigureAwait(false);
 
         verdict.Kind.Should().Be(VerdictKind.Deny);
         string restored = fixture.ReadText(CoreSystemPaths.ClaudeSettingsRelative);
         ClaudeSettingsWiring.Inspect(restored, Launcher()).Health.Should().Be(SettingsHealth.Ok);
-        restored.Should().NotContain("/tmp/evil/guard");
+        restored.Should().NotContain("/tmp/evil/denice");
         JsonNode.Parse(restored)!.AsObject()["model"]!.GetValue<string>().Should().Be("opus");
     }
 

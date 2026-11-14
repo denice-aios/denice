@@ -50,9 +50,9 @@ internal static class SettingsProbe
         return array.OfType<JsonObject>().Count(IsGuardGroup);
     }
 
-    /// <summary>Gets a value indicating whether any guard hook command is present anywhere in the settings.</summary>
+    /// <summary>Gets a value indicating whether any denice hook command is present anywhere in the settings.</summary>
     /// <param name="root">The settings root object.</param>
-    /// <returns><see langword="true"/> when a guard hook command is present.</returns>
+    /// <returns><see langword="true"/> when a denice hook command is present.</returns>
     internal static bool HasAnyGuardHook(JsonObject root)
     {
         if (root["hooks"] is not JsonObject hooks)

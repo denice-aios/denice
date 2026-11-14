@@ -8,7 +8,7 @@ namespace Denice.Cli.Tests;
 
 /// <summary>
 /// An inspectable, isolated machine and project the CLI runs against across several commands. It owns a persistent
-/// isolated HOME and working directory, so a test can complete a real <c>guard install</c>, then <c>guard init</c>
+/// isolated HOME and working directory, so a test can complete a real <c>denice install</c>, then <c>denice init</c>
 /// against that installed machine, and assert the files each command actually wrote. Every command runs the
 /// production wiring through the internal <see cref="Program.Run(ISystemServices)"/> seam (reached through the
 /// <c>InternalsVisibleTo</c> grant) with a container built by <see cref="SystemServicesBuilder"/>: the real
@@ -60,7 +60,7 @@ internal sealed class CliMachine : IDisposable
     /// <summary>Gets the machine state record, <c>{Home}/.denice/state.json</c>.</summary>
     public string MachineStateFile => _layout.MachineStateFile;
 
-    /// <summary>Gets the stable launcher, <c>{Home}/.denice/bin/guard</c>.</summary>
+    /// <summary>Gets the stable launcher, <c>{Home}/.denice/bin/denice</c>.</summary>
     public string BinGuard => _layout.BinGuard;
 
     /// <summary>Gets the project's <c>.claude/settings.json</c> path.</summary>

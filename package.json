@@ -1,5 +1,5 @@
 {
-  "name": "denice-ts",
+  "name": "@denice-aios/denice",
   "private": true,
   "type": "module",
   "description": "The TypeScript side of denice. Holds MetaLang \u2014 the language that defines languages \u2014 and the build that will later emit the workflow scripts.",

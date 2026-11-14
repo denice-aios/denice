@@ -22,7 +22,7 @@ internal static class MachineInspection
         if (!context.FileReader.Exists(path))
         {
             return new MachineFacts(
-                MachineStateStatus.Missing, null, "the machine is not installed; run `guard install`");
+                MachineStateStatus.Missing, null, "the machine is not installed; run `denice install`");
         }
 
         string json;

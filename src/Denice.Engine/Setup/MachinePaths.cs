@@ -7,7 +7,7 @@ namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the machine-install layout under <c>~/.denice/</c>: the version store
-/// (<c>versions/&lt;v&gt;/guard</c>), the <c>current</c> version symlink, the stable <c>bin/guard</c> launcher,
+/// (<c>versions/&lt;v&gt;/denice</c>), the <c>current</c> version symlink, the stable <c>bin/denice</c> launcher,
 /// and the <c>state.json</c> record. Every setup command and the hook integrity self-check derive these locations
 /// here — from a context or from a bare root — so they cannot drift.
 /// </summary>
@@ -22,7 +22,7 @@ internal static class MachinePaths
     /// <summary>
     /// The file name of the guard binary within each version directory and behind the launcher.
     /// </summary>
-    internal const string BinaryName = "guard";
+    internal const string BinaryName = "denice";
 
     /// <summary>
     /// The machine state record file name.
@@ -93,7 +93,7 @@ internal static class MachinePaths
         Path.Combine(VersionsDirectory(context), version);
 
     /// <summary>
-    /// Returns a single version's binary, <c>{root}/versions/{version}/guard</c>.
+    /// Returns a single version's binary, <c>{root}/versions/{version}/denice</c>.
     /// </summary>
     /// <param name="context">The setup context.</param>
     /// <param name="version">The normalized version.</param>
@@ -109,7 +109,7 @@ internal static class MachinePaths
     internal static string Current(SetupContext context) => CurrentIn(Root(context));
 
     /// <summary>
-    /// Returns the binary reached through <c>current</c>, <c>{root}/current/guard</c>.
+    /// Returns the binary reached through <c>current</c>, <c>{root}/current/denice</c>.
     /// </summary>
     /// <param name="context">The setup context.</param>
     /// <returns>The absolute path of the current binary.</returns>
@@ -123,14 +123,14 @@ internal static class MachinePaths
     internal static string BinDirectory(SetupContext context) => Path.Combine(Root(context), BinName);
 
     /// <summary>
-    /// Returns the launcher, <c>{root}/bin/guard</c>, the absolute path project wiring calls.
+    /// Returns the launcher, <c>{root}/bin/denice</c>, the absolute path project wiring calls.
     /// </summary>
     /// <param name="context">The setup context.</param>
     /// <returns>The absolute launcher path.</returns>
     internal static string BinGuard(SetupContext context) => BinGuardIn(context.HomeDirectory);
 
     /// <summary>
-    /// Returns the launcher, <c>{home}/.denice/bin/guard</c>, from a bare home directory. It is the one place
+    /// Returns the launcher, <c>{home}/.denice/bin/denice</c>, from a bare home directory. It is the one place
     /// the launcher layout is spelled, so the engine's canonical settings check and the setup writer agree on the
     /// path the guard hooks point at.
     /// </summary>
@@ -154,7 +154,7 @@ internal static class MachinePaths
     internal static string CurrentRelativeTarget(string version) => Path.Combine(VersionsName, version);
 
     /// <summary>
-    /// Returns the relative target the launcher points at, <c>../current/guard</c>.
+    /// Returns the relative target the launcher points at, <c>../current/denice</c>.
     /// </summary>
     /// <returns>The relative launcher target.</returns>
     internal static string BinGuardRelativeTarget() => Path.Combine("..", CurrentName, BinaryName);

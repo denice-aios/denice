@@ -16,7 +16,7 @@ namespace Denice.Engine.Setup;
 internal static class CreationHelper
 {
     /// <summary>
-    /// Copies the running binary into <c>versions/&lt;version&gt;/guard</c>, skipping when a byte-identical binary
+    /// Copies the running binary into <c>versions/&lt;version&gt;/denice</c>, skipping when a byte-identical binary
     /// is already there (which also guarantees the running image is never overwritten).
     /// </summary>
     /// <param name="context">The setup context.</param>
@@ -50,7 +50,7 @@ internal static class CreationHelper
             fileSystem.MakeExecutable(destination);
         }
 
-        return RepairOutcome.Repaired($"installed the binary at versions/{version}/guard");
+        return RepairOutcome.Repaired($"installed the binary at versions/{version}/denice");
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ internal static class CreationHelper
     }
 
     /// <summary>
-    /// Ensures the stable launcher <c>bin/guard</c> resolves to <c>current/guard</c>.
+    /// Ensures the stable launcher <c>bin/denice</c> resolves to <c>current/denice</c>.
     /// </summary>
     /// <param name="context">The setup context.</param>
     /// <returns>The repair outcome.</returns>
@@ -81,7 +81,7 @@ internal static class CreationHelper
             context,
             MachinePaths.BinGuard(context),
             MachinePaths.BinGuardRelativeTarget(),
-            "ensured bin/guard resolves to current/guard");
+            "ensured bin/denice resolves to current/denice");
     }
 
     /// <summary>

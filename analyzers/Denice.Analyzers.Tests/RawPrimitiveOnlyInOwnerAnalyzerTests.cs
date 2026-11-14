@@ -387,7 +387,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         public class Sample
         {
-            public void Launch() => Process.Start("guard");
+            public void Launch() => Process.Start("denice");
         }
         """;
 
@@ -919,7 +919,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
             public class Sample
             {
-                public ProcessStartInfo Info() => new ProcessStartInfo("guard");
+                public ProcessStartInfo Info() => new ProcessStartInfo("denice");
             }
             """;
 

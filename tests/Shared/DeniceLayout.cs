@@ -30,8 +30,8 @@ internal sealed class DeniceLayout
     /// <summary>Gets the machine install root, <c>{Home}/.denice</c>.</summary>
     public string DeniceRoot => Path.Combine(Home, ".denice");
 
-    /// <summary>Gets the stable launcher, <c>{Home}/.denice/bin/guard</c>.</summary>
-    public string BinGuard => Path.Combine(DeniceRoot, "bin", "guard");
+    /// <summary>Gets the stable launcher, <c>{Home}/.denice/bin/denice</c>.</summary>
+    public string BinGuard => Path.Combine(DeniceRoot, "bin", "denice");
 
     /// <summary>Gets the machine state record, <c>{Home}/.denice/state.json</c>.</summary>
     public string MachineStateFile => Path.Combine(DeniceRoot, "state.json");
@@ -39,8 +39,8 @@ internal sealed class DeniceLayout
     /// <summary>Gets the <c>current</c> version symlink, <c>{Home}/.denice/current</c>.</summary>
     public string Current => Path.Combine(DeniceRoot, "current");
 
-    /// <summary>Gets the binary reached through <c>current</c>, <c>{Home}/.denice/current/guard</c>.</summary>
-    public string CurrentBinary => Path.Combine(Current, "guard");
+    /// <summary>Gets the binary reached through <c>current</c>, <c>{Home}/.denice/current/denice</c>.</summary>
+    public string CurrentBinary => Path.Combine(Current, "denice");
 
     /// <summary>Gets the shell profile the PATH line is written to, <c>{Home}/.zshrc</c>.</summary>
     public string ShellProfilePath => Path.Combine(Home, ".zshrc");
@@ -63,8 +63,8 @@ internal sealed class DeniceLayout
     /// <summary>Gets the project's grants directory, <c>{Project}/.denice/grants</c>.</summary>
     public string ProjectGrants => Path.Combine(ProjectDenice, "grants");
 
-    /// <summary>Returns a version directory's binary, <c>{Home}/.denice/versions/{version}/guard</c>.</summary>
+    /// <summary>Returns a version directory's binary, <c>{Home}/.denice/versions/{version}/denice</c>.</summary>
     /// <param name="version">The normalized version.</param>
     /// <returns>The version binary path.</returns>
-    public string VersionBinary(string version) => Path.Combine(DeniceRoot, "versions", version, "guard");
+    public string VersionBinary(string version) => Path.Combine(DeniceRoot, "versions", version, "denice");
 }

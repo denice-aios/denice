@@ -8,17 +8,17 @@ namespace Denice.Engine.Setup;
 internal enum SettingsHealth
 {
     /// <summary>
-    /// Every guard hook entry is present and points at the current absolute launcher path.
+    /// Every denice hook entry is present and points at the current absolute launcher path.
     /// </summary>
     Ok,
 
     /// <summary>
-    /// One or more guard hook entries are absent.
+    /// One or more denice hook entries are absent.
     /// </summary>
     Missing,
 
     /// <summary>
-    /// A guard hook entry is present but points at a stale path.
+    /// A denice hook entry is present but points at a stale path.
     /// </summary>
     Stale,
 

@@ -48,7 +48,7 @@ public sealed class ProgramCliTests
         CliResult result = CliRunner.Run("hook", "bogus");
 
         result.ExitCode.Should().Be(2);
-        result.StandardError.Should().Contain("Usage: guard hook <pre|post>");
+        result.StandardError.Should().Contain("Usage: denice hook <pre|post>");
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class ProgramCliTests
         CliResult result = CliRunner.Run("hook");
 
         result.ExitCode.Should().Be(2);
-        result.StandardError.Should().Contain("Usage: guard hook <pre|post>");
+        result.StandardError.Should().Contain("Usage: denice hook <pre|post>");
     }
 
     [Fact]

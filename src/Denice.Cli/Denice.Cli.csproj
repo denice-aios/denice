@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <RootNamespace>Denice.Cli</RootNamespace>
-    <AssemblyName>guard</AssemblyName>
+    <AssemblyName>denice</AssemblyName>
   </PropertyGroup>
 
   <!-- "The binary" is exactly one file to copy, hash, and replace: with a RuntimeIdentifier the CLI publishes
@@ -35,7 +35,7 @@
        list, so it survives; when no RID is set it is empty and the engine falls back to the build-host OS. -->
   <ItemGroup>
     <!-- The composition root builds the one ISystemServices via SystemServices.Create() (DN0017-pinned to Program),
-         which now lives in Denice.Engine and is reached through Engine's InternalsVisibleTo grant to "guard"
+         which now lives in Denice.Engine and is reached through Engine's InternalsVisibleTo grant to "denice"
          (DN0041 permits that one invocation and nothing else among Engine internals). The direct Boundaries reference
          is gone with it: Engine owns the container, references Boundaries itself, and imports the per-OS selection, so
          threading the RID to Engine alone keeps that selection consistent across restore and build. -->

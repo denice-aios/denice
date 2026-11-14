@@ -62,6 +62,8 @@ jobs:
       # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
       DeniceRunNativeSmoke: "true"
       AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
+      # Release file names carry the full build version (Tim, pkg-fcfb11e1ba8c semver-form b): denice-v<version>-<rid>.
+      DENICE_ASSET_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -166,7 +168,7 @@ jobs:
           IDENTITY="$(security find-identity -p codesigning "$KC" | grep -oE '[0-9A-F]{40}' | head -1)"
           if [ -z "$IDENTITY" ]; then echo "::error::No code-signing identity found in the build keychain after import."; exit 1; fi
           for rid in osx-arm64 osx-x64; do
-            BIN="src/Denice.Cli/bin/Release/net10.0/$rid/publish/guard"
+            BIN="src/Denice.Cli/bin/Release/net10.0/$rid/publish/denice"
             codesign --force --options runtime --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$BIN"
           done
       - name: Launch the codesigned mac binary (proves hardened runtime lets it run)
@@ -176,7 +178,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          src/Denice.Cli/bin/Release/net10.0/osx-arm64/publish/guard version
+          src/Denice.Cli/bin/Release/net10.0/osx-arm64/publish/denice version
       - name: Stage, checksum, and cosign mac binaries
         if: github.event_name == 'push'
         run: eng/ci-stage-and-cosign.sh dist "" osx-arm64 osx-x64
@@ -211,6 +213,8 @@ jobs:
       # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
       DeniceRunNativeSmoke: "true"
       AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
+      # Release file names carry the full build version (Tim, pkg-fcfb11e1ba8c semver-form b): denice-v<version>-<rid>.
+      DENICE_ASSET_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -294,7 +298,7 @@ jobs:
             Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
           if (-not $signtool) { Write-Error 'signtool.exe not found on the runner.' }
           foreach ($rid in 'win-x64','win-arm64') {
-            $bin = "src\Denice.Cli\bin\Release\net10.0\$rid\publish\guard.exe"
+            $bin = "src\Denice.Cli\bin\Release\net10.0\$rid\publish\denice.exe"
             # Timestamp against DigiCert; on failure fall back to Sectigo (decision digicert-timestamp-sectigo-fallback).
             & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $bin
             if ($LASTEXITCODE -ne 0) {
@@ -339,6 +343,8 @@ jobs:
       # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
       DeniceRunNativeSmoke: "true"
       AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
+      # Release file names carry the full build version (Tim, pkg-fcfb11e1ba8c semver-form b): denice-v<version>-<rid>.
+      DENICE_ASSET_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -367,7 +373,7 @@ jobs:
       - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
         run: dotnet test -c Release $AG --logger "trx;LogFileName=linux.trx"
       - name: Coverage gate — aggregate + Linux implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
-        # The Linux leg is where the aggregate of Engine + Cli (guard) + CrossPlatform is gated (computed once),
+        # The Linux leg is where the aggregate of Engine + Cli (denice) + CrossPlatform is gated (computed once),
         # alongside the per-OS Linux implementation. `dotnet test` collected coverage by default.
         run: eng/coverage-gate.sh . aggregate Denice.CrossPlatform.Linux
       - name: Upload build evidence (coverage + test results + binlog)
@@ -456,7 +462,7 @@ jobs:
   # Publishes ONE release from the six signed binaries — pre-release from dev, full release from main. Runs only
   # on a push (PRs publish nothing) and only after the gate is green (needs: gate). On macOS so it can re-verify
   # the mac codesign seals; cosign verify-blob covers all six. The assets are packaged as zips (release-zip-layout):
-  # one denice-<rid>.zip per binary plus one evidence.zip with a subdirectory per OS/platform build.
+  # one denice-v<version>-<rid>.zip per binary plus one evidence.zip with a subdirectory per OS/platform build.
   release:
     needs: [version, gate, macos, windows, linux, typescript]
     if: github.event_name == 'push'
@@ -471,6 +477,7 @@ jobs:
       # The assembled release tag from the single owner (the `version` job) — the release NEVER re-reads
       # version.props or re-applies -pre-release (compute-version-once / release-fields).
       TAG: ${{ needs.version.outputs.tag }}
+      DENICE_ASSET_VERSION: ${{ needs.version.outputs.version }}
       CHANNEL: ${{ needs.version.outputs.channel }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -516,7 +523,7 @@ jobs:
             fi
           done
       - name: Make mac/linux binaries executable (chmod +x)
-        run: chmod +x dist/guard-osx-arm64 dist/guard-osx-x64 dist/guard-linux-arm64 dist/guard-linux-x64
+        run: for rid in osx-arm64 osx-x64 linux-arm64 linux-x64; do chmod +x "dist/denice-v${DENICE_ASSET_VERSION}-$rid"; done
       - name: Re-verify every signature before publishing (single-owner verify script)
         # verify-sigs-before-publish: re-run the SAME verifier the per-OS jobs used (eng/ci-verify-signatures.sh)
         # so the cosign/codesign commands and the keyless identity have exactly one owner. cosign covers all six;
@@ -551,7 +558,7 @@ jobs:
       - name: Stage the tester trust scripts
         run: cp eng/signing/trust-cert.sh eng/signing/trust-cert.ps1 dist/
       - name: Package binaries and evidence as release zips (release-zip-layout)
-        # release-zip-layout: one denice-<rid>.zip per binary (the binary + its .sha256 checksum + its
+        # release-zip-layout: one denice-v<version>-<rid>.zip per binary (the binary + its .sha256 checksum + its
         # .cosign.bundle signature), and one evidence.zip organized with one subdirectory per OS/platform build.
         # Signing already happened in the per-OS jobs, so the embedded native seal and the detached cosign bundle
         # both travel inside the archive; chmod +x ran above, so the mac/linux executables keep their exec bit.
@@ -559,8 +566,9 @@ jobs:
           set -euo pipefail
           cd dist
           for rid in osx-arm64 osx-x64 win-x64 win-arm64 linux-arm64 linux-x64; do
-            case "$rid" in win-*) bin="guard-$rid.exe" ;; *) bin="guard-$rid" ;; esac
-            zip -j "denice-$rid.zip" "$bin" "guard-$rid.sha256" "guard-$rid.cosign.bundle"
+            name="denice-v${DENICE_ASSET_VERSION}-$rid"
+            case "$rid" in win-*) bin="$name.exe" ;; *) bin="$name" ;; esac
+            zip -j "$name.zip" "$bin" "$name.sha256" "$name.cosign.bundle"
           done
           cd ..
           rm -rf evidence-zip-root
@@ -627,7 +635,7 @@ jobs:
             --title "$TITLE" \
             --notes-file "$NOTES" \
             $PRERELEASE \
-            denice-osx-arm64.zip denice-osx-x64.zip denice-win-x64.zip denice-win-arm64.zip denice-linux-arm64.zip denice-linux-x64.zip \
+            "denice-v${DENICE_ASSET_VERSION}"-{osx-arm64,osx-x64,win-x64,win-arm64,linux-arm64,linux-x64}.zip \
             evidence.zip \
             denice-macos-public.cer denice-windows-public.cer \
             trust-cert.sh trust-cert.ps1 \
