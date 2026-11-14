@@ -3,8 +3,7 @@
 namespace Denice.Abstractions.Contracts;
 
 /// <summary>
-/// Read-only directory access: the owned seam over the OS filesystem walk that the protected-file scanner and the
-/// grant-token reader use. Directory enumeration through the BCL is OS-uniform, so this is an OS-uniform boundary
+/// Read-only directory access: the owned seam over the OS filesystem walk. Directory enumeration through the BCL is OS-uniform, so this is an OS-uniform boundary
 /// abstraction — the caller passes the <see cref="EnumerationOptions"/> it needs, and the owner does not pick
 /// behavior for it. None of the enumerating members guarantee any ordering; each returns whatever the native
 /// enumeration yields, with no reordering applied.
@@ -21,7 +20,7 @@ public interface IDirectoryEnumerator
     /// <summary>
     /// Returns the immediate children of one directory. An inaccessible directory throws
     /// (<see cref="System.IO.IOException"/> / <see cref="System.UnauthorizedAccessException"/>) and is never
-    /// silently skipped, so an incomplete walk denies the call rather than hiding a protected file. No ordering is
+    /// silently skipped, so an incomplete walk is never mistaken for a complete one. No ordering is
     /// guaranteed.
     /// </summary>
     /// <param name="directoryPath">The absolute directory path whose children are listed.</param>

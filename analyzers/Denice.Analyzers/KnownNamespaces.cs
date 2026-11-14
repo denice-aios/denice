@@ -38,10 +38,10 @@ internal static class KnownNamespaces
     internal const string SystemRuntimeCompilerServices = "System.Runtime.CompilerServices";
 
     /// <summary>The <c>System.Threading</c> namespace, home of <c>CancellationTokenSource</c>, <c>Thread</c>,
-    /// <c>Timer</c>, and <c>PeriodicTimer</c> — the timeout/wait types the DN0038/DN0107 rules match against.</summary>
+    /// <c>Timer</c>, and <c>PeriodicTimer</c> — the timeout/wait types DN0038 matches against.</summary>
     internal const string SystemThreading = "System.Threading";
 
     /// <summary>The <c>System.Threading.Tasks</c> namespace, home of <c>Task</c> — whose <c>Delay</c>/<c>WaitAsync</c>
-    /// bounded waits the DN0038/DN0107 rules match against.</summary>
+    /// bounded waits DN0038 matches against.</summary>
     internal const string SystemThreadingTasks = "System.Threading.Tasks";
 }

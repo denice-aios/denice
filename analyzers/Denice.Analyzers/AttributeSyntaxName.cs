@@ -8,7 +8,7 @@ namespace Denice.Analyzers;
 /// The single resolver for an attribute's name from its <see cref="NameSyntax"/> — the rightmost simple identifier and
 /// its normalization to the full <c>…Attribute</c> spelling. Extracted here (LESSON 1, DRY) so the two rules that match
 /// an attribute syntactically — the native-interop location ban (DN0008, which recognizes <c>[DllImport]</c>/
-/// <c>[LibraryImport]</c>) and the native-callback body guard (DN0105, which recognizes <c>[UnmanagedCallersOnly]</c>) —
+/// <c>[LibraryImport]</c>) —
 /// share ONE copy of the <c>"Attribute"</c> suffix, the <see cref="SimpleName"/> extraction, and the
 /// <see cref="FullName"/> normalization instead of each spelling them out. The recognition is pure syntax: given an
 /// attribute name, what is its simple identifier and its full attribute-suffixed spelling; which attribute a rule cares

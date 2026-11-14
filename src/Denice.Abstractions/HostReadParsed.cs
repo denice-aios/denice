@@ -1,9 +1,0 @@
-// Copyright (c) Denice.ai. All rights reserved.
-
-namespace Denice.Abstractions;
-
-/// <summary>
-/// The payload parsed cleanly into a normalized call.
-/// </summary>
-/// <param name="Call">The normalized call.</param>
-public sealed record HostReadParsed(NormalizedCall Call) : HostReadResult;

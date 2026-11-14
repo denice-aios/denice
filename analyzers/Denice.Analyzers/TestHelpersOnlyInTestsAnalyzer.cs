@@ -10,7 +10,7 @@ namespace Denice.Analyzers;
 /// Reports a reference to a type from the <c>Denice.TestHelpers</c> assembly — <c>SystemServicesBuilder</c>,
 /// the in-memory fakes, the proxies — made from an assembly that is not a test assembly. The test helpers build the
 /// container without calling <c>SystemServices.Create()</c>, so neither construction wall covers them; this rule is
-/// the wall. It keeps the shipped guard from ever being built against fake state: only a test project (an assembly
+/// the wall. It keeps the shipped executable from ever being built against fake state: only a test project (an assembly
 /// whose name ends in <c>.Tests</c>) may reach the test helpers. Built on the same assembly-name gate as DN0008 and
 /// DN0011.
 /// </summary>
@@ -27,11 +27,11 @@ public sealed class TestHelpersOnlyInTestsAnalyzer : DiagnosticAnalyzer
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
         title: "Denice.TestHelpers may be referenced only from test assemblies",
-        messageFormat: "Type '{0}' from Denice.TestHelpers is referenced from a non-test assembly; only a test project (name ending in .Tests) may use the test helpers, so the shipped guard is never built against fake state",
+        messageFormat: "Type '{0}' from Denice.TestHelpers is referenced from a non-test assembly; only a test project (name ending in .Tests) may use the test helpers, so the shipped executable is never built against fake state",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A type from the Denice.TestHelpers assembly (SystemServicesBuilder, the fakes, the proxies) may be referenced only from a test assembly whose name ends in .Tests. Shipping code never references TestHelpers, so the shipped guard cannot be run against the fake container the helpers build.");
+        description: "A type from the Denice.TestHelpers assembly (SystemServicesBuilder, the fakes, the proxies) may be referenced only from a test assembly whose name ends in .Tests. Shipping code never references TestHelpers, so the shipped executable cannot be run against the fake container the helpers build.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

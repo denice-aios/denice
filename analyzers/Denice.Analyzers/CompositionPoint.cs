@@ -44,7 +44,7 @@ internal static class CompositionPoint
     private const string WrapperFactoryTypeName = "FileInfoFactory";
 
     // The name of the container's own build point. Each door-identity owner spells the factory method name it pins
-    // (PlatformFactory spells it for PlatformServices.Create, BoundaryAdapterFactories for the four adapter
+    // (PlatformFactory spells it for PlatformServices.Create, BoundaryAdapterFactories for the three adapter
     // factories): the mandated container-is-one-class-with-its-own-create shape happens to name them all Create, but
     // they are independent facts about independent types, and collapsing them would let a change to one silently
     // retarget the others.

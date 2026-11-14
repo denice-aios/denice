@@ -12,15 +12,14 @@ public class EngineToBoundariesOneDoorAnalyzerTests
 {
     private const string RuleId = EngineToBoundariesOneDoorAnalyzer.DiagnosticId;
 
-    // The fake Denice.Boundaries assembly: the four permitted adapter factories, a FIFTH factory that returns a
-    // service interface but is not one of the four named identities, a non-factory member on one of the four, and a
+    // The fake Denice.Boundaries assembly: the three permitted adapter factories, a FOURTH factory that returns a
+    // service interface but is not one of the three named identities, a non-factory member on one of the three, and a
     // same-named decoy in another namespace of the same assembly.
     private const string BoundariesSource = """
         namespace Denice.Abstractions.Contracts
         {
             public interface IEnvironment { }
             public interface IConsole { }
-            public interface ISignatureService { }
             public interface IBuildInfo { }
             public interface IGuidFactory { }
         }
@@ -39,11 +38,6 @@ public class EngineToBoundariesOneDoorAnalyzerTests
             public static class ConsoleAdapter
             {
                 public static IConsole Create() => null!;
-            }
-
-            public static class Ed25519SignatureService
-            {
-                public static ISignatureService Create() => null!;
             }
 
             public static class BuildInfoReader
@@ -66,7 +60,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
         }
         """;
 
-    // A second fake assembly that is NOT Denice.Boundaries but squats its namespace and one of its four type
+    // A second fake assembly that is NOT Denice.Boundaries but squats its namespace and one of its three type
     // names. The permitted identity is matched on the declaring assembly too, so this cannot pose as a door.
     private const string DecoyAssemblySource = """
         namespace Denice.Boundaries
@@ -85,7 +79,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
 
     private const string ContainerFactoryMethod = "Create";
 
-    // One of the four permitted identities, written as a fixture calls it. Held once because the compliant theory,
+    // One of the three permitted identities, written as a fixture calls it. Held once because the compliant theory,
     // the wrong-site test, the wrong-namespace caller test and the wrong-namespace factory test all make this same
     // call and must make the same one.
     private const string PermittedFactoryCall = "EnvironmentAdapter.Create()";
@@ -103,7 +97,6 @@ public class EngineToBoundariesOneDoorAnalyzerTests
     {
         PermittedFactoryCall,
         "ConsoleAdapter.Create()",
-        "Ed25519SignatureService.Create()",
         "BuildInfoReader.Create()",
     };
 
@@ -111,7 +104,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
     [MemberData(nameof(PermittedFactoryCalls))]
     public async Task PermittedFactory_FromContainerFactory_IsNotReported(string call)
     {
-        // The compliant fixture: each of the four permitted identities, called from the one permitted site.
+        // The compliant fixture: each of the three permitted identities, called from the one permitted site.
         Assert.Empty(await RunAsync(SharedAnalyzerSources.InsideContainerFactory(BoundariesUsing, call)));
     }
 
@@ -183,7 +176,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
     {
         ImmutableArray<Diagnostic> diagnostics = await RunAsync(
             SharedAnalyzerSources.InsideLocalFunctionInContainerFactory(
-                BoundariesUsing, "Ed25519SignatureService.Create()"));
+                BoundariesUsing, "BuildInfoReader.Create()"));
 
         Assert.Single(diagnostics);
         diagnostics.AssertNamesExactly(
@@ -196,7 +189,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
     public async Task FifthFactoryReturningAServiceInterface_FromContainerFactory_IsReported()
     {
         // A return type grants nothing: GuidFactoryAdapter.Create() hands back a service interface and is still not
-        // one of the four named identities, so it is rejected until the rule is changed to name it.
+        // one of the three named identities, so it is rejected until the rule is changed to name it.
         ImmutableArray<Diagnostic> diagnostics = await RunAsync(
             SharedAnalyzerSources.InsideContainerFactory(BoundariesUsing, "GuidFactoryAdapter.Create()"));
 

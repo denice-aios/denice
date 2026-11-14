@@ -106,8 +106,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
     public async Task TimeProviderSystem_OutsideComposition_IsReported()
     {
         // A direct TimeProvider acquisition outside the composition point is RED — code reads the clock off
-        // ISystemServices.Clock (timeprovider-on-the-container). This is the RED that forces GuardHost's raw
-        // TimeProvider.System onto the injected clock.
+        // ISystemServices.Clock (timeprovider-on-the-container).
         const string source = """
             using System;
 

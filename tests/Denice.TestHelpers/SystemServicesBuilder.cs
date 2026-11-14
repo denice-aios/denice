@@ -38,7 +38,6 @@ public sealed class SystemServicesBuilder
     private readonly Slot<IEnvironment> _environment = new();
     private readonly Slot<IRandomGenerator> _random = new();
     private readonly Slot<IConsole> _console = new();
-    private readonly Slot<ISignatureService> _signatures = new();
     private readonly Slot<IBuildInfo> _buildInfo = new();
     private readonly Slot<TimeProvider> _clock = new();
     private readonly Slot<IFileReader> _fileReader = new();
@@ -46,7 +45,6 @@ public sealed class SystemServicesBuilder
     private readonly Slot<IFileWriter> _fileWriter = new();
     private readonly Slot<IDirectoryWriter> _directoryWriter = new();
     private readonly Slot<IPlatformFileSystem> _platform = new();
-    private readonly Slot<IPresenceCheck> _presence = new();
     private InMemoryFileSystemStore? _store;
 
     private SystemServicesBuilder(bool isFake, ISystemServices? real, InMemoryFileSystemStore? store)
@@ -79,7 +77,7 @@ public sealed class SystemServicesBuilder
     /// <summary>
     /// Starts a builder over BUILT-IN fakes: an in-memory filesystem and platform, a recording console, a fake
     /// environment, a deterministic random generator, and a fake clock. It never falls back to a real adapter — a service
-    /// with no built-in fake (the signature service and the build-info reader) throws when used, naming the fix, unless
+    /// with no built-in fake (the build-info reader) throws when used, naming the fix, unless
     /// the test supplies one through <c>With</c>.
     /// </summary>
     /// <returns>A builder over the built-in fakes.</returns>
@@ -118,15 +116,6 @@ public sealed class SystemServicesBuilder
     public SystemServicesBuilder With(IConsole console)
     {
         _console.Override(console);
-        return this;
-    }
-
-    /// <summary>Substitutes the signature service.</summary>
-    /// <param name="signatures">The signature service to install.</param>
-    /// <returns>This builder, for chaining.</returns>
-    public SystemServicesBuilder With(ISignatureService signatures)
-    {
-        _signatures.Override(signatures);
         return this;
     }
 
@@ -172,15 +161,6 @@ public sealed class SystemServicesBuilder
     public SystemServicesBuilder Wrap(Func<IConsole, IConsole> proxy)
     {
         _console.AddWrap(proxy);
-        return this;
-    }
-
-    /// <summary>Wraps the signature service.</summary>
-    /// <param name="proxy">The wrap that maps the current signature service to a proxy.</param>
-    /// <returns>This builder, for chaining.</returns>
-    public SystemServicesBuilder Wrap(Func<ISignatureService, ISignatureService> proxy)
-    {
-        _signatures.AddWrap(proxy);
         return this;
     }
 
@@ -273,16 +253,13 @@ public sealed class SystemServicesBuilder
         IDirectoryWriter directoryWriter = _directoryWriter.Resolve(BaseDirectoryWriter);
         IPlatformFileSystem platform = _platform.Resolve(BasePlatform);
 
-        ISignatureService? signatures = ResolveOptional(_signatures, () => _real!.Signatures);
         IBuildInfo? buildInfo = ResolveOptional(_buildInfo, () => _real!.BuildInfo);
-        IPresenceCheck presence = _presence.Resolve(() =>
-            _isFake ? FakePresenceCheck.Approved().Presence : _real!.Platform.Presence);
 
         IFileSystem fileSystem = FakeFileSystem.Create(
             fileReader, directoryReader, fileWriter, directoryWriter, _real?.FileSystem);
-        IPlatformServices platformServices = FakePlatformServices.Create(platform, presence);
+        IPlatformServices platformServices = FakePlatformServices.Create(platform);
         return FakeSystemServices.Create(
-            fileSystem, environment, random, console, platformServices, signatures, buildInfo, clock);
+            fileSystem, environment, random, console, platformServices, buildInfo, clock);
     }
 
     // The SINGLE construction site of the shared overlay (DN0027 pins new InMemoryFileSystemStore to this class). Fake()
@@ -322,7 +299,7 @@ public sealed class SystemServicesBuilder
             platform.DirectorySeparator);
     }
 
-    // A service with no built-in fake (signatures, build-info): resolve its override or, in Real mode, the real base; in
+    // A service with no built-in fake (build-info): resolve its override or, in Real mode, the real base; in
     // Fake mode with no override return null so the container accessor throws only when the service is actually used.
     private T? ResolveOptional<T>(Slot<T> slot, Func<T> realBase)
         where T : class =>
@@ -473,30 +450,12 @@ public sealed class SystemServicesBuilder
             return this;
         }
 
-        /// <summary>Substitutes the presence check.</summary>
-        /// <param name="presence">The presence-check fake to install.</param>
-        /// <returns>This sub-builder, for chaining.</returns>
-        public PlatformBuilder With(IPresenceCheck presence)
-        {
-            _parent._presence.Override(presence);
-            return this;
-        }
-
         /// <summary>Wraps the platform file system.</summary>
         /// <param name="proxy">The wrap that maps the current platform file system to a proxy.</param>
         /// <returns>This sub-builder, for chaining.</returns>
         public PlatformBuilder Wrap(Func<IPlatformFileSystem, IPlatformFileSystem> proxy)
         {
             _parent._platform.AddWrap(proxy);
-            return this;
-        }
-
-        /// <summary>Wraps the presence check.</summary>
-        /// <param name="proxy">The wrap that maps the current presence check to a proxy.</param>
-        /// <returns>This sub-builder, for chaining.</returns>
-        public PlatformBuilder Wrap(Func<IPresenceCheck, IPresenceCheck> proxy)
-        {
-            _parent._presence.AddWrap(proxy);
             return this;
         }
 
@@ -532,14 +491,13 @@ public sealed class SystemServicesBuilder
 
     /// <summary>
     /// The one <see cref="ISystemServices"/> implementer in this compilation (DN0022): it holds each resolved service and
-    /// throws a helpful message when a service with no built-in fake (signatures, build-info) is accessed without being
+    /// throws a helpful message when a service with no built-in fake (build-info) is accessed without being
     /// supplied. It is <c>internal</c> so <see cref="Build"/> can reach its factory; the containing builder cannot call a
     /// nested private constructor, and a private factory returning an interface trips CA1859, so <c>internal</c> is the
     /// tightest accessibility the analyzer rules permit for a nested contract fake.
     /// </summary>
     internal sealed class FakeSystemServices : ISystemServices
     {
-        private readonly ISignatureService? _signatures;
         private readonly IBuildInfo? _buildInfo;
 
         private FakeSystemServices(
@@ -548,7 +506,6 @@ public sealed class SystemServicesBuilder
             IRandomGenerator random,
             IConsole console,
             IPlatformServices platform,
-            ISignatureService? signatures,
             IBuildInfo? buildInfo,
             TimeProvider clock)
         {
@@ -557,7 +514,6 @@ public sealed class SystemServicesBuilder
             Random = random;
             Console = console;
             Platform = platform;
-            _signatures = signatures;
             _buildInfo = buildInfo;
             Clock = clock;
         }
@@ -578,11 +534,6 @@ public sealed class SystemServicesBuilder
         public IPlatformServices Platform { get; }
 
         /// <inheritdoc />
-        public ISignatureService Signatures => _signatures
-            ?? throw new InvalidOperationException(
-                "Fake() has no built-in signature service; supply one with SystemServicesBuilder.With(ISignatureService).");
-
-        /// <inheritdoc />
         public IBuildInfo BuildInfo => _buildInfo
             ?? throw new InvalidOperationException(
                 "Fake() has no built-in build-info reader; supply one with SystemServicesBuilder.With(IBuildInfo).");
@@ -596,7 +547,6 @@ public sealed class SystemServicesBuilder
         /// <param name="random">The resolved random generator.</param>
         /// <param name="console">The resolved console.</param>
         /// <param name="platform">The resolved platform services.</param>
-        /// <param name="signatures">The resolved signature service, or <see langword="null"/> when none was supplied.</param>
         /// <param name="buildInfo">The resolved build-info reader, or <see langword="null"/> when none was supplied.</param>
         /// <param name="clock">The resolved clock.</param>
         /// <returns>The container, as its interface.</returns>
@@ -606,10 +556,9 @@ public sealed class SystemServicesBuilder
             IRandomGenerator random,
             IConsole console,
             IPlatformServices platform,
-            ISignatureService? signatures,
             IBuildInfo? buildInfo,
             TimeProvider clock) =>
-            new FakeSystemServices(fileSystem, environment, random, console, platform, signatures, buildInfo, clock);
+            new FakeSystemServices(fileSystem, environment, random, console, platform, buildInfo, clock);
     }
 
     /// <summary>
@@ -685,28 +634,19 @@ public sealed class SystemServicesBuilder
     /// </summary>
     internal sealed class FakePlatformServices : IPlatformServices
     {
-        private readonly IPresenceCheck? _presence;
-
-        private FakePlatformServices(IPlatformFileSystem fileSystem, IPresenceCheck? presence)
+        private FakePlatformServices(IPlatformFileSystem fileSystem)
         {
             FileSystem = fileSystem;
-            _presence = presence;
         }
 
         /// <inheritdoc />
         public IPlatformFileSystem FileSystem { get; }
 
-        /// <inheritdoc />
-        public IPresenceCheck Presence => _presence
-            ?? throw new InvalidOperationException(
-                "Fake() has no built-in presence check; supply one with SystemServicesBuilder.OnPlatform().With(IPresenceCheck).");
-
-        /// <summary>Creates the platform-services fake over the resolved platform file system and presence check.</summary>
+        /// <summary>Creates the platform-services fake over the resolved platform file system.</summary>
         /// <param name="fileSystem">The resolved platform file system.</param>
-        /// <param name="presence">The resolved presence check, or <see langword="null"/> when none was supplied.</param>
         /// <returns>The platform services, as its interface.</returns>
-        internal static IPlatformServices Create(IPlatformFileSystem fileSystem, IPresenceCheck? presence) =>
-            new FakePlatformServices(fileSystem, presence);
+        internal static IPlatformServices Create(IPlatformFileSystem fileSystem) =>
+            new FakePlatformServices(fileSystem);
     }
 
     // One override slot plus a composed wrap for a single service. Resolve applies the override (or the supplied base)

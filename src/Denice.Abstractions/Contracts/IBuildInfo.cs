@@ -4,8 +4,8 @@ namespace Denice.Abstractions.Contracts;
 
 /// <summary>
 /// The owned read of the running build's version metadata — the three already-stamped version attributes on a
-/// guard assembly. It only reads: the values are computed and stamped one way by the build, so it neither falls
-/// back nor recomputes, and it reads from a guard assembly rather than the ambient entry assembly (the test host
+/// specific Denice assembly. It only reads: the values are computed and stamped one way by the build, so it neither falls
+/// back nor recomputes, and it reads from a specific Denice assembly rather than the ambient entry assembly (the test host
 /// under <c>dotnet test</c>).
 /// </summary>
 public interface IBuildInfo

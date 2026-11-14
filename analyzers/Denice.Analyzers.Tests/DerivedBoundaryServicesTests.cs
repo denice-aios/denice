@@ -28,12 +28,12 @@ public class DerivedBoundaryServicesTests
     // IFileSystem's accessors, not as direct container properties; IFileInfo/IDirectoryInfo exist only as the return of
     // the parameterized factories on IFileSystem, so they are reachable but NOT accessors; IPlatformFileSystem's
     // char DirectorySeparator is a non-service leaf member, so it does not change the derived set. Deriving over this
-    // must yield exactly the ten leaves and the three containers.
+    // must yield exactly the nine leaves and the three containers.
     private const string RealShapeContainer = SharedAnalyzerSources.RealShapeContainer;
 
     // The exact ordered leaf service interfaces the walk yields over the real shape — the pre-order DFS through
     // FileSystem's four sub-services, then Environment/Guids/Console, then Platform's nested IPlatformFileSystem, then
-    // Signatures/BuildInfo. Held here as the regression oracle so the tree extraction (BoundaryServices.ResolveTree +
+    // BuildInfo. Held here as the regression oracle so the tree extraction (BoundaryServices.ResolveTree +
     // flatten) is proven BYTE-IDENTICAL to the former hand-rolled recursion (contract rule-phase item 1), which is what
     // keeps DN0024/DN0025/DN0031 provably unaffected.
     private static readonly ImmutableArray<(string Namespace, string Name)> ExpectedServiceInterfaces =
@@ -46,7 +46,6 @@ public class DerivedBoundaryServicesTests
             ("Denice.Abstractions.Contracts", "IGuidFactory"),
             ("Denice.Abstractions.Contracts", "IConsole"),
             ("Denice.Abstractions.Contracts", "IPlatformFileSystem"),
-            ("Denice.Abstractions.Contracts", "ISignatureService"),
             ("Denice.Abstractions.Contracts", "IBuildInfo"));
 
     [Fact]
@@ -108,7 +107,6 @@ public class DerivedBoundaryServicesTests
                     public void UseGuids(Denice.Abstractions.Contracts.IGuidFactory s) { }
                     public void UseConsole(Denice.Abstractions.Contracts.IConsole s) { }
                     public void UsePlatformFileSystem(Denice.Abstractions.Contracts.IPlatformFileSystem s) { }
-                    public void UseSignatures(Denice.Abstractions.Contracts.ISignatureService s) { }
                     public void UseBuildInfo(Denice.Abstractions.Contracts.IBuildInfo s) { }
                 }
             }
@@ -116,7 +114,7 @@ public class DerivedBoundaryServicesTests
 
         ImmutableArray<Diagnostic> diagnostics =
             await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "Denice.Engine");
-        Assert.Equal(10, diagnostics.Length);
+        Assert.Equal(9, diagnostics.Length);
         Assert.All(diagnostics, diagnostic => Assert.Equal("DN0031", diagnostic.Id));
     }
 

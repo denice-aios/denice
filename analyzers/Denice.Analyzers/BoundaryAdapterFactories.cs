@@ -7,12 +7,12 @@ using Microsoft.CodeAnalysis;
 namespace Denice.Analyzers;
 
 /// <summary>
-/// The four — and only four — <c>Denice.Boundaries</c> factory identities <c>Denice.Engine</c> may call
+/// The three — and only three — <c>Denice.Boundaries</c> factory identities <c>Denice.Engine</c> may call
 /// (DN0040): the static <c>Create</c> method declared on <c>EnvironmentAdapter</c>, <c>ConsoleAdapter</c>,
-/// <c>Ed25519SignatureService</c>, and <c>BuildInfoReader</c>, each in namespace AND assembly
+/// and <c>BuildInfoReader</c>, each in namespace AND assembly
 /// <c>Denice.Boundaries</c>. Every identity is matched on assembly, namespace, type name, method name, and
 /// staticness together through the shared <see cref="WellKnownType.IsInAssembly"/> conjunction, so a same-named type
-/// in another namespace or another assembly cannot pose as a door. A method's RETURN TYPE grants nothing: a fifth
+/// in another namespace or another assembly cannot pose as a door. A method's RETURN TYPE grants nothing: a fourth
 /// Boundaries factory that hands back a service interface is rejected until this list is changed to name it, which is
 /// an explicit rule change.
 /// <para>
@@ -28,8 +28,8 @@ internal static class BoundaryAdapterFactories
     /// so the message and the test can never name different sets.
     /// </summary>
     internal const string Description =
-        "one of the four permitted Denice.Boundaries adapter factories (EnvironmentAdapter.Create, "
-        + "ConsoleAdapter.Create, Ed25519SignatureService.Create, BuildInfoReader.Create)";
+        "one of the three permitted Denice.Boundaries adapter factories (EnvironmentAdapter.Create, "
+        + "ConsoleAdapter.Create, BuildInfoReader.Create)";
 
     /// <summary>
     /// The name of the static factory method every permitted adapter exposes — <c>Create</c>.
@@ -37,23 +37,22 @@ internal static class BoundaryAdapterFactories
     private const string MethodName = "Create";
 
     /// <summary>
-    /// The simple names of the four permitted factory types, each declared in namespace and assembly
-    /// <c>Denice.Boundaries</c>. Exactly these four; adding a fifth is a rule change.
+    /// The simple names of the three permitted factory types, each declared in namespace and assembly
+    /// <c>Denice.Boundaries</c>. Exactly these three; adding a fourth is a rule change.
     /// </summary>
     private static readonly ImmutableArray<string> FactoryTypeNames = ImmutableArray.Create(
         "EnvironmentAdapter",
         "ConsoleAdapter",
-        "Ed25519SignatureService",
         "BuildInfoReader");
 
     /// <summary>
-    /// Gets a value indicating whether <paramref name="member"/>, used on <paramref name="type"/>, is one of the four
+    /// Gets a value indicating whether <paramref name="member"/>, used on <paramref name="type"/>, is one of the three
     /// permitted boundary adapter factories. This is the call-site shape DN0040 uses, where the used member and the
     /// type it is used on arrive separately from <see cref="MemberUseScanner"/>.
     /// </summary>
     /// <param name="member">The used member symbol.</param>
     /// <param name="type">The type the member is used on.</param>
-    /// <returns><see langword="true"/> when the use is a call to one of the four permitted factories.</returns>
+    /// <returns><see langword="true"/> when the use is a call to one of the three permitted factories.</returns>
     internal static bool Is(ISymbol member, INamedTypeSymbol type)
     {
         return member is IMethodSymbol { IsStatic: true } method
@@ -63,11 +62,11 @@ internal static class BoundaryAdapterFactories
     }
 
     /// <summary>
-    /// Gets a value indicating whether <paramref name="type"/> is one of the four permitted factory types, matched on
+    /// Gets a value indicating whether <paramref name="type"/> is one of the three permitted factory types, matched on
     /// namespace, name, and declaring assembly together.
     /// </summary>
     /// <param name="type">The type to test.</param>
-    /// <returns><see langword="true"/> when the type is one of the four permitted factories.</returns>
+    /// <returns><see langword="true"/> when the type is one of the three permitted factories.</returns>
     private static bool IsFactoryType(INamedTypeSymbol type)
     {
         return FactoryTypeNames.Any(

@@ -150,7 +150,7 @@ internal static class SharedAnalyzerSources
     /// <c>Denice.Cli</c> root namespace. Held here once because more than one test class compiles a fixture as
     /// that consumer.
     /// </summary>
-    internal const string GuardAssemblyName = "denice";
+    internal const string CliAssemblyName = "denice";
 
     /// <summary>
     /// The fully qualified name of the internal Engine type <see cref="EngineAssemblySource"/> declares, as a
@@ -212,7 +212,6 @@ internal static class SharedAnalyzerSources
             public interface IEnvironment { }
             public interface IGuidFactory { }
             public interface IConsole { }
-            public interface ISignatureService { }
             public interface IBuildInfo { }
             public interface IFileInfo { }
             public interface IDirectoryInfo { }
@@ -241,7 +240,6 @@ internal static class SharedAnalyzerSources
                 IGuidFactory Guids { get; }
                 IConsole Console { get; }
                 IPlatformServices Platform { get; }
-                ISignatureService Signatures { get; }
                 IBuildInfo BuildInfo { get; }
                 System.TimeProvider Clock { get; }
             }
@@ -276,104 +274,6 @@ internal static class SharedAnalyzerSources
                     new InMemoryFileSystemStore(tempRoot, caseSensitive);
                 public void SimulateCaseSensitivity(bool caseSensitive) { }
             }
-        }
-        """;
-
-    /// <summary>
-    /// The one canonical stub for the presence Abstractions surface — <c>IPresenceCheck</c> (carrying its single
-    /// <c>Check</c> operation) and the <c>PresenceRequest</c> record — shared byte-identical by the three presence-rule
-    /// test classes that each prepended their own hand-rolled copy (<c>NoTimeoutInPresenceImplAnalyzerTests</c> for
-    /// DN0107, <c>PresenceCheckOnlyFromApprovalGateAnalyzerTests</c> for DN0108, and
-    /// <c>NoInlinePromptLiteralAtPresenceCallAnalyzerTests</c> for DN0109), so this fixture is spelled exactly once
-    /// (LESSON 1, DRY). It is the fullest shape: DN0107's fixtures implement <c>IPresenceCheck</c> and supply
-    /// <c>Check</c> (the analyzer runner requires each fixture to produce exactly the compiler errors its call site
-    /// declares, and these declare none, so an unimplemented member would fail the run), DN0108 invokes <c>Check</c>,
-    /// and DN0109 constructs <c>PresenceRequest</c>.
-    /// </summary>
-    internal const string PresenceContract = """
-        namespace Denice.Abstractions.Contracts
-        {
-            public interface IPresenceCheck
-            {
-                int Check();
-            }
-
-            public sealed record PresenceRequest(string PromptText);
-        }
-        """;
-
-    /// <summary>
-    /// The one canonical stub for the macOS native presence port — <c>ILocalAuthentication</c> in the
-    /// <c>Denice.CrossPlatform.MacOS</c> namespace — shared byte-identical by the three native-port rule test classes
-    /// that each spelled their own copy (<c>NoCachedNativeAuthContextAnalyzerTests</c> for DN0112,
-    /// <c>NativePresencePortSingleImplementerAnalyzerTests</c> for DN0114, and
-    /// <c>NoTimeoutInPresenceImplAnalyzerTests</c> for DN0107's port-owner case), so this stub is spelled exactly once
-    /// (LESSON 1, DRY). It is its own namespace block, so a consuming fixture prepends it and declares the implementer in
-    /// a second <c>Denice.CrossPlatform.MacOS</c> block that sees the interface across the two declarations.
-    /// </summary>
-    internal const string LocalAuthenticationPort = """
-        namespace Denice.CrossPlatform.MacOS
-        {
-            public interface ILocalAuthentication { }
-        }
-        """;
-
-    /// <summary>
-    /// The one canonical stub for the macOS presence port's native binding — the <c>LocalAuthNative</c> static class
-    /// carrying the <c>objc_msgSend</c> P/Invoke (<c>[DllImport("libobjc")] internal static extern IntPtr
-    /// ObjcMsgSend(...)</c>) in its own <c>Denice.CrossPlatform.MacOS</c> namespace block — shared byte-identical by
-    /// the two native-interop rule test classes that each spelled their own copy
-    /// (<c>OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests</c> for DN0101 and
-    /// <c>PresenceNativeInteropOwnerAnalyzerTests</c> for DN0113), so this binding is spelled exactly once (LESSON 1,
-    /// DRY). It pairs with <see cref="LocalAuthenticationPort"/>: a consuming fixture prepends the port interface and
-    /// this binding, then declares the presence-port implementer that calls <c>ObjcMsgSend</c>.
-    /// </summary>
-    internal const string LocalAuthNativeBinding = """
-        namespace Denice.CrossPlatform.MacOS
-        {
-            using System;
-            using System.Runtime.InteropServices;
-            internal static class LocalAuthNative
-            {
-                [DllImport("libobjc")]
-                internal static extern IntPtr ObjcMsgSend(IntPtr self, IntPtr selector);
-            }
-        }
-        """;
-
-    /// <summary>
-    /// The one canonical stub for the Linux native presence port — <c>IPolkitAuthority</c> in the
-    /// <c>Denice.CrossPlatform.Linux</c> namespace — the Linux sibling of <see cref="LocalAuthenticationPort"/>,
-    /// shared byte-identical by the three Linux-port rule test classes that each spelled their own copy
-    /// (<c>DbusOnlyInPolkitAuthorityAnalyzerTests</c> for DN0110, <c>NativePresencePortSingleImplementerAnalyzerTests</c>
-    /// for DN0114's Polkit case, and <c>NoTimeoutInPresenceImplAnalyzerTests</c> for DN0107's Polkit port-owner case), so
-    /// this stub is spelled exactly once (LESSON 1, DRY). Like the macOS sibling it is its own namespace block, so a
-    /// consuming fixture prepends it and declares the implementer in a second <c>Denice.CrossPlatform.Linux</c> block
-    /// that sees the interface across the two declarations.
-    /// </summary>
-    internal const string PolkitAuthorityPort = """
-        namespace Denice.CrossPlatform.Linux
-        {
-            public interface IPolkitAuthority { }
-        }
-        """;
-
-    /// <summary>
-    /// The one canonical stub for the macOS native-OPS owner — <c>IObjCRuntime</c> in the
-    /// <c>Denice.CrossPlatform.MacOS</c> namespace — the thin raw-call layer the coverage refactor introduces one
-    /// level below the <c>ILocalAuthentication</c> flow port. Shared byte-identical by the rule test classes that scope
-    /// to the native-ops owner: the relocated raw-interop exemption (<c>PresenceNativeInteropOwnerAnalyzerTests</c> for
-    /// DN0113, <c>OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests</c> for DN0101's native branch), the three
-    /// native-ops guardrails (<c>NoControlFlowInNativeOpsAnalyzerTests</c> for DN0106,
-    /// <c>NoAsyncOrchestrationInNativeOpsAnalyzerTests</c> for DN0115, <c>NoStateInNativeOpsAnalyzerTests</c> for DN0116),
-    /// and the DN0107/DN0114 extensions, so this stub is spelled exactly once (LESSON 1, DRY). Its own namespace block,
-    /// so a consuming fixture prepends it and declares the native-ops implementer in a second
-    /// <c>Denice.CrossPlatform.MacOS</c> block that sees the interface across the two declarations.
-    /// </summary>
-    internal const string ObjCRuntimeNativeOps = """
-        namespace Denice.CrossPlatform.MacOS
-        {
-            public interface IObjCRuntime { }
         }
         """;
 

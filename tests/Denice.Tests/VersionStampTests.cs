@@ -3,7 +3,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Denice.Abstractions;
+using Denice.Abstractions.Contracts;
 using Xunit;
 
 namespace Denice.Tests;
@@ -25,7 +25,7 @@ public sealed class VersionStampTests
     [Fact]
     public void EveryProjectInThisBuildCarriesTheSameVersion()
     {
-        Assembly engine = typeof(CanonicalPath).Assembly;
+        Assembly engine = typeof(IConsole).Assembly;
         Assembly tests = typeof(VersionStampTests).Assembly;
         Assert.NotNull(engine.GetName().Version);
         Assert.Equal(engine.GetName().Version, tests.GetName().Version);

@@ -64,7 +64,7 @@ public class DeclaredTypeScannerTests
 
         ImmutableArray<Diagnostic> diagnostics =
             await SharedAnalyzerSources.RunAgainstFakeEngineAsync<EngineInternalsOneDoorAnalyzer>(
-                source, SharedAnalyzerSources.GuardAssemblyName);
+                source, SharedAnalyzerSources.CliAssemblyName);
 
         diagnostics.AssertAllReported(EngineInternalsOneDoorAnalyzer.DiagnosticId);
 

@@ -6,7 +6,7 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// Identifies the test assemblies — those whose name ends in <c>.Tests</c> — and the one test-only assembly whose
-/// types they alone may use, <c>Denice.TestHelpers</c>. The shipped guard must never be built against the fake
+/// types they alone may use, <c>Denice.TestHelpers</c>. The shipped executable must never be built against the fake
 /// container the test helpers construct, so a reference to a <c>Denice.TestHelpers</c> type from any assembly
 /// that is not a test assembly is a build error (DN0018). This is the assembly-name gate for that rule, the same
 /// shape as <see cref="CrossPlatformBoundary.IsCrossPlatformLibrary"/>.

@@ -43,7 +43,7 @@ internal sealed class WindowsFileSystem : PlatformFileSystemBase, IPlatformFileS
     private const uint SymlinkFlagRelative = 0x00000001;
 
     private const string DeveloperModeMessage =
-        "Creating the guard's version-pointer symlink requires privilege on Windows. Run as an administrator, or "
+        "Creating a symlink requires privilege on Windows. Run as an administrator, or "
         + "enable Developer Mode (Settings > Privacy & security > For developers), then re-run the command.";
 
     private readonly PlatformFileSystemShared _shared;

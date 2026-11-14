@@ -8,10 +8,10 @@ using Xunit;
 namespace Denice.Tests;
 
 /// <summary>
-/// Exercises the real <c>BuildInfoReader</c> in <c>Denice.Boundaries</c> — where the four adapters stay — through
+/// Exercises the real <c>BuildInfoReader</c> in <c>Denice.Boundaries</c> — where the three adapters stay — through
 /// the owned <see cref="IBuildInfo"/> off a real container, now built by <c>SystemServices.Create()</c> in
 /// <c>Denice.Engine</c> (<see cref="SystemServicesBuilder.Real"/>) — no fake exists by design, so these read the real
-/// version attributes the build stamped onto the guard assembly and assert they are present and well-formed.
+/// version attributes the build stamped onto the Denice assembly and assert they are present and well-formed.
 /// </summary>
 public sealed class BoundariesBuildInfoTests
 {

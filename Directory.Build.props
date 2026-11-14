@@ -55,7 +55,7 @@
        description; Copyright becomes the Win32 LegalCopyright. -->
   <PropertyGroup Label="Build version">
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <AssemblyTitle>Denice guards critical files from agent changes</AssemblyTitle>
+    <AssemblyTitle>Denice</AssemblyTitle>
     <Copyright>Copyright © 2026 Denice.ai</Copyright>
     <!-- The NuGet package version. NuGet resolves it outside the stamp target, so set PackageVersion at
          evaluation time from the id (args or the generated file). Using PackageVersion, not Version, keeps it
