@@ -22,12 +22,4 @@
     <ProjectReference Include="..\Denice.TestHelpers\Denice.TestHelpers.csproj" />
   </ItemGroup>
 
-  <!-- Shared test-support source, linked (one owner) into each test project that needs it. The harness creates and
-       removes its isolated directories through the owned IDirectoryWriter off the builder's container, so it no
-       longer links the raw-System.IO TestTempDirectory helper. -->
-  <ItemGroup>
-    <Compile Include="../Shared/DeniceLayout.cs" Link="DeniceLayout.cs" />
-    <Compile Include="../Shared/SettingsProbe.cs" Link="SettingsProbe.cs" />
-  </ItemGroup>
-
 </Project>

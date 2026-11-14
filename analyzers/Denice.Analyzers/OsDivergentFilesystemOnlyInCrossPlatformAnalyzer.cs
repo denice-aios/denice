@@ -21,14 +21,7 @@ namespace Denice.Analyzers;
 /// STATIC Unix-mode members (<c>File.SetUnixFileMode</c>/<c>GetUnixFileMode</c>), the STATIC symlink members
 /// (<c>File</c>/<c>Directory.CreateSymbolicLink</c>, <c>File</c>/<c>Directory.ResolveLinkTarget</c>), <c>Marshal</c>,
 /// and the call site of a native P/Invoke method (including the native case-sensitivity query). The NATIVE-interop half
-/// — <c>Marshal</c> and a P/Invoke call site — is recognized through the one <see cref="NativeInteropUse"/> detector this
-/// rule SHARES with DN0113, and on those two branches only it ALSO exempts the per-OS native-ops owners
-/// (<c>IObjCRuntime</c> in the macOS assembly / <c>IWindowsHelloNativeOps</c>/<c>ICredentialPromptNativeOps</c> in the
-/// Windows assembly), reusing the one <see cref="PresenceContracts.IsInNativeOpsOwner"/> check the paired DN0113 uses
-/// (presence-native-owner-rule, family-scoped, Tim's personal yes; fence-relocation moved this carve-out off the flow
-/// port and onto the native-ops layer). The <c>File</c>/<c>Directory</c>-divergent-member ban
-/// stays FILESYSTEM-owner-only — no presence exemption — so a native-ops owner's <c>File.SetUnixFileMode</c> /
-/// <c>CreateSymbolicLink</c> is still RED (it is not the filesystem owner), and DN0101's shared File/Directory owner
+/// — <c>Marshal</c> and a P/Invoke call site — is recognized through the one <see cref="NativeInteropUse"/> detector. DN0101's shared File/Directory owner
 /// identity (<c>ContractInterfaces.PlatformFileSystem</c>, used by DN0020) is untouched. The interface owner is
 /// resolved structurally (the enclosing type's implemented interfaces), paired with the platform-library assembly
 /// gate; the raw call is a build error even in another class of the same platform library (including
@@ -96,28 +89,17 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
         }
 
         // The NATIVE-interop family — a P/Invoke call site or a Marshal use — recognized through the one
-        // NativeInteropUse detector shared with DN0113. It is the raw syscall site (DN0008 catches only the
+        // NativeInteropUse detector. It is the raw syscall site (DN0008 catches only the
         // declaration; this confines the native case-sensitivity query too) plus any Marshal use. Banned outside the
-        // filesystem owner, EXCEPT the per-OS native-ops owners, which own their presence native interop
-        // (presence-native-owner-rule, family-scoped — the paired DN0113 confines it to those same owners; the coverage
-        // refactor relocated this carve-out off the flow port and onto the native-ops layer). This presence exemption is
-        // a separate check on the native branches only; it does not touch DN0101's File/Directory owner identity
-        // (ContractInterfaces.PlatformFileSystem, shared with DN0020).
+        // filesystem owner.
         if (NativeInteropUse.IsNativeUse(member, type))
         {
-            if (PresenceContracts.IsInNativeOpsOwner(context))
-            {
-                return;
-            }
-
             Report(context, member, type);
             return;
         }
 
         // The OS-divergent STATIC symlink and Unix-mode members on File/Directory (CreateSymbolicLink,
-        // ResolveLinkTarget, Get/SetUnixFileMode). This ban stays FILESYSTEM-owner-only: a presence port is NOT exempt
-        // here, so a presence port's File.SetUnixFileMode / CreateSymbolicLink is still RED (it is not the filesystem
-        // owner). The *Info construction and the *Info instance members (LinkTarget, UnixFileMode) are no longer this
+        // ResolveLinkTarget, Get/SetUnixFileMode). This ban is FILESYSTEM-owner-only. The *Info construction and the *Info instance members (LinkTarget, UnixFileMode) are no longer this
         // rule's: they are owned wholesale by the wrapper interfaces under DN0011 (fileinfo-abstraction-stays-in-ag0011).
         if (WellKnownType.IsAnyOf(type, FilesystemMembers.FileAndDirectory)
             && FilesystemMembers.IsOsDivergentMember(member))

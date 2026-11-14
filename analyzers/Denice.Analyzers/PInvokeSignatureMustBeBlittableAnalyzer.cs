@@ -11,9 +11,8 @@ namespace Denice.Analyzers;
 /// <c>dynamic</c>, an unconstrained generic type parameter, or a C-style variadic (<c>__arglist</c>) parameter list.
 /// Each of these leaves the marshaller to guess a layout at runtime: <c>object</c>/<c>dynamic</c> box arbitrary values
 /// across the boundary, an open type parameter has no fixed native representation, and <c>__arglist</c> has no
-/// portable ABI. A native binding must spell an explicit, blittable, marshallable type for every return and parameter
-/// (the macOS <c>objc_msgSend</c> and Windows presence bindings). Preventive against the presence P/Invokes; the
-/// existing filesystem bindings already use explicit blittable signatures.
+/// portable ABI. A native binding must spell an explicit, blittable, marshallable type for every return and parameter.
+/// The existing filesystem bindings already use explicit blittable signatures.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PInvokeSignatureMustBeBlittableAnalyzer : DiagnosticAnalyzer

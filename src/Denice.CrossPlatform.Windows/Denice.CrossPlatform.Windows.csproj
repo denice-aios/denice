@@ -24,10 +24,6 @@
        on a signed build. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Denice.Engine" />
-    <!-- The per-OS presence spec tests reach the internal IWindowsUserPresence port, WindowsPresenceResult, and
-         WindowsPresenceCheck.Map from the one OS-agnostic spec test project, selected onto the Windows impl on the
-         Windows CI leg. -->
-    <InternalsVisibleTo Include="Denice.CrossPlatform.Tests" />
   </ItemGroup>
 
 </Project>

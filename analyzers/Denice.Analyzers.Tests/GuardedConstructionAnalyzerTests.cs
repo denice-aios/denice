@@ -449,7 +449,7 @@ public class GuardedConstructionAnalyzerTests
     }
 
     [Fact]
-    public async Task CreateCall_InProgramNamedTypeInDifferentNamespaceOfGuardAssembly_IsReported()
+    public async Task CreateCall_InProgramNamedTypeInDifferentNamespaceOfCliAssembly_IsReported()
     {
         // Nominal collision: a class named Program in a DIFFERENT namespace of the real assembly ("denice") cannot
         // self-grant — the exemption anchors on namespace + name.

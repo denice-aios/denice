@@ -410,7 +410,7 @@ internal sealed class InMemoryFileSystemStore
     }
 
     // A minimal glob matcher over the two patterns the enumeration surface uses in tests — "*" (everything) and a plain
-    // "*.ext" suffix — sufficient for the fail-closed scanner and grant-token reads; an exact name matches literally.
+    // "*.ext" suffix — sufficient for the tests that enumerate; an exact name matches literally.
     private static bool MatchesPattern(string name, string pattern)
     {
         if (pattern.Length == 0 || string.Equals(pattern, "*", StringComparison.Ordinal))

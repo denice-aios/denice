@@ -1,7 +1,8 @@
 # denice
 The Denice AIOS Engine
 
-Guards critical files like project configs from agent changes to ensure project rules are not disabled by agents.
+The `denice` executable for macOS (arm64, x64), Windows (x64, arm64) and Linux (arm64, x64). `denice version` prints
+the version it was built with.
 
 ## Running alpha builds
 

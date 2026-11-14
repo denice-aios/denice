@@ -17,14 +17,6 @@
     <ProjectReference Include="../Denice.CrossPlatform/Denice.CrossPlatform.csproj" />
   </ItemGroup>
 
-  <!-- The pinned managed D-Bus transport for the Linux polkit CheckAuthorization call (tmds-dbus-protocol-pinned).
-       The version lives in Directory.Packages.props (roll-forward disabled); this is the ONLY reference to it, and the
-       ONLY class that touches it is TmdsPolkitAuthority (DN0110). Owners live at their lowest consumer, so the
-       reference is versionless here. -->
-  <ItemGroup>
-    <PackageReference Include="Tmds.DBus.Protocol" />
-  </ItemGroup>
-
   <ItemGroup>
     <Compile Include="../Denice.CrossPlatform.MacOS/Posix/PosixNativeMethods.cs" Link="Posix/PosixNativeMethods.cs" />
     <Compile Include="../Denice.CrossPlatform.MacOS/Posix/PosixFileSystem.cs" Link="Posix/PosixFileSystem.cs" />
@@ -37,10 +29,6 @@
        on a signed build. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Denice.Engine" />
-    <!-- The per-OS presence spec tests reach the internal IPolkitAuthority port, PolkitResult/PolkitSubject,
-         LinuxPresenceCheck, PolkitDecision, and PolkitAction.Id from the one OS-agnostic spec test project, selected
-         onto the Linux impl on the Linux CI leg. -->
-    <InternalsVisibleTo Include="Denice.CrossPlatform.Tests" />
   </ItemGroup>
 
 </Project>

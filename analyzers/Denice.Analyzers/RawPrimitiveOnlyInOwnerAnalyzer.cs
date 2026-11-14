@@ -12,8 +12,8 @@ namespace Denice.Analyzers;
 /// (<c>File</c>/<c>Directory</c> split per member across <c>IFileReader</c>/<c>IDirectoryEnumerator</c>/
 /// <c>IFileWriter</c>/<c>IDirectoryWriter</c>, and the <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c>
 /// wrappers owned wholesale by <c>IFileInfo</c>/<c>IDirectoryInfo</c>/<c>IFileSystemInfo</c>), environment
-/// (<c>IEnvironment</c>), randomness (<c>IRandomGenerator</c>), console (<c>IConsole</c>), crypto
-/// (<c>ISignatureService</c>), version reflection (<c>IBuildInfo</c>), and the ownerless primitives banned everywhere
+/// (<c>IEnvironment</c>), randomness (<c>IRandomGenerator</c>), console (<c>IConsole</c>),
+/// version reflection (<c>IBuildInfo</c>), and the ownerless primitives banned everywhere
 /// (<c>Process</c>, the stream/drive/watcher types). Every mapping lives once in <see cref="OwnedPrimitives"/>; a raw
 /// call is legal only in the class that implements the owning interface AND compiles into the owner assembly — the
 /// conjunction <see cref="OwnerClass.IsOwner"/> applies — so a class cannot self-grant by declaring the interface in

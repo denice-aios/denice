@@ -18,11 +18,11 @@ namespace Denice.Engine;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The container and its factory live in <c>Denice.Engine</c>; the four adapters it assembles —
-/// <c>EnvironmentAdapter</c>, <c>ConsoleAdapter</c>, <c>Ed25519SignatureService</c>, and <c>BuildInfoReader</c> —
+/// The container and its factory live in <c>Denice.Engine</c>; the three adapters it assembles —
+/// <c>EnvironmentAdapter</c>, <c>ConsoleAdapter</c>, and <c>BuildInfoReader</c> —
 /// stay in <c>Denice.Boundaries</c>, which grants its internals to this assembly alone.
 /// <see cref="Create"/> is therefore the one method in Engine that may reach into <c>Denice.Boundaries</c>
-/// (DN0040, and only through those four factory identities), into the core <c>Denice.CrossPlatform</c> assembly
+/// (DN0040, and only through those three factory identities), into the core <c>Denice.CrossPlatform</c> assembly
 /// (DN0023), and into a per-OS implementation assembly (DN0029); it is also the only Engine internal the CLI and the
 /// test <c>SystemServicesBuilder</c> may reach through the grants this assembly declares to them (DN0041).
 /// </para>
@@ -47,7 +47,6 @@ internal sealed class SystemServices : ISystemServices
         IRandomGenerator random,
         IConsole console,
         IPlatformServices platform,
-        ISignatureService signatures,
         IBuildInfo buildInfo,
         TimeProvider clock)
     {
@@ -56,7 +55,6 @@ internal sealed class SystemServices : ISystemServices
         Random = random;
         Console = console;
         Platform = platform;
-        Signatures = signatures;
         BuildInfo = buildInfo;
         Clock = clock;
     }
@@ -77,9 +75,6 @@ internal sealed class SystemServices : ISystemServices
     public IPlatformServices Platform { get; }
 
     /// <inheritdoc />
-    public ISignatureService Signatures { get; }
-
-    /// <inheritdoc />
     public IBuildInfo BuildInfo { get; }
 
     /// <inheritdoc />
@@ -91,7 +86,7 @@ internal sealed class SystemServices : ISystemServices
     /// and GUID factory from the one <see cref="CrossPlatformAdapters"/> factory (the single allowed
     /// Engine → CrossPlatform reach, DN0023) and the OS-divergent platform from the one per-OS
     /// <c>PlatformServices.Create()</c> (the single allowed Engine → per-OS reach, DN0029), builds the
-    /// Boundaries-owned environment, console, signature, and build-info owners through the four permitted adapter
+    /// Boundaries-owned environment, console, and build-info owners through the three permitted adapter
     /// factories (the single allowed Engine → Boundaries call, DN0040), and assembles the single container by
     /// constructor injection. Every one of those reaches is permitted from THIS method and nowhere else in Engine.
     /// </summary>
@@ -105,7 +100,6 @@ internal sealed class SystemServices : ISystemServices
 
         IEnvironment environment = EnvironmentAdapter.Create();
         IConsole console = ConsoleAdapter.Create();
-        ISignatureService signatures = Ed25519SignatureService.Create();
         IBuildInfo buildInfo = BuildInfoReader.Create();
 
         return new SystemServices(
@@ -114,7 +108,6 @@ internal sealed class SystemServices : ISystemServices
             adapters.Random,
             console,
             platform,
-            signatures,
             buildInfo,
             clock);
     }

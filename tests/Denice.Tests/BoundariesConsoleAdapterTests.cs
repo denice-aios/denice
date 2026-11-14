@@ -8,7 +8,7 @@ using Xunit;
 namespace Denice.Tests;
 
 /// <summary>
-/// Exercises the real <c>ConsoleAdapter</c> in <c>Denice.Boundaries</c> — where the four adapters stay — through
+/// Exercises the real <c>ConsoleAdapter</c> in <c>Denice.Boundaries</c> — where the three adapters stay — through
 /// the owned <see cref="IConsole"/> off a real container, now built by <c>SystemServices.Create()</c> in
 /// <c>Denice.Engine</c> (<see cref="SystemServicesBuilder.Real"/>). <c>System.Console</c> is owned to this adapter and
 /// DN0016 forbids <c>Console.SetOut</c> in a test, so the real console cannot be captured in-process; the observable

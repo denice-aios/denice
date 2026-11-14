@@ -318,41 +318,6 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         }
         """;
 
-    private const string SiblingUsingSignerSource = """
-        namespace Org.BouncyCastle.Crypto.Signers
-        {
-            public class Ed25519Signer { }
-        }
-
-        namespace App
-        {
-            public class Sample
-            {
-                public object Make() => new Org.BouncyCastle.Crypto.Signers.Ed25519Signer();
-            }
-        }
-        """;
-
-    private const string OwnerUsingSignerSource = """
-        namespace Denice.Abstractions.Contracts
-        {
-            public interface ISignatureService { }
-        }
-
-        namespace Org.BouncyCastle.Crypto.Signers
-        {
-            public class Ed25519Signer { }
-        }
-
-        namespace App
-        {
-            public sealed class Ed25519SignatureService : Denice.Abstractions.Contracts.ISignatureService
-            {
-                public object Make() => new Org.BouncyCastle.Crypto.Signers.Ed25519Signer();
-            }
-        }
-        """;
-
     private const string GetEntryAssemblySource = """
         using System.Reflection;
 
@@ -820,30 +785,6 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(ConsoleAdapterOwnerSource, "Denice.Cli"));
-        Assert.Equal("DN0011", diagnostic.Id);
-    }
-
-    [Fact]
-    public async Task RawSigner_OutsideOwner_IsReported()
-    {
-        Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(SiblingUsingSignerSource, "Denice.Engine"));
-        Assert.Equal("DN0011", diagnostic.Id);
-        Assert.Contains("Ed25519Signer", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task RawSigner_InOwnerClassAndAssembly_IsExempt()
-    {
-        Assert.Empty(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(OwnerUsingSignerSource, "Denice.Boundaries"));
-    }
-
-    [Fact]
-    public async Task RawSigner_OwnerClass_InWrongAssembly_IsReported()
-    {
-        Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(OwnerUsingSignerSource, "Denice.Engine"));
         Assert.Equal("DN0011", diagnostic.Id);
     }
 

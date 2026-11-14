@@ -37,11 +37,6 @@ public interface ISystemServices
     IPlatformServices Platform { get; }
 
     /// <summary>
-    /// Gets the Ed25519 grant-signature service.
-    /// </summary>
-    ISignatureService Signatures { get; }
-
-    /// <summary>
     /// Gets the running build's version metadata.
     /// </summary>
     IBuildInfo BuildInfo { get; }

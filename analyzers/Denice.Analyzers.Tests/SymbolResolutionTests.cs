@@ -17,8 +17,7 @@ public class SymbolResolutionTests
     // left segment binds a NAMESPACE and whose right segment binds the TYPE, a GENERIC name, a well-formed applied
     // attribute (whose node binds the CONSTRUCTOR, not the type), and an invocation whose bound method and whose type
     // info disagree. The malformed-attribute recovery tier is NOT re-fixtured here: it is already proved by the
-    // existing InteropOnlyInCrossPlatformLibrariesAnalyzerTests.MalformedSameNamedDllImportAttribute_… and
-    // NativeCallbackBodyMustBeGuardedAnalyzerTests.MalformedUserDefinedUnmanagedCallersOnly_… tests, whose inputs,
+    // existing InteropOnlyInCrossPlatformLibrariesAnalyzerTests.MalformedSameNamedDllImportAttribute_… tests, whose inputs,
     // assertions and declared compiler errors stay untouched, so no second malformed-fixture exception is introduced.
     private const string ResolutionSource = """
         using System;

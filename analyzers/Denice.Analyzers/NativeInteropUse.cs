@@ -6,13 +6,13 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// The single recognizer for "is this member use a raw native P/Invoke call site or a <c>Marshal</c> use" — the two
-/// native-interop shapes the OS-divergent filesystem rule (DN0101) and the presence native-interop owner rule (DN0113)
-/// both key off. Extracted here (LESSON 1, DRY) so the two rules share ONE detector instead of each spelling out
+/// native-interop shapes the OS-divergent filesystem rule (DN0101) keys off. Extracted here (LESSON 1, DRY) so every
+/// rule that confines native interop shares ONE detector instead of spelling out
 /// <c>member is IMethodSymbol method &amp;&amp; PInvoke.IsPInvoke(method)</c> and
 /// <c>WellKnownType.Is(type, SystemRuntimeInteropServices, "Marshal")</c>; a change to what counts as a native use
 /// (a new interop attribute, a second marshalling type) is made once and every rule that confines native interop moves
 /// with it. The recognition is pure surface — is this a P/Invoke call, is this a Marshal use; which OWNER may make the
-/// call (filesystem owner vs presence port) is the caller's family policy, kept at the rule, never baked in here.
+/// call is the caller's policy, kept at the rule, never baked in here.
 /// </summary>
 internal static class NativeInteropUse
 {
@@ -36,8 +36,7 @@ internal static class NativeInteropUse
 
     /// <summary>
     /// Gets a value indicating whether the member use is a native P/Invoke call site OR a <c>Marshal</c> use — the
-    /// native-interop family DN0101 and DN0113 both confine to an owner. Callers that must distinguish the two shapes
-    /// (DN0113 skips the filesystem-native bindings for P/Invoke and the filesystem owner for Marshal) call
+    /// native-interop family DN0101 confines to an owner. A caller that must distinguish the two shapes calls
     /// <see cref="IsPInvokeCall"/> and <see cref="IsMarshalUse"/> directly.
     /// </summary>
     /// <param name="member">The referenced member.</param>

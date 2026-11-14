@@ -10,8 +10,7 @@ namespace Denice.Analyzers;
 /// <summary>
 /// Matches an applied attribute against a set of (namespace, name) identities by its RESOLVED type, falling back to
 /// the attribute's SYNTACTIC name only when the type does not resolve. The two attribute rules that used to match on
-/// the bare syntactic spelling — the native-interop location ban (DN0008, <c>[DllImport]</c>/<c>[LibraryImport]</c>)
-/// and the native-callback body guard (DN0105, <c>[UnmanagedCallersOnly]</c>) — share this one resolver so a
+/// the bare syntactic spelling — the native-interop location ban (DN0008, <c>[DllImport]</c>/<c>[LibraryImport]</c>) — share this one resolver so a
 /// user-declared attribute of the same simple name in a different namespace is not mistaken for the BCL attribute.
 /// <para>
 /// Resolve-first is correct for a real same-named user attribute in another namespace: the attribute resolves to the

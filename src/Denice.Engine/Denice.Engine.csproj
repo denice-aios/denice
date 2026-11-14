@@ -6,16 +6,12 @@
     <PackageId>Denice.Engine</PackageId>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="NuGet.Versioning" />
-  </ItemGroup>
 
   <!-- The concrete ISystemServices container and its one SystemServices.Create() composition factory live here and are
        internal (Wall 1). The two legal callers of SystemServices.Create() reach it through these grants
        (single-construction-point, two-walls-stop-the-bypass): the CLI's Program composition method (compiled as
        "denice") and the test SystemServicesBuilder. DN0041 pins both grants to that one invocation — no other Engine
-       internal is reachable from either, while every public Engine API stays reachable. The Denice.Tests grant is
-       unchanged. Keyless in source; the signing target injects the public key on a signed build. -->
+       internal is reachable from either, while every public Engine API stays reachable. Keyless in source; the signing target injects the public key on a signed build. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Denice.Tests" />
     <InternalsVisibleTo Include="denice" />
@@ -25,7 +21,7 @@
   <!-- Every engine type other than the container consumes OS/CLR capability through the interfaces it owns in
        Denice.Abstractions, received by constructor injection off ISystemServices at the one composition point.
        The Boundaries reference exists for SystemServices.Create() alone: DN0040 permits an Engine call into
-       Denice.Boundaries only as one of the four adapter factories and only from that method. -->
+       Denice.Boundaries only as one of the three adapter factories and only from that method. -->
   <ItemGroup>
     <ProjectReference Include="../Denice.Abstractions/Denice.Abstractions.csproj" />
     <ProjectReference Include="../Denice.Boundaries/Denice.Boundaries.csproj" />

@@ -33,10 +33,9 @@ internal static class CrossPlatformBoundary
     /// <summary>
     /// The cached <c>Compilation</c>-level gate for the three per-OS implementation libraries — the single adapter
     /// that pulls a compilation's assembly name and calls <see cref="IsPerOsImplementationAssembly"/>. Owned here,
-    /// next to the string check it wraps, so the two per-OS-owner rules that use it as an
+    /// next to the string check it wraps, so the per-OS-owner rule that uses it as an
     /// <see cref="OwnerClass.IsOwner"/> assembly gate — DN0101 (OsDivergentFilesystemOnlyInCrossPlatformAnalyzer, the
-    /// OS-divergent filesystem owner) and DN0113 (PresenceNativeInteropOwnerAnalyzer, the presence native-interop
-    /// owner) — share this one adapter instead of each re-wrapping the call, mirroring the caching pattern
+    /// OS-divergent filesystem owner) — does not re-wrap the call, mirroring the caching pattern
     /// <see cref="OwnerClass.InAssembly"/> establishes. Cached in a static field so no delegate is allocated per
     /// analyzed operation.
     /// </summary>

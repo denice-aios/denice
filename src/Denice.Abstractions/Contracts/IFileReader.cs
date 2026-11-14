@@ -3,10 +3,7 @@
 namespace Denice.Abstractions.Contracts;
 
 /// <summary>
-/// Read-only access to the working tree, used by Capture to snapshot a protected file's current bytes and by
-/// Postcheck to read what landed on disk. It is deliberately read-only: the privileged writes that execute a
-/// restore or delete are the Engine's alone, kept out of this Guard-facing seam. It owns the read side of the
-/// filesystem primitive: every existence, byte, text, attribute, and last-write read routes through here.
+/// Read-only access to the file system. It owns the read side of the filesystem primitive: every existence, byte, text, attribute, and last-write read routes through here.
 /// </summary>
 public interface IFileReader
 {

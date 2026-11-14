@@ -1,5 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
@@ -33,6 +34,10 @@ public sealed class MacOsNativeBoolMustBeI1Analyzer : DiagnosticAnalyzer
     // argument, which is the UnmanagedType enum's underlying integral value.
     private const int UnmanagedTypeI1 = 3;
 
+    /// <summary>The assembly gate for the macOS per-OS implementation library. Cached so no delegate is allocated per
+    /// compilation start.</summary>
+    private static readonly Func<Compilation, bool> InMacOs = OwnerClass.InAssembly(CrossPlatformBoundary.MacOsName);
+
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
         title: "A macOS native bool must be marshalled as UnmanagedType.I1",
@@ -64,7 +69,7 @@ public sealed class MacOsNativeBoolMustBeI1Analyzer : DiagnosticAnalyzer
     {
         // Scoped to the macOS per-OS implementation library: the one-byte bool is a Darwin ABI fact. The Windows and
         // (native-call-free) Linux libraries register nothing.
-        if (!PresenceContracts.InMacOs(context.Compilation))
+        if (!InMacOs(context.Compilation))
         {
             return;
         }

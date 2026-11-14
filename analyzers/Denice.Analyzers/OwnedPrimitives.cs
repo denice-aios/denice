@@ -92,9 +92,6 @@ internal static class OwnedPrimitives
     private static readonly ImmutableArray<(string Namespace, string Name)> ConsoleOwner =
         ImmutableArray.Create((KnownNamespaces.DeniceAbstractionsContracts, "IConsole"));
 
-    private static readonly ImmutableArray<(string Namespace, string Name)> SignatureServiceOwner =
-        ImmutableArray.Create((KnownNamespaces.DeniceAbstractionsContracts, "ISignatureService"));
-
     private static readonly ImmutableArray<(string Namespace, string Name)> BuildInfoOwner =
         ImmutableArray.Create((KnownNamespaces.DeniceAbstractionsContracts, "IBuildInfo"));
 
@@ -116,13 +113,6 @@ internal static class OwnedPrimitives
     private static readonly ImmutableArray<(string Namespace, string Name)> VersionAttributeTypes = ImmutableArray.Create(
         (KnownNamespaces.SystemReflection, "AssemblyInformationalVersionAttribute"),
         (KnownNamespaces.SystemReflection, "AssemblyFileVersionAttribute"));
-
-    // The banned BouncyCastle Ed25519 types (was DN0021), matched by full name so a same-named type in another
-    // namespace is not caught. The signer sequence and the public-key parameters both hide inside the ISignatureService
-    // owner; no BouncyCastle type crosses the boundary.
-    private static readonly ImmutableArray<(string Namespace, string Name)> BouncyCastleEd25519Types = ImmutableArray.Create(
-        ("Org.BouncyCastle.Crypto.Signers", "Ed25519Signer"),
-        ("Org.BouncyCastle.Crypto.Parameters", "Ed25519PublicKeyParameters"));
 
     // Process launching is not a wrapped primitive (was DN0013): System.Diagnostics.Process and ProcessStartInfo are
     // banned everywhere; grow an owned interface first if the capability is ever needed.
@@ -147,7 +137,7 @@ internal static class OwnedPrimitives
             ?? ResolveStreamsAndEnumeration(type)
             ?? ResolveEnvironmentAndReflection(member, type)
             ?? ResolveRandomness(member, type)
-            ?? ResolveConsoleCryptoProcess(type);
+            ?? ResolveConsoleProcess(type);
     }
 
     /// <summary>
@@ -303,17 +293,12 @@ internal static class OwnedPrimitives
         return null;
     }
 
-    // System.Console → IConsole ; BouncyCastle Ed25519 → ISignatureService ; Process → banned everywhere.
-    private static OwnedPrimitive? ResolveConsoleCryptoProcess(INamedTypeSymbol type)
+    // System.Console → IConsole ; Process → banned everywhere.
+    private static OwnedPrimitive? ResolveConsoleProcess(INamedTypeSymbol type)
     {
         if (WellKnownType.Is(type, KnownNamespaces.System, "Console"))
         {
             return OwnedPrimitive.OwnedBy(ConsoleOwner, InBoundaries);
-        }
-
-        if (WellKnownType.IsAnyOf(type, BouncyCastleEd25519Types))
-        {
-            return OwnedPrimitive.OwnedBy(SignatureServiceOwner, InBoundaries);
         }
 
         return WellKnownType.IsAnyOf(type, ProcessTypes)

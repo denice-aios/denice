@@ -18,34 +18,27 @@ namespace Denice.CrossPlatform;
 /// </summary>
 internal sealed class PlatformServices : IPlatformServices
 {
-    // Private constructor (DN0003, Wall 1): the built OS-divergent file system and the Windows presence check arrive by
+    // Private constructor (DN0003, Wall 1): the built OS-divergent file system arrives by
     // constructor injection; only this class's own Create() builds them, so no second container can be assembled to
     // bypass the one door.
-    private PlatformServices(IPlatformFileSystem fileSystem, IPresenceCheck presence)
+    private PlatformServices(IPlatformFileSystem fileSystem)
     {
         FileSystem = fileSystem;
-        Presence = presence;
     }
 
     /// <inheritdoc />
     public IPlatformFileSystem FileSystem { get; }
 
-    /// <inheritdoc />
-    public IPresenceCheck Presence { get; }
-
     /// <summary>
     /// Builds the platform-capability container for Windows. It obtains the OS-uniform owned adapters from the one
     /// <see cref="CrossPlatformAdapters"/> factory, wraps them in the shared OS-uniform helper, injects that helper and
     /// the wrapper factory (the per-OS class reads the OS-uniform symlink target through it) into the per-OS
-    /// <see cref="WindowsFileSystem"/>, and assembles the container with the Windows presence check.
+    /// <see cref="WindowsFileSystem"/>, and assembles the container.
     /// </summary>
     /// <returns>The platform services container, as its interface.</returns>
     public static IPlatformServices Create()
     {
         PlatformFileSystemParts parts = PlatformFileSystemComposition.Create();
-        return new PlatformServices(
-            WindowsFileSystem.Create(parts.Shared, parts.Factory),
-            WindowsPresenceCheck.Create(
-                new WindowsUserPresence(new WindowsHelloNativeOps(), new CredentialPromptNativeOps())));
+        return new PlatformServices(WindowsFileSystem.Create(parts.Shared, parts.Factory));
     }
 }
