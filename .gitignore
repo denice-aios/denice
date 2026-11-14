@@ -149,15 +149,15 @@ vite.config.ts.timestamp-*
 .vs/
 [Tt]est[Rr]esults/
 
-# AgentGuard Sealed stores: per-call snapshots and signed grant tokens (never committed).
+# Denice Sealed stores: per-call snapshots and signed grant tokens (never committed).
 .protected-snapshots/
-.agentguard/grants/
+.denice/grants/
 .lore/
 
-# AgentGuard signing: locally generated dev keys (decision 20 — generated on demand, never committed).
+# Denice signing: locally generated dev keys (decision 20 — generated on demand, never committed).
 eng/signing/local/
 
-# AgentGuard build version: generated once per build by the pre-solution target (decision 25).
+# Denice build version: generated once per build by the pre-solution target (decision 25).
 eng/obj/
 
 # Private working area: notes, drafts, and handoffs that never belong in the repository.

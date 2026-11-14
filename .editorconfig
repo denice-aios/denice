@@ -1,4 +1,4 @@
-# AgentGuard root EditorConfig — the golden-build formatting, code-style, and severity policy.
+# Denice root EditorConfig — the golden-build formatting, code-style, and severity policy.
 root = true
 
 [*]
@@ -91,7 +91,7 @@ dotnet_diagnostic.SA1101.severity = none
 # SA1309: FieldNamesMustNotBeginWithUnderscore contradicts the chosen _camelCase private-field convention.
 dotnet_diagnostic.SA1309.severity = none
 
-# AG0001: the AgentGuard custom architecture rule, surfaced as a warning (promoted to error by TreatWarningsAsErrors).
+# AG0001: the Denice custom architecture rule, surfaced as a warning (promoted to error by TreatWarningsAsErrors).
 dotnet_diagnostic.AG0001.severity = warning
 
 # AG0002: bans tuple return types, surfaced as a warning (promoted to error by TreatWarningsAsErrors).

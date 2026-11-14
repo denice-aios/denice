@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Local, OPT-IN cosign co-signing (decision cosign-keyless-and-community-cosign). OFF by default: a developer
-# sets AGENTGUARD_COSIGN=1 to co-sign a LOCALLY-produced binary with their OWN Sigstore identity via the
+# sets DENICE_COSIGN=1 to co-sign a LOCALLY-produced binary with their OWN Sigstore identity via the
 # interactive browser login, so a small contributor community can verify and trust each other's local builds.
 #
 # This is NOT the CI path — CI signs keyless with the ambient GitHub OIDC identity in ci.yml. This pass is
@@ -14,8 +14,8 @@ OUT="${2:-$BIN.cosign.bundle}"
 
 is_true() { case "${1:-}" in 1|true|TRUE|yes|YES|on|ON) return 0 ;; *) return 1 ;; esac; }
 
-if ! is_true "${AGENTGUARD_COSIGN:-}"; then
-  echo "AGENTGUARD_COSIGN is off — skipping local cosign co-signing (opt-in only)."
+if ! is_true "${DENICE_COSIGN:-}"; then
+  echo "DENICE_COSIGN is off — skipping local cosign co-signing (opt-in only)."
   exit 0
 fi
 
@@ -32,7 +32,7 @@ if [ ! -t 0 ] || [ ! -t 1 ]; then
 fi
 
 if ! command -v cosign >/dev/null 2>&1; then
-  echo "cosign is not installed — install it to use AGENTGUARD_COSIGN (https://docs.sigstore.dev)." >&2
+  echo "cosign is not installed — install it to use DENICE_COSIGN (https://docs.sigstore.dev)." >&2
   exit 1
 fi
 

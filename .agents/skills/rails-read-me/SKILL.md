@@ -7,13 +7,13 @@ description: Read first — the repository facts, locations, build and shipping 
 
 ## What this repo is
 
-agent-guard is a tool whose sole job is to stop a lazy AI from disabling or cheating the guard and the golden build. The adversary is the AI taking the easy path and papering over it — not a malicious attacker. It is not a hardened security product; the bar is: **make cheating more work than doing the right thing.**
+denice is a tool whose sole job is to stop a lazy AI from disabling or cheating the guard and the golden build. The adversary is the AI taking the easy path and papering over it — not a malicious attacker. It is not a hardened security product; the bar is: **make cheating more work than doing the right thing.**
 
 It has two layers: the **guard product** (protects a project's files and config, installed through the CLI, cross-platform, with signed releases) and the **rails** (the analyzer fence, the workflow, and these skills that keep the AI honest while building it).
 
 ## The code and how to build it
 
-A C#/.NET solution — `AgentGuard.sln`, with the SDK pinned in `global.json` (currently .NET SDK `10.0.400`, roll-forward disabled — that exact SDK must be installed or the build fails to resolve one). The product is in `src/`: the guard `Engine`, the `Cli`, the `Abstractions` contracts, the `Boundaries`, and the `CrossPlatform` base with its per-OS `.Linux`/`.MacOS`/`.Windows` libraries. Tests are in `tests/`, the analyzer fence in `analyzers/`, the build/sign/coverage/release scripts in `eng/`, and CI in `.github/workflows/`. Build and test with `make build` and `make test` (equivalently `dotnet build` / `dotnet test`); the analyzers run as build errors.
+A C#/.NET solution — `Denice.sln`, with the SDK pinned in `global.json` (currently .NET SDK `10.0.400`, roll-forward disabled — that exact SDK must be installed or the build fails to resolve one). The product is in `src/`: the guard `Engine`, the `Cli`, the `Abstractions` contracts, the `Boundaries`, and the `CrossPlatform` base with its per-OS `.Linux`/`.MacOS`/`.Windows` libraries. Tests are in `tests/`, the analyzer fence in `analyzers/`, the build/sign/coverage/release scripts in `eng/`, and CI in `.github/workflows/`. Build and test with `make build` and `make test` (equivalently `dotnet build` / `dotnet test`); the analyzers run as build errors.
 
 The **`gate`** referenced throughout is the required CI status check — green only when build, tests, coverage (`eng/coverage-gate.sh`, a 75% floor), and the analyzers all pass on macOS, Linux, and Windows, defined in `.github/workflows/ci.yml`. Locally, `make build && make test` runs build, tests, and the analyzers; the coverage floor and the cross-OS legs are enforced by CI, so run the local pass green before you push.
 
@@ -47,7 +47,7 @@ One rule here rather than in the process, because it applies to every deferral w
 
 See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `reference/` holds living docs (this process, decisions, and the **best-practices guide** at `.dev/reference/best-practices-guide.md` — the layered constitution the rails delegate to, which a decision is checked against before it ever reaches the human); `archive/` holds historical / non-workflow material.
 
-**Derive the current state, never read it from a status document.** There is no checked-in index of what exists and what is done. List the parts from the source: the rails are `ls .agents/skills/`, the workflow scripts are `ls .agents/workflows/`, shipped work is `ls .dev/completed/run-records/`, work in flight is `ls .dev/inprocess/`, and the analyzer rules are `analyzers/AgentGuard.Analyzers/AnalyzerReleases.*.md`. What is deferred, planned, or undecided lives in the GitHub issues (`gh issue list`) — that is the state tracker.
+**Derive the current state, never read it from a status document.** There is no checked-in index of what exists and what is done. List the parts from the source: the rails are `ls .agents/skills/`, the workflow scripts are `ls .agents/workflows/`, shipped work is `ls .dev/completed/run-records/`, work in flight is `ls .dev/inprocess/`, and the analyzer rules are `analyzers/Denice.Analyzers/AnalyzerReleases.*.md`. What is deferred, planned, or undecided lives in the GitHub issues (`gh issue list`) — that is the state tracker.
 
 **The roadmap lives in two places, with two jobs.** `.dev/backlog/` holds the design and plan documents — the long-form thinking about a piece of work. The GitHub issues (`gh issue list`) hold the tracked work items, their order, and what is still open. Read the backlog document to understand what a piece of work is; read the issues to find what is next.
 
@@ -63,7 +63,7 @@ Work integrates on `dev` and is cut to `main` only at a milestone worth releasin
 
 `analyzers/**` (the enforcement rules) would normally sit **behind the guard we are building**, and will as soon as the guard supports both *enforcing* them **and** *allowing selective, controlled changes*. Until then a change is **decision-gated** — brought to the human first (new rules via `rails-run-a-workflow`'s RULE-PHASE).
 
-`src/AgentGuard.Abstractions/**` is **not** locked or frozen. Adding or changing a contract interface needs the human's sign-off (like any interface — a design element that outlives its function) and is held to the contract-pattern analyzers, but interfaces are **developed properly when that is the right design, not avoided.**
+`src/Denice.Abstractions/**` is **not** locked or frozen. Adding or changing a contract interface needs the human's sign-off (like any interface — a design element that outlives its function) and is held to the contract-pattern analyzers, but interfaces are **developed properly when that is the right design, not avoided.**
 
 
 ## Rule-Driven Development
@@ -78,8 +78,8 @@ A `.codegraph/` index, when present, lets CodeGraph return source and call paths
 
 ## Claude and Codex memory stores
 
-Claude Code's repository-specific memory store for this checkout is `~/.claude/projects/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/memory/`.
+Claude Code's repository-specific memory store for this checkout is `~/.claude/projects/-Users-timothystockstill-code-macos-denice-denice/memory/`.
 
-Codex's memory store is shared at `~/.codex/memories/`. Only memory entries related to agent-guard are in scope when this skill is loaded.
+Codex's memory store is shared at `~/.codex/memories/`. Only memory entries related to denice are in scope when this skill is loaded.
 
 When either memory store contains an entry matching a loaded rail, make the entry carry the rail's current wording while retaining the entry's existing incident context. Bring stale wording up to date and add missing content. Update, never delete.

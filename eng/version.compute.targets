@@ -5,72 +5,72 @@
     fallback (Directory.Build.targets). The Day/Time math lives here once (the authorized bash mirror is
     eng/compute-build-id.sh).
 
-    AgentGuardResolveVersion fills AgentGuardDay/Time/Combined/Hash when they were not supplied as args (A):
+    DeniceResolveVersion fills DeniceDay/Time/Combined/Hash when they were not supplied as args (A):
       1. If a generated file already exists this build (written by the pre-solution target B, or by the first
          project in a non-solution build C), READ it — so every project in one build shares the one id.
       2. Otherwise compute the id once and WRITE the file, so the rest of this build reads the same value.
   -->
 
   <PropertyGroup>
-    <AgentGuardVersionFile>$(MSBuildThisFileDirectory)obj/version.g.props</AgentGuardVersionFile>
+    <DeniceVersionFile>$(MSBuildThisFileDirectory)obj/version.g.props</DeniceVersionFile>
   </PropertyGroup>
 
-  <Target Name="AgentGuardResolveVersion" Condition="'$(AgentGuardDay)' == ''">
+  <Target Name="DeniceResolveVersion" Condition="'$(DeniceDay)' == ''">
     <!-- 1. Prefer a file already written this build (shared id). -->
-    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardDay/text()" Condition="Exists('$(AgentGuardVersionFile)')">
-      <Output TaskParameter="Result" PropertyName="AgentGuardDay" />
+    <XmlPeek XmlInputPath="$(DeniceVersionFile)" Query="/Project/PropertyGroup/DeniceDay/text()" Condition="Exists('$(DeniceVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="DeniceDay" />
     </XmlPeek>
-    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardTime/text()" Condition="Exists('$(AgentGuardVersionFile)')">
-      <Output TaskParameter="Result" PropertyName="AgentGuardTime" />
+    <XmlPeek XmlInputPath="$(DeniceVersionFile)" Query="/Project/PropertyGroup/DeniceTime/text()" Condition="Exists('$(DeniceVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="DeniceTime" />
     </XmlPeek>
-    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardCombined/text()" Condition="Exists('$(AgentGuardVersionFile)')">
-      <Output TaskParameter="Result" PropertyName="AgentGuardCombined" />
+    <XmlPeek XmlInputPath="$(DeniceVersionFile)" Query="/Project/PropertyGroup/DeniceCombined/text()" Condition="Exists('$(DeniceVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="DeniceCombined" />
     </XmlPeek>
-    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardHash/text()" Condition="Exists('$(AgentGuardVersionFile)')">
-      <Output TaskParameter="Result" PropertyName="AgentGuardHash" />
+    <XmlPeek XmlInputPath="$(DeniceVersionFile)" Query="/Project/PropertyGroup/DeniceHash/text()" Condition="Exists('$(DeniceVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="DeniceHash" />
     </XmlPeek>
-    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardTag/text()" Condition="Exists('$(AgentGuardVersionFile)')">
-      <Output TaskParameter="Result" PropertyName="AgentGuardTag" />
+    <XmlPeek XmlInputPath="$(DeniceVersionFile)" Query="/Project/PropertyGroup/DeniceTag/text()" Condition="Exists('$(DeniceVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="DeniceTag" />
     </XmlPeek>
-    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardVersion/text()" Condition="Exists('$(AgentGuardVersionFile)')">
-      <Output TaskParameter="Result" PropertyName="AgentGuardVersion" />
+    <XmlPeek XmlInputPath="$(DeniceVersionFile)" Query="/Project/PropertyGroup/DeniceVersion/text()" Condition="Exists('$(DeniceVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="DeniceVersion" />
     </XmlPeek>
 
     <!-- 2. No file yet: compute once and write it so the rest of this build shares it. -->
-    <CallTarget Targets="AgentGuardComputeAndWriteVersion" Condition="'$(AgentGuardDay)' == ''" />
+    <CallTarget Targets="DeniceComputeAndWriteVersion" Condition="'$(DeniceDay)' == ''" />
   </Target>
 
-  <Target Name="AgentGuardComputeAndWriteVersion" DependsOnTargets="AgentGuardComputeCore">
+  <Target Name="DeniceComputeAndWriteVersion" DependsOnTargets="DeniceComputeCore">
     <MakeDir Directories="$(MSBuildThisFileDirectory)obj" />
     <ItemGroup>
       <_AgLine Include="&lt;Project&gt;" />
       <_AgLine Include="  &lt;PropertyGroup&gt;" />
-      <_AgLine Include="    &lt;AgentGuardDay&gt;$(_AgDay)&lt;/AgentGuardDay&gt;" />
-      <_AgLine Include="    &lt;AgentGuardTime&gt;$(_AgTime)&lt;/AgentGuardTime&gt;" />
-      <_AgLine Include="    &lt;AgentGuardCombined&gt;$(_AgCombined)&lt;/AgentGuardCombined&gt;" />
-      <_AgLine Include="    &lt;AgentGuardHash&gt;$(_AgHash)&lt;/AgentGuardHash&gt;" />
-      <_AgLine Include="    &lt;AgentGuardTag&gt;$(_AgTag)&lt;/AgentGuardTag&gt;" />
-      <_AgLine Include="    &lt;AgentGuardVersion&gt;$(_AgVersion)&lt;/AgentGuardVersion&gt;" />
+      <_AgLine Include="    &lt;DeniceDay&gt;$(_AgDay)&lt;/DeniceDay&gt;" />
+      <_AgLine Include="    &lt;DeniceTime&gt;$(_AgTime)&lt;/DeniceTime&gt;" />
+      <_AgLine Include="    &lt;DeniceCombined&gt;$(_AgCombined)&lt;/DeniceCombined&gt;" />
+      <_AgLine Include="    &lt;DeniceHash&gt;$(_AgHash)&lt;/DeniceHash&gt;" />
+      <_AgLine Include="    &lt;DeniceTag&gt;$(_AgTag)&lt;/DeniceTag&gt;" />
+      <_AgLine Include="    &lt;DeniceVersion&gt;$(_AgVersion)&lt;/DeniceVersion&gt;" />
       <_AgLine Include="  &lt;/PropertyGroup&gt;" />
       <_AgLine Include="&lt;/Project&gt;" />
     </ItemGroup>
     <!-- Write to a temp file then atomically move, so a concurrent reader never sees a torn/partial file. -->
-    <WriteLinesToFile File="$(AgentGuardVersionFile).tmp" Lines="@(_AgLine)" Overwrite="true" />
-    <Move SourceFiles="$(AgentGuardVersionFile).tmp" DestinationFiles="$(AgentGuardVersionFile)" OverwriteReadOnlyFiles="true" />
+    <WriteLinesToFile File="$(DeniceVersionFile).tmp" Lines="@(_AgLine)" Overwrite="true" />
+    <Move SourceFiles="$(DeniceVersionFile).tmp" DestinationFiles="$(DeniceVersionFile)" OverwriteReadOnlyFiles="true" />
     <PropertyGroup>
-      <AgentGuardDay>$(_AgDay)</AgentGuardDay>
-      <AgentGuardTime>$(_AgTime)</AgentGuardTime>
-      <AgentGuardCombined>$(_AgCombined)</AgentGuardCombined>
-      <AgentGuardHash>$(_AgHash)</AgentGuardHash>
-      <AgentGuardTag>$(_AgTag)</AgentGuardTag>
-      <AgentGuardVersion>$(_AgVersion)</AgentGuardVersion>
+      <DeniceDay>$(_AgDay)</DeniceDay>
+      <DeniceTime>$(_AgTime)</DeniceTime>
+      <DeniceCombined>$(_AgCombined)</DeniceCombined>
+      <DeniceHash>$(_AgHash)</DeniceHash>
+      <DeniceTag>$(_AgTag)</DeniceTag>
+      <DeniceVersion>$(_AgVersion)</DeniceVersion>
     </PropertyGroup>
   </Target>
 
   <!-- The one MSBuild copy of the Day/Time/Combined/hash formula AND the assembled tag/SemVer (the CI-side mirror
        is eng/compute-build-id.sh). The -pre-release suffix (channel-by-prerelease-id) is applied ONLY here on the
        local side; no stamp target, project, or job re-joins the string (compute-version-once). -->
-  <Target Name="AgentGuardComputeCore">
+  <Target Name="DeniceComputeCore">
     <PropertyGroup>
       <!-- Read the clock ONCE so Day and Time can never come from two different instants at the day boundary. -->
       <_AgTicks>$([System.DateTime]::UtcNow.Ticks)</_AgTicks>
@@ -84,8 +84,8 @@
     </Exec>
     <PropertyGroup>
       <_AgHash Condition="'$(_AgGitRc)' != '0' or '$(_AgHash)' == ''">local</_AgHash>
-      <_AgPre Condition="'$(AgentGuardChannel)' == 'dev'">-pre-release</_AgPre>
-      <_AgTag>$(AgentGuardMajorMinor).$(_AgCombined)$(_AgPre)</_AgTag>
+      <_AgPre Condition="'$(DeniceChannel)' == 'dev'">-pre-release</_AgPre>
+      <_AgTag>$(DeniceMajorMinor).$(_AgCombined)$(_AgPre)</_AgTag>
       <_AgVersion>$(_AgTag)+$(_AgHash)</_AgVersion>
     </PropertyGroup>
   </Target>

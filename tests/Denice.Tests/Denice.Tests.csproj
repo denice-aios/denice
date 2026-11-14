@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <DeniceIsTestProject>true</DeniceIsTestProject>
+    <RootNamespace>Denice.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="BouncyCastle.Cryptography" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Denice.Engine/Denice.Engine.csproj" />
+    <ProjectReference Include="../Denice.TestHelpers/Denice.TestHelpers.csproj" />
+  </ItemGroup>
+
+  <!-- Shared test-support source, linked (one owner) into each test project that needs it. -->
+  <ItemGroup>
+    <Compile Include="../Shared/DeniceLayout.cs" Link="DeniceLayout.cs" />
+    <Compile Include="../Shared/SettingsProbe.cs" Link="SettingsProbe.cs" />
+  </ItemGroup>
+
+</Project>

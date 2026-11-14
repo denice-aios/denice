@@ -8,8 +8,8 @@
 # looks for them, so no MSBuild overrides are needed. eng/signing/local/ is git-ignored.
 #
 # Env:
-#   AGENTGUARD_STRONGNAME_SNK        = base64 of the .snk (the same key eng/generate-dev-keys mints locally)
-#   AGENTGUARD_STRONGNAME_PUBLICKEY  = base64 of the 576-hex strong-name public-key blob (the .publickey file)
+#   DENICE_STRONGNAME_SNK        = base64 of the .snk (the same key eng/generate-dev-keys mints locally)
+#   DENICE_STRONGNAME_PUBLICKEY  = base64 of the 576-hex strong-name public-key blob (the .publickey file)
 # Requires openssl on PATH (present on macOS, Linux, and Windows Git bash runners), so the three per-OS jobs
 # share one path. No .NET run, no deriver.
 set -euo pipefail
@@ -17,15 +17,15 @@ set -euo pipefail
 OUT="eng/signing/local"
 mkdir -p "$OUT"
 
-if [ -z "${AGENTGUARD_STRONGNAME_SNK:-}" ]; then
-  echo "::error::AGENTGUARD_STRONGNAME_SNK is empty — CI cannot produce a signed build (decision no-committed-keys)." >&2
+if [ -z "${DENICE_STRONGNAME_SNK:-}" ]; then
+  echo "::error::DENICE_STRONGNAME_SNK is empty — CI cannot produce a signed build (decision no-committed-keys)." >&2
   exit 1
 fi
-if [ -z "${AGENTGUARD_STRONGNAME_PUBLICKEY:-}" ]; then
-  echo "::error::AGENTGUARD_STRONGNAME_PUBLICKEY is empty — the strong-name public key is a required secret (decision ci-three-secret-slots)." >&2
+if [ -z "${DENICE_STRONGNAME_PUBLICKEY:-}" ]; then
+  echo "::error::DENICE_STRONGNAME_PUBLICKEY is empty — the strong-name public key is a required secret (decision ci-three-secret-slots)." >&2
   exit 1
 fi
 
-printf '%s' "$AGENTGUARD_STRONGNAME_SNK" | openssl base64 -d -A > "$OUT/agentguard-strongname.snk"
-printf '%s' "$AGENTGUARD_STRONGNAME_PUBLICKEY" | openssl base64 -d -A > "$OUT/agentguard-strongname.publickey"
+printf '%s' "$DENICE_STRONGNAME_SNK" | openssl base64 -d -A > "$OUT/denice-strongname.snk"
+printf '%s' "$DENICE_STRONGNAME_PUBLICKEY" | openssl base64 -d -A > "$OUT/denice-strongname.publickey"
 echo "Strong-name key + public key materialized into $OUT (git-ignored)."

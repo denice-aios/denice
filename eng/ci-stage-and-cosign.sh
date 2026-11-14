@@ -18,7 +18,7 @@ DIST="$1"; EXT="$2"; shift 2
 mkdir -p "$DIST"
 
 for rid in "$@"; do
-  cp "src/AgentGuard.Cli/bin/Release/net10.0/$rid/publish/guard$EXT" "$DIST/guard-$rid$EXT"
+  cp "src/Denice.Cli/bin/Release/net10.0/$rid/publish/guard$EXT" "$DIST/guard-$rid$EXT"
 done
 
 cd "$DIST"

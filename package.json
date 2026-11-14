@@ -1,8 +1,8 @@
 {
-  "name": "agent-guard-ts",
+  "name": "denice-ts",
   "private": true,
   "type": "module",
-  "description": "The TypeScript side of agent-guard. Holds MetaLang \u2014 the language that defines languages \u2014 and the build that will later emit the workflow scripts.",
+  "description": "The TypeScript side of denice. Holds MetaLang \u2014 the language that defines languages \u2014 and the build that will later emit the workflow scripts.",
   "scripts": {
     "check": "bun run ts/metalang/check.ts",
     "render": "bun run ts/metalang/render.ts",

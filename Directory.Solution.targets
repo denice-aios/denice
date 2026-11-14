@@ -6,15 +6,15 @@
 
   <!--
     Pre-solution build target (decision 25). Runs ONCE, before any project in the solution builds/rebuilds/
-    publishes/packs. Unless CI supplied the id via -p:AgentGuardDay, it computes a FRESH id and writes
+    publishes/packs. Unless CI supplied the id via -p:DeniceDay, it computes a FRESH id and writes
     eng/obj/version.g.props, which every project then reads — so a solution build (including a clean Rebuild)
     mints a new id and all projects share it.
   -->
-  <Target Name="AgentGuardComputeVersion"
+  <Target Name="DeniceComputeVersion"
           BeforeTargets="Build;Rebuild;Publish;Pack"
-          Condition="'$(AgentGuardDay)' == ''"
-          DependsOnTargets="AgentGuardComputeAndWriteVersion">
-    <Message Importance="high" Text="AgentGuard build id computed: $(AgentGuardMajorMinor).$(AgentGuardCombined)+$(AgentGuardHash) (Day=$(AgentGuardDay) Time=$(AgentGuardTime))" />
+          Condition="'$(DeniceDay)' == ''"
+          DependsOnTargets="DeniceComputeAndWriteVersion">
+    <Message Importance="high" Text="Denice build id computed: $(DeniceMajorMinor).$(DeniceCombined)+$(DeniceHash) (Day=$(DeniceDay) Time=$(DeniceTime))" />
   </Target>
 
 </Project>

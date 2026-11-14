@@ -1,6 +1,6 @@
 # Running the alpha (self-signed) builds
 
-AgentGuard's alpha releases are **signed with our own self-signed certificate**, not a paid Apple/Microsoft
+Denice's alpha releases are **signed with our own self-signed certificate**, not a paid Apple/Microsoft
 identity and not notarized. The signature proves the binary came from us and has not been tampered with, but
 because the certificate is not issued by a public authority, macOS Gatekeeper and Windows SmartScreen will
 warn the first time you run it. This page shows the one-time steps to trust and launch an alpha build.
@@ -10,7 +10,7 @@ Every release attaches, per platform:
 - the binary — `guard-<rid>` (macOS/Linux) or `guard-<rid>.exe` (Windows), e.g. `guard-osx-arm64`, `guard-win-x64.exe`;
 - its checksum — `guard-<rid>.sha256` (GNU two-column format);
 - its cosign signature — `guard-<rid>.cosign.bundle` (keyless, recorded in the public Rekor transparency log);
-- the public certificate — `agentguard-macos-public.cer` and `agentguard-windows-public.cer`;
+- the public certificate — `denice-macos-public.cer` and `denice-windows-public.cer`;
 - the trust scripts — `trust-cert.sh` (macOS) and `trust-cert.ps1` (Windows).
 
 Pick the file whose `<rid>` matches your machine: `osx-arm64` (Apple Silicon Mac), `osx-x64` (Intel Mac),
@@ -37,7 +37,7 @@ release or `refs/heads/dev` for a dev preview:
 
 ```sh
 cosign verify-blob \
-  --certificate-identity 'https://github.com/4thWAIV/agent-guard/.github/workflows/ci.yml@refs/heads/main' \
+  --certificate-identity 'https://github.com/denice-aios/denice/.github/workflows/ci.yml@refs/heads/main' \
   --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
   --bundle guard-osx-arm64.cosign.bundle \
   guard-osx-arm64
@@ -54,11 +54,11 @@ Do the one-time trust step, then use any one of the launch options.
 
 ```sh
 chmod +x trust-cert.sh
-./trust-cert.sh agentguard-macos-public.cer
+./trust-cert.sh denice-macos-public.cer
 ```
 
 This adds the certificate as a **code-signing anchor in your login keychain only** — never a system root. It
-is reversible with `security remove-trusted-cert agentguard-macos-public.cer`.
+is reversible with `security remove-trusted-cert denice-macos-public.cer`.
 
 **2. Make the binary executable and launch it — pick one:**
 
@@ -91,7 +91,7 @@ certificate, then click through the one-time SmartScreen prompt.
 **1. Trust our certificate (once):**
 
 ```powershell
-.\trust-cert.ps1 agentguard-windows-public.cer
+.\trust-cert.ps1 denice-windows-public.cer
 ```
 
 This installs the certificate into your **CurrentUser Trusted Publishers** store — the narrow code-signing
@@ -126,6 +126,6 @@ chmod +x guard-linux-x64
 
 ---
 
-These steps are only needed for the self-signed alpha builds. Once AgentGuard ships with a notarized Apple
+These steps are only needed for the self-signed alpha builds. Once Denice ships with a notarized Apple
 identity and an EV/OV Windows certificate, Gatekeeper and SmartScreen will accept the binaries without any of
 the trust steps above.

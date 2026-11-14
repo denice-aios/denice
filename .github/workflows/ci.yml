@@ -4,11 +4,11 @@ name: CI
 # PRs must pass) PLUS, on a push to dev/main only, signing and a release.
 #
 # Version id: one leading `version` job computes it once (compute-version-once) and passes it to every OS job
-# and the release job as -p:AgentGuard* args / outputs, so all jobs stamp the identical id. dev => -pre-release,
+# and the release job as -p:Denice* args / outputs, so all jobs stamp the identical id. dev => -pre-release,
 # main => none.
 #
 # Signing (push only, decision signing-mechanisms): each OS job strong-name-signs its build (from the
-# AGENTGUARD_STRONGNAME_SNK secret; AGENTGUARD_REQUIRE_SIGNED makes a missing key a hard fail so CI never ships
+# DENICE_STRONGNAME_SNK secret; DENICE_REQUIRE_SIGNED makes a missing key a hard fail so CI never ships
 # unsigned — no-committed-keys), then codesign (mac) / signtool+timestamp (Windows) / cosign-keyless (all six)
 # its two binaries, checksum them, and upload them. The release job gathers all six and publishes one release:
 # pre-release from dev, full release from main (channel-by-prerelease-id).
@@ -60,8 +60,8 @@ jobs:
     env:
       # Opt the native smoke IN on this CI leg only; the test project keys its compilation on this flag, so the
       # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
-      AgentGuardRunNativeSmoke: "true"
-      AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
+      DeniceRunNativeSmoke: "true"
+      AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -76,20 +76,20 @@ jobs:
         if: github.event_name == 'push'
         shell: bash
         env:
-          AGENTGUARD_STRONGNAME_SNK: ${{ secrets.AGENTGUARD_STRONGNAME_SNK }}
-          AGENTGUARD_STRONGNAME_PUBLICKEY: ${{ secrets.AGENTGUARD_STRONGNAME_PUBLICKEY }}
+          DENICE_STRONGNAME_SNK: ${{ secrets.DENICE_STRONGNAME_SNK }}
+          DENICE_STRONGNAME_PUBLICKEY: ${{ secrets.DENICE_STRONGNAME_PUBLICKEY }}
         run: |
           eng/ci-restore-signing-key.sh
-          echo "AGENTGUARD_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
+          echo "DENICE_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
       - name: Build + publish both mac RIDs (build = the lint/analyzer gate too)
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/macos-build.binlog
-          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r osx-arm64 --self-contained $AG
-          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r osx-x64 --self-contained $AG
+          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r osx-arm64 --self-contained $AG
+          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r osx-x64 --self-contained $AG
       - name: Cross-RID selects exactly one platform library (host != target)
         # Regression guard for scan-resolutions #1: a self-contained cross-RID publish must reference and bundle
-        # exactly ONE AgentGuard.CrossPlatform.<OS> library. The per-OS legs can never catch a mis-selection
+        # exactly ONE Denice.CrossPlatform.<OS> library. The per-OS legs can never catch a mis-selection
         # because each job's host matches its RID; this runs a TRUE cross-build (macOS host -> linux-x64 target).
         #
         # -m:1 (single MSBuild node) is load-bearing, not a preference. A self-contained cross-RID publish evaluates
@@ -105,17 +105,17 @@ jobs:
         run: dotnet test -c Release $AG --logger "trx;LogFileName=macos-native.trx"
       - name: Test osx-x64 under Rosetta (must run as X64)
         # The detailed console logger surfaces ProcessArchitectureTests' "ProcessArchitecture=X64" line in the
-        # CI log (Acceptance 6); AGENTGUARD_EXPECT_ARCH=X64 makes the test itself fail if this leg did not truly
+        # CI log (Acceptance 6); DENICE_EXPECT_ARCH=X64 makes the test itself fail if this leg did not truly
         # land on x64 under Rosetta — teeth beyond a log grep (decision intel-mac-via-rosetta).
         env:
-          AGENTGUARD_EXPECT_ARCH: X64
+          DENICE_EXPECT_ARCH: X64
         run: |
           bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --architecture x64 --install-dir "$RUNNER_TEMP/dotnet-x64"
           DOTNET_ROOT="$RUNNER_TEMP/dotnet-x64" arch -x86_64 "$RUNNER_TEMP/dotnet-x64/dotnet" test -c Release $AG -l "console;verbosity=detailed" --logger "trx;LogFileName=macos-rosetta.trx"
       - name: Coverage gate — macOS implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
         # `dotnet test` collected cobertura coverage by default (the shared .runsettings). Gate the per-OS macOS
         # implementation on its own leg; the aggregate is gated once on the Linux leg.
-        run: eng/coverage-gate.sh . AgentGuard.CrossPlatform.MacOS
+        run: eng/coverage-gate.sh . Denice.CrossPlatform.MacOS
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -138,8 +138,8 @@ jobs:
       - name: Sign mac binaries (codesign, hardened runtime + entitlements)
         if: github.event_name == 'push'
         env:
-          P12_B64: ${{ secrets.AGENTGUARD_MACOS_CERT_P12 }}
-          P12_PW: ${{ secrets.AGENTGUARD_MACOS_CERT_PASSWORD }}
+          P12_B64: ${{ secrets.DENICE_MACOS_CERT_P12 }}
+          P12_PW: ${{ secrets.DENICE_MACOS_CERT_PASSWORD }}
         run: |
           set -euo pipefail
           WORK="$RUNNER_TEMP/macsign"; mkdir -p "$WORK"
@@ -148,7 +148,7 @@ jobs:
           # modern-then-legacy fallback lives in one place (eng/p12-to-pem.sh) shared with the release export.
           eng/p12-to-pem.sh "$WORK/cert.p12" "$P12_PW" "$WORK/cert.pem"
           if ! openssl x509 -in "$WORK/cert.pem" -checkend 0 -noout; then
-            echo "::error::AGENTGUARD_MACOS_CERT_P12 is expired — regenerate the CI signing cert (decision ci-cert-expiry-check)."
+            echo "::error::DENICE_MACOS_CERT_P12 is expired — regenerate the CI signing cert (decision ci-cert-expiry-check)."
             exit 1
           fi
           KC="$WORK/build.keychain-db"; KP="$(openssl rand -base64 24)"
@@ -166,8 +166,8 @@ jobs:
           IDENTITY="$(security find-identity -p codesigning "$KC" | grep -oE '[0-9A-F]{40}' | head -1)"
           if [ -z "$IDENTITY" ]; then echo "::error::No code-signing identity found in the build keychain after import."; exit 1; fi
           for rid in osx-arm64 osx-x64; do
-            BIN="src/AgentGuard.Cli/bin/Release/net10.0/$rid/publish/guard"
-            codesign --force --options runtime --entitlements eng/signing/agentguard.entitlements --keychain "$KC" --sign "$IDENTITY" "$BIN"
+            BIN="src/Denice.Cli/bin/Release/net10.0/$rid/publish/guard"
+            codesign --force --options runtime --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$BIN"
           done
       - name: Launch the codesigned mac binary (proves hardened runtime lets it run)
         # success definition + Acceptance 5: run the codesigned, hardened-runtime osx-arm64 binary on the mac
@@ -176,7 +176,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          src/AgentGuard.Cli/bin/Release/net10.0/osx-arm64/publish/guard version
+          src/Denice.Cli/bin/Release/net10.0/osx-arm64/publish/guard version
       - name: Stage, checksum, and cosign mac binaries
         if: github.event_name == 'push'
         run: eng/ci-stage-and-cosign.sh dist "" osx-arm64 osx-x64
@@ -209,8 +209,8 @@ jobs:
     env:
       # Opt the native smoke IN on this CI leg only; the test project keys its compilation on this flag, so the
       # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
-      AgentGuardRunNativeSmoke: "true"
-      AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
+      DeniceRunNativeSmoke: "true"
+      AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -225,20 +225,20 @@ jobs:
         if: github.event_name == 'push'
         shell: bash
         env:
-          AGENTGUARD_STRONGNAME_SNK: ${{ secrets.AGENTGUARD_STRONGNAME_SNK }}
-          AGENTGUARD_STRONGNAME_PUBLICKEY: ${{ secrets.AGENTGUARD_STRONGNAME_PUBLICKEY }}
+          DENICE_STRONGNAME_SNK: ${{ secrets.DENICE_STRONGNAME_SNK }}
+          DENICE_STRONGNAME_PUBLICKEY: ${{ secrets.DENICE_STRONGNAME_PUBLICKEY }}
         run: |
           eng/ci-restore-signing-key.sh
-          echo "AGENTGUARD_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
+          echo "DENICE_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
       - name: Build + publish both windows RIDs
         # bash (not the default pwsh) so $AG word-splits into separate -p args, matching the mac/linux jobs;
-        # under pwsh "$env:AG" is passed as ONE malformed argument and AgentGuardStampVersion fails the build.
+        # under pwsh "$env:AG" is passed as ONE malformed argument and DeniceStampVersion fails the build.
         shell: bash
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/windows-build.binlog
-          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r win-x64 --self-contained $AG
-          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r win-arm64 --self-contained $AG
+          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r win-x64 --self-contained $AG
+          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r win-arm64 --self-contained $AG
       - name: Test win-x64 (win-arm64 is build-only, accepted risk)
         shell: bash
         run: dotnet test -c Release $AG --logger "trx;LogFileName=windows.trx"
@@ -246,7 +246,7 @@ jobs:
         # bash so the shared gate script runs identically to the mac/linux legs. It gates the per-OS Windows
         # implementation on its own leg; the aggregate is gated once on the Linux leg.
         shell: bash
-        run: eng/coverage-gate.sh . AgentGuard.CrossPlatform.Windows
+        run: eng/coverage-gate.sh . Denice.CrossPlatform.Windows
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -270,8 +270,8 @@ jobs:
         if: github.event_name == 'push'
         shell: pwsh
         env:
-          PFX_B64: ${{ secrets.AGENTGUARD_WINDOWS_PFX }}
-          PFX_PW: ${{ secrets.AGENTGUARD_WINDOWS_PFX_PASSWORD }}
+          PFX_B64: ${{ secrets.DENICE_WINDOWS_PFX }}
+          PFX_PW: ${{ secrets.DENICE_WINDOWS_PFX_PASSWORD }}
         run: |
           $ErrorActionPreference = 'Stop'
           $work = Join-Path $env:RUNNER_TEMP 'winsign'
@@ -281,7 +281,7 @@ jobs:
           $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 @($pfx, $env:PFX_PW)
           # ci-cert-expiry-check: fail the build if the CI signing cert is already expired.
           if ($cert.NotAfter -lt (Get-Date)) {
-            Write-Error "AGENTGUARD_WINDOWS_PFX is expired ($($cert.NotAfter)) — regenerate the CI signing cert (decision ci-cert-expiry-check)."
+            Write-Error "DENICE_WINDOWS_PFX is expired ($($cert.NotAfter)) — regenerate the CI signing cert (decision ci-cert-expiry-check)."
           }
           # Install our self-signed cert into this ephemeral runner's trust store so `signtool verify /pa` chains.
           # This is the RUNNER, not a tester's machine — the tester 'never Root' rule (tester-trust-public-cer)
@@ -294,7 +294,7 @@ jobs:
             Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
           if (-not $signtool) { Write-Error 'signtool.exe not found on the runner.' }
           foreach ($rid in 'win-x64','win-arm64') {
-            $bin = "src\AgentGuard.Cli\bin\Release\net10.0\$rid\publish\guard.exe"
+            $bin = "src\Denice.Cli\bin\Release\net10.0\$rid\publish\guard.exe"
             # Timestamp against DigiCert; on failure fall back to Sectigo (decision digicert-timestamp-sectigo-fallback).
             & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $bin
             if ($LASTEXITCODE -ne 0) {
@@ -337,8 +337,8 @@ jobs:
     env:
       # Opt the native smoke IN on this CI leg only; the test project keys its compilation on this flag, so the
       # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
-      AgentGuardRunNativeSmoke: "true"
-      AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
+      DeniceRunNativeSmoke: "true"
+      AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -353,23 +353,23 @@ jobs:
         if: github.event_name == 'push'
         shell: bash
         env:
-          AGENTGUARD_STRONGNAME_SNK: ${{ secrets.AGENTGUARD_STRONGNAME_SNK }}
-          AGENTGUARD_STRONGNAME_PUBLICKEY: ${{ secrets.AGENTGUARD_STRONGNAME_PUBLICKEY }}
+          DENICE_STRONGNAME_SNK: ${{ secrets.DENICE_STRONGNAME_SNK }}
+          DENICE_STRONGNAME_PUBLICKEY: ${{ secrets.DENICE_STRONGNAME_PUBLICKEY }}
         run: |
           eng/ci-restore-signing-key.sh
-          echo "AGENTGUARD_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
+          echo "DENICE_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
       - name: Build + publish both linux RIDs
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/linux-build.binlog
-          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r linux-arm64 --self-contained $AG
-          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r linux-x64 --self-contained $AG
+          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r linux-arm64 --self-contained $AG
+          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r linux-x64 --self-contained $AG
       - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
         run: dotnet test -c Release $AG --logger "trx;LogFileName=linux.trx"
       - name: Coverage gate — aggregate + Linux implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
         # The Linux leg is where the aggregate of Engine + Cli (guard) + CrossPlatform is gated (computed once),
         # alongside the per-OS Linux implementation. `dotnet test` collected coverage by default.
-        run: eng/coverage-gate.sh . aggregate AgentGuard.CrossPlatform.Linux
+        run: eng/coverage-gate.sh . aggregate Denice.CrossPlatform.Linux
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -456,7 +456,7 @@ jobs:
   # Publishes ONE release from the six signed binaries — pre-release from dev, full release from main. Runs only
   # on a push (PRs publish nothing) and only after the gate is green (needs: gate). On macOS so it can re-verify
   # the mac codesign seals; cosign verify-blob covers all six. The assets are packaged as zips (release-zip-layout):
-  # one agentguard-<rid>.zip per binary plus one evidence.zip with a subdirectory per OS/platform build.
+  # one denice-<rid>.zip per binary plus one evidence.zip with a subdirectory per OS/platform build.
   release:
     needs: [version, gate, macos, windows, linux, typescript]
     if: github.event_name == 'push'
@@ -531,10 +531,10 @@ jobs:
           eng/ci-verify-signatures.sh verify/release-linux.txt   none     ""     "$IDENTITY" linux-arm64 linux-x64
       - name: Export the two public certs from their secrets (never drift)
         env:
-          MAC_P12_B64: ${{ secrets.AGENTGUARD_MACOS_CERT_P12 }}
-          MAC_P12_PW: ${{ secrets.AGENTGUARD_MACOS_CERT_PASSWORD }}
-          WIN_PFX_B64: ${{ secrets.AGENTGUARD_WINDOWS_PFX }}
-          WIN_PFX_PW: ${{ secrets.AGENTGUARD_WINDOWS_PFX_PASSWORD }}
+          MAC_P12_B64: ${{ secrets.DENICE_MACOS_CERT_P12 }}
+          MAC_P12_PW: ${{ secrets.DENICE_MACOS_CERT_PASSWORD }}
+          WIN_PFX_B64: ${{ secrets.DENICE_WINDOWS_PFX }}
+          WIN_PFX_PW: ${{ secrets.DENICE_WINDOWS_PFX_PASSWORD }}
         run: |
           set -euo pipefail
           export_cer() { # <b64> <pw> <out.cer>
@@ -546,12 +546,12 @@ jobs:
             openssl x509 -in "$tmp/cert.pem" -outform DER -out "$out"
             rm -rf "$tmp"
           }
-          export_cer "$MAC_P12_B64" "$MAC_P12_PW" dist/agentguard-macos-public.cer
-          export_cer "$WIN_PFX_B64" "$WIN_PFX_PW" dist/agentguard-windows-public.cer
+          export_cer "$MAC_P12_B64" "$MAC_P12_PW" dist/denice-macos-public.cer
+          export_cer "$WIN_PFX_B64" "$WIN_PFX_PW" dist/denice-windows-public.cer
       - name: Stage the tester trust scripts
         run: cp eng/signing/trust-cert.sh eng/signing/trust-cert.ps1 dist/
       - name: Package binaries and evidence as release zips (release-zip-layout)
-        # release-zip-layout: one agentguard-<rid>.zip per binary (the binary + its .sha256 checksum + its
+        # release-zip-layout: one denice-<rid>.zip per binary (the binary + its .sha256 checksum + its
         # .cosign.bundle signature), and one evidence.zip organized with one subdirectory per OS/platform build.
         # Signing already happened in the per-OS jobs, so the embedded native seal and the detached cosign bundle
         # both travel inside the archive; chmod +x ran above, so the mac/linux executables keep their exec bit.
@@ -560,7 +560,7 @@ jobs:
           cd dist
           for rid in osx-arm64 osx-x64 win-x64 win-arm64 linux-arm64 linux-x64; do
             case "$rid" in win-*) bin="guard-$rid.exe" ;; *) bin="guard-$rid" ;; esac
-            zip -j "agentguard-$rid.zip" "$bin" "guard-$rid.sha256" "guard-$rid.cosign.bundle"
+            zip -j "denice-$rid.zip" "$bin" "guard-$rid.sha256" "guard-$rid.cosign.bundle"
           done
           cd ..
           rm -rf evidence-zip-root
@@ -611,7 +611,7 @@ jobs:
             PRERELEASE=""; KIND="release"; CHANNEL_LINE="release"
           fi
           VERSION="$TAG"
-          TITLE="AgentGuard ${VERSION} (${KIND})"
+          TITLE="Denice ${VERSION} (${KIND})"
           REPO="${{ github.repository }}"
           NOTES="$RUNNER_TEMP/notes.md"
           {
@@ -627,8 +627,8 @@ jobs:
             --title "$TITLE" \
             --notes-file "$NOTES" \
             $PRERELEASE \
-            agentguard-osx-arm64.zip agentguard-osx-x64.zip agentguard-win-x64.zip agentguard-win-arm64.zip agentguard-linux-arm64.zip agentguard-linux-x64.zip \
+            denice-osx-arm64.zip denice-osx-x64.zip denice-win-x64.zip denice-win-arm64.zip denice-linux-arm64.zip denice-linux-x64.zip \
             evidence.zip \
-            agentguard-macos-public.cer agentguard-windows-public.cer \
+            denice-macos-public.cer denice-windows-public.cer \
             trust-cert.sh trust-cert.ps1 \
             evolang-kit.zip

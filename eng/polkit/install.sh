@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Interim Linux installer for AgentGuard (linux-policy-root-install-fail-closed, issue #44).
+# Interim Linux installer for Denice (linux-policy-root-install-fail-closed, issue #44).
 #
 # It installs the polkit presence action root-owned under /usr/share/polkit-1/actions/ and the guard binary under
 # /usr/local/bin. The guard binary NEVER writes the policy itself; this one-time `sudo install` is the only writer.
@@ -12,7 +12,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-POLICY_SRC="${SCRIPT_DIR}/agentguard-presence.policy"
+POLICY_SRC="${SCRIPT_DIR}/denice-presence.policy"
 POLICY_DEST_DIR="/usr/share/polkit-1/actions"
 POLICY_DEST="${POLICY_DEST_DIR}/$(basename "${POLICY_SRC}")"
 BIN_DEST_DIR="/usr/local/bin"

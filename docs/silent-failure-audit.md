@@ -28,11 +28,11 @@ Rule: CLAUDE.md rule 1, "Nothing may ever fail silently; failures must be loud."
 - `WindowsUserPresence.cs:154,175`, `BuildOutputSkipRule.cs:47,51`, `FileGuard.cs:383-387`: fail-closed
   but the exception text is dropped.
 - `BoundaryServices.cs:54-72` and its consumers: if `ISystemServices` cannot be found the rules go inert.
-  Add a test resolving the container from the live `AgentGuard.Abstractions`.
+  Add a test resolving the container from the live `Denice.Abstractions`.
 - `BuilderCompletenessAnalyzer.cs:82-95`: same hole for the builder.
 - Test-cleanup empty catches (`TestTempDirectory.cs`, `SetupHarness.cs`, `FixtureProject.cs`,
   `CliMachine.cs`, `PlatformFileSystemSpecTests.cs:302`): cannot mask a product failure.
-- `PresenceNativeSmokeTests.cs:37` is compiled out locally unless `AgentGuardRunNativeSmoke=true`.
+- `PresenceNativeSmokeTests.cs:37` is compiled out locally unless `DeniceRunNativeSmoke=true`.
 - `ci.yml`: win-arm64 and linux-x64 legs are build-only; signing runs only on push; upload steps use
   `if-no-files-found: warn`.
 - `eng/check-copied-modules.mjs` is not run by CI, and eslint/tsc do not cover `.agents/workflows/*.js`.

@@ -58,7 +58,7 @@ declare:
           holds: none
         file: words.ts
         sits:
-          package: agent-guard-ts
+          package: denice-ts
           assembly: none
           namespace: none
         form: record
@@ -140,7 +140,7 @@ declare:
           holds: none
         file: words.ts
         sits:
-          package: agent-guard-ts
+          package: denice-ts
           assembly: none
           namespace: none
         form: record
@@ -172,7 +172,7 @@ declare:
           holds: [Vocabulary, Fault]
         file: rulebook.ts
         sits:
-          package: agent-guard-ts
+          package: denice-ts
           assembly: none
           namespace: none
         form: record
@@ -204,7 +204,7 @@ declare:
           holds: none
         file: expression.ts
         sits:
-          package: agent-guard-ts
+          package: denice-ts
           assembly: none
           namespace: none
         form: interface
@@ -236,7 +236,7 @@ declare:
           holds: none
         file: check.ts
         sits:
-          package: agent-guard-ts
+          package: denice-ts
           assembly: none
           namespace: none
         form: function
@@ -258,7 +258,7 @@ declare:
           holds: none
         file: highlight.ts
         sits:
-          package: agent-guard-ts
+          package: denice-ts
           assembly: none
           namespace: none
         form: function

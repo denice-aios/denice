@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Contract assembly: the platform-capability interfaces and nothing else. ZERO native code lives here; the
+       [LibraryImport] bindings live only in the per-OS impl assemblies (.MacOS/.Linux/.Windows), behind these
+       locked interfaces. This is one of the four Denice.CrossPlatform.* libraries the interop/OS-branching
+       analyzers (AG0008/AG0009) exempt. -->
+  <PropertyGroup>
+    <RootNamespace>Denice.CrossPlatform</RootNamespace>
+    <AssemblyName>Denice.CrossPlatform</AssemblyName>
+  </PropertyGroup>
+
+  <!-- The relocated platform interfaces (IPlatformFileSystem/IPlatformServices) now live in
+       Denice.Abstractions.Contracts (platform-interfaces-to-abstractions). -->
+  <ItemGroup>
+    <ProjectReference Include="../Denice.Abstractions/Denice.Abstractions.csproj" />
+  </ItemGroup>
+
+  <!-- The owned adapters and the one CrossPlatformAdapters factory stay internal with private constructors (Wall 1).
+       Denice.Engine reaches the one factory through this grant, and only from SystemServices.Create() (AG0023);
+       the grant moved here from Denice.Boundaries with the container itself. The three per-OS implementation
+       assemblies reach it too, so each PlatformServices.Create() wires the same owned adapters
+       into its platform file system. Keyless in source; the signing target injects the public key on a signed build
+       (decision 35). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Denice.Engine" />
+    <InternalsVisibleTo Include="Denice.CrossPlatform.MacOS" />
+    <InternalsVisibleTo Include="Denice.CrossPlatform.Linux" />
+    <InternalsVisibleTo Include="Denice.CrossPlatform.Windows" />
+    <!-- The guardrail-1 owner-marker mechanism (guardrail-1-nativespec-convention-test): the OS-agnostic convention test
+         reflects over the internal RequiresNativeSpecTestAttribute defined here, which the per-OS owner interfaces carry,
+         to discover which owners require a NativeSpec spec test, so the spec-test assembly needs the same internals grant
+         the per-OS libs already hold. Keyless in source; the signing target injects the public key on a signed build. -->
+    <InternalsVisibleTo Include="Denice.CrossPlatform.Tests" />
+  </ItemGroup>
+
+</Project>

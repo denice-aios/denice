@@ -8,8 +8,8 @@
        `dotnet test` of it prints "Unable to find a datacollector with friendly name 'XPlat Code Coverage'". This
        lives in targets, not props, because it is set in the analyzer test project's own body, which MSBuild
        evaluates after the props import but before this targets import — the same reason the version-stamp target
-       below conditions on `$(AgentGuardIsAnalyzerProject)`. -->
-  <PropertyGroup Condition="'$(AgentGuardIsAnalyzerProject)' == 'true'">
+       below conditions on `$(DeniceIsAnalyzerProject)`. -->
+  <PropertyGroup Condition="'$(DeniceIsAnalyzerProject)' == 'true'">
     <RunSettingsFilePath />
   </PropertyGroup>
 
@@ -17,27 +17,27 @@
     Stamp the two version forms (decisions 15-17) after the id is resolved, before the SDK turns them into
     assembly attributes.
 
-    AgentGuardResolveVersion (its DependsOn) fills the id when it wasn't supplied as args and the pre-solution
+    DeniceResolveVersion (its DependsOn) fills the id when it wasn't supplied as args and the pre-solution
     target didn't already set it: it reads the shared file another project in THIS build wrote, or writes it
     once itself — so every project in one build carries the same id (compute-once holds for solution builds,
     `dotnet test`, and single/multi-project builds alike).
 
     No placeholder ever: if the id is still incomplete here (e.g. partial CI args), fail loudly.
   -->
-  <Target Name="AgentGuardStampVersion"
+  <Target Name="DeniceStampVersion"
           BeforeTargets="GetAssemblyVersion;GetAssemblyAttributes;CoreGenerateAssemblyInfo;CoreCompile"
-          DependsOnTargets="AgentGuardResolveVersion"
-          Condition="'$(AgentGuardIsAnalyzerProject)' != 'true' and '$(DesignTimeBuild)' != 'true'">
-    <Error Condition="'$(AgentGuardDay)' == '' or '$(AgentGuardTime)' == '' or '$(AgentGuardCombined)' == '' or '$(AgentGuardHash)' == '' or '$(AgentGuardTag)' == '' or '$(AgentGuardVersion)' == ''"
-           Text="Incomplete AgentGuard build id (need Day, Time, Combined, Hash, Tag, and Version together). This build refuses to stamp a placeholder version." />
+          DependsOnTargets="DeniceResolveVersion"
+          Condition="'$(DeniceIsAnalyzerProject)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(DeniceDay)' == '' or '$(DeniceTime)' == '' or '$(DeniceCombined)' == '' or '$(DeniceHash)' == '' or '$(DeniceTag)' == '' or '$(DeniceVersion)' == ''"
+           Text="Incomplete Denice build id (need Day, Time, Combined, Hash, Tag, and Version together). This build refuses to stamp a placeholder version." />
     <!-- Pure consumer of the single assembled id: Tag (=Version, no +hash) and Version (=InformationalVersion,
          with +hash) come from the one owner (eng/version.compute.targets locally, the `version` job / -p args in
          CI). This target never re-joins MAJOR.MINOR/Combined or re-applies -pre-release (compute-version-once). -->
     <PropertyGroup>
-      <AssemblyVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</AssemblyVersion>
-      <FileVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</FileVersion>
-      <Version>$(AgentGuardTag)</Version>
-      <InformationalVersion>$(AgentGuardVersion)</InformationalVersion>
+      <AssemblyVersion>$(DeniceMajorMinor).$(DeniceDay).$(DeniceTime)</AssemblyVersion>
+      <FileVersion>$(DeniceMajorMinor).$(DeniceDay).$(DeniceTime)</FileVersion>
+      <Version>$(DeniceTag)</Version>
+      <InformationalVersion>$(DeniceVersion)</InformationalVersion>
     </PropertyGroup>
   </Target>
 

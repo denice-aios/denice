@@ -2402,11 +2402,11 @@ describe('a value keyed by a closed set', () => {
   const written = (value: unknown): CheckResult => only(language(keyed, value))
 
   test('one line for each word of the set is what the whole set asks for', () => {
-    expect(written({ package: 'AgentGuard.Engine', assembly: 'AgentGuard.Engine' }).problems).toEqual([])
+    expect(written({ package: 'Denice.Engine', assembly: 'Denice.Engine' }).problems).toEqual([])
   })
 
   test('each line is read against the type every line holds', () => {
-    const r = written({ package: 'AgentGuard.Engine', assembly: 7 })
+    const r = written({ package: 'Denice.Engine', assembly: 7 })
     expect(problemsAt(r, `${where}.assembly`)).toEqual(['is not written as a string'])
   })
 

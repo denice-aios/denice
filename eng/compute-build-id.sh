@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # CI pre-job build-id computation (decision 25, option b). Computes the ONE build id for a CI run and prints it
 # as key=value lines; a GitHub Actions pre-job runs this once and passes the values to every downstream job as
-# -p:AgentGuard... so the 3 per-OS machine jobs + the release job all stamp the identical id. The Day/Time math
+# -p:Denice... so the 3 per-OS machine jobs + the release job all stamp the identical id. The Day/Time math
 # here intentionally mirrors the pre-solution MSBuild target (authorized to live in these two places).
 #
 # Usage: eng/compute-build-id.sh [channel]     channel "dev" => -pre-release; "pr-<number>" => -pr-<number>
@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CHANNEL="${1:-${AGENTGUARD_CHANNEL:-}}"
+CHANNEL="${1:-${DENICE_CHANNEL:-}}"
 EPOCH=1577836800                       # 2020-01-01T00:00:00Z
 NOW=$(date -u +%s)
 DAY=$(( (NOW - EPOCH) / 86400 ))
@@ -31,9 +31,9 @@ fi
 # version.props or re-joins the string. `tag` is the release tag / MSBuild Version (no +hash); `version` is the
 # full SemVer / InformationalVersion (with +hash). This mirrors the MSBuild owner in eng/version.compute.targets
 # (the same authorized two-place mirror as the Day/Time formula above).
-MAJOR_MINOR=$(grep -oE '<AgentGuardMajorMinor>[^<]+' "$SCRIPT_DIR/version.props" | sed 's/.*>//')
+MAJOR_MINOR=$(grep -oE '<DeniceMajorMinor>[^<]+' "$SCRIPT_DIR/version.props" | sed 's/.*>//')
 if [ -z "$MAJOR_MINOR" ]; then
-  echo "compute-build-id: could not read <AgentGuardMajorMinor> from $SCRIPT_DIR/version.props" >&2
+  echo "compute-build-id: could not read <DeniceMajorMinor> from $SCRIPT_DIR/version.props" >&2
   exit 1
 fi
 # The prerelease suffix is applied HERE and nowhere else. `dev` => `-pre-release`; a pull-request channel

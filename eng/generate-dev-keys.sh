@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One script to set up AgentGuard dev signing (decisions 20, 24, 36):
+# One script to set up Denice dev signing (decisions 20, 24, 36):
 #   1. mints the strong-name key + code-signing cert via the single-file C# program (no SLN/csproj)
 #   2. imports the code-signing identity so `codesign` can use it
 #   3. adds narrow, code-signing-only trust (never Root) so Gatekeeper accepts locally signed builds
@@ -14,8 +14,8 @@ mkdir -p "$OUT_DIR"
 echo "==> minting keys into $OUT_DIR"
 dotnet run "$SCRIPT_DIR/generate-dev-keys.cs" -- "$OUT_DIR"
 
-PFX="$OUT_DIR/agentguard-codesign.pfx"
-CER="$OUT_DIR/agentguard-codesign.cer"
+PFX="$OUT_DIR/denice-codesign.pfx"
+CER="$OUT_DIR/denice-codesign.cer"
 
 case "$(uname -s)" in
   Darwin)

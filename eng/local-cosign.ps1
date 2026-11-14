@@ -1,5 +1,5 @@
 # Local, OPT-IN cosign co-signing (decision cosign-keyless-and-community-cosign) — Windows companion to
-# eng/local-cosign.sh. OFF by default: set AGENTGUARD_COSIGN=1 to co-sign a LOCALLY-produced binary with your
+# eng/local-cosign.sh. OFF by default: set DENICE_COSIGN=1 to co-sign a LOCALLY-produced binary with your
 # OWN Sigstore identity via the interactive browser login, so a small contributor community can verify and
 # trust each other's local builds. NOT the CI path (CI signs keyless with the ambient GitHub OIDC identity);
 # skipped in CI and when headless, so a normal local or CI build is unaffected.
@@ -15,8 +15,8 @@ if (-not $BundleOut) { $BundleOut = "$Binary.cosign.bundle" }
 
 function Test-True($v) { $v -in @('1', 'true', 'TRUE', 'yes', 'YES', 'on', 'ON') }
 
-if (-not (Test-True $env:AGENTGUARD_COSIGN)) {
-    Write-Host 'AGENTGUARD_COSIGN is off — skipping local cosign co-signing (opt-in only).'
+if (-not (Test-True $env:DENICE_COSIGN)) {
+    Write-Host 'DENICE_COSIGN is off — skipping local cosign co-signing (opt-in only).'
     exit 0
 }
 if ($env:CI -or $env:GITHUB_ACTIONS) {
@@ -28,7 +28,7 @@ if ([Console]::IsInputRedirected -or [Console]::IsOutputRedirected) {
     exit 0
 }
 if (-not (Get-Command cosign -ErrorAction SilentlyContinue)) {
-    Write-Error 'cosign is not installed — install it to use AGENTGUARD_COSIGN (https://docs.sigstore.dev).'
+    Write-Error 'cosign is not installed — install it to use DENICE_COSIGN (https://docs.sigstore.dev).'
 }
 if (-not (Test-Path $Binary)) { Write-Error "Binary '$Binary' not found." }
 

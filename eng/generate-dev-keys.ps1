@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# One script to set up AgentGuard dev signing on Windows (decisions 20, 24, 36):
+# One script to set up Denice dev signing on Windows (decisions 20, 24, 36):
 #   1. mints the strong-name key + code-signing cert via the single-file C# program (no SLN/csproj)
 #   2. imports the code-signing cert into the current user's personal store
 #   3. adds it to Trusted Publishers (narrow) so signtool-signed builds are trusted locally, never Root
@@ -17,7 +17,7 @@ Write-Host "==> minting keys into $OutDir"
 dotnet run (Join-Path $ScriptDir 'generate-dev-keys.cs') -- $OutDir
 if ($LASTEXITCODE -ne 0) { throw "generate-dev-keys.cs failed with exit code $LASTEXITCODE" }
 
-$Pfx = Join-Path $OutDir 'agentguard-codesign.pfx'
+$Pfx = Join-Path $OutDir 'denice-codesign.pfx'
 
 Write-Host "==> importing code-signing cert into CurrentUser\My"
 # No password on the pfx (decision 22).

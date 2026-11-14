@@ -1,0 +1,61 @@
+<Project>
+
+  <!--
+    Shared platform-implementation selection, imported by every project that calls PlatformServices.Create()
+    (the engine and the one OS-agnostic spec test project). It references the contract assembly always and
+    EXACTLY ONE per-OS implementation, so calling code stays identical and OS-agnostic.
+
+    Selection rule (scan-resolutions #1, Tim approved 2026-08-09): key on the target RuntimeIdentifier, and fall
+    back to the build-host OS ONLY when no RID is given. Never key on the build-host OS when a RID is present — a
+    cross-build (e.g. publishing win-x64 from macOS) would otherwise ship the wrong library and crash. Paths are
+    anchored at $(MSBuildThisFileDirectory) so a single copy of this logic serves every importer regardless of its
+    own directory.
+
+    Why $(DenicePlatformRid) and not $(RuntimeIdentifier) directly: on a self-contained cross-RID publish the
+    SDK builds this project's *library* references with RuntimeIdentifier undefined (it strips
+    TargetFramework;RuntimeIdentifier;SelfContained), so keying straight on $(RuntimeIdentifier) makes restore (RID
+    present -> Windows) and the stripped library build (RID absent -> host = macOS) select DIFFERENT per-OS projects,
+    and the publish bundles BOTH (or fails NETSDK1004 on a cold tree). The consuming app therefore threads the RID
+    down as the DenicePlatformRid global property (see Denice.Cli.csproj's ProjectReference
+    AdditionalProperties); that property is NOT in the SDK's strip list, so it survives into the library build and
+    restore and every build pass agree on exactly ONE per-OS project. It falls back to $(RuntimeIdentifier) (so a
+    direct `dotnet publish -r <rid>` of an importer still works) and then to the build-host OS when neither is set.
+  -->
+  <PropertyGroup>
+    <DenicePlatformRid Condition="'$(DenicePlatformRid)' == ''">$(RuntimeIdentifier)</DenicePlatformRid>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Denice.CrossPlatform.csproj" />
+  </ItemGroup>
+
+  <Choose>
+    <When Condition="$(DenicePlatformRid.StartsWith('win')) or ('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Windows')))">
+      <ItemGroup>
+        <ProjectReference Include="$(MSBuildThisFileDirectory)..\Denice.CrossPlatform.Windows\Denice.CrossPlatform.Windows.csproj" />
+      </ItemGroup>
+    </When>
+    <When Condition="$(DenicePlatformRid.StartsWith('linux')) or ('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Linux')))">
+      <ItemGroup>
+        <ProjectReference Include="$(MSBuildThisFileDirectory)..\Denice.CrossPlatform.Linux\Denice.CrossPlatform.Linux.csproj" />
+      </ItemGroup>
+    </When>
+    <When Condition="$(DenicePlatformRid.StartsWith('osx')) or ('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+      <ItemGroup>
+        <ProjectReference Include="$(MSBuildThisFileDirectory)..\Denice.CrossPlatform.MacOS\Denice.CrossPlatform.MacOS.csproj" />
+      </ItemGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <_DenicePlatformImplUnresolved>true</_DenicePlatformImplUnresolved>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
+
+  <Target Name="_DeniceFailOnUnresolvedPlatformImpl"
+          BeforeTargets="ResolveProjectReferences"
+          Condition="'$(_DenicePlatformImplUnresolved)' == 'true'">
+    <Error Text="No Denice.CrossPlatform per-OS implementation matched DenicePlatformRid '$(DenicePlatformRid)' and the build-host OS; expected a win/linux/osx target." />
+  </Target>
+
+</Project>

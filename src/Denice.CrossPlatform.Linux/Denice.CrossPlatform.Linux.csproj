@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Linux per-OS impl assembly. It carries NO POSIX source of its own: the same libc rename serves both kernels,
+       so it <Compile Include=… Link=…>-shares the single authored MacOS POSIX source across project directories —
+       ONE source, linked mac -> linux, NOT duplicated and NOT collapsed to a shared base class. A real second copy
+       would compile the same type+namespace twice into one assembly (a duplicate-type build error), so the
+       compiler itself forbids the copy. The [LibraryImport] source generator requires unsafe blocks. One of the
+       four Denice.CrossPlatform.* libraries the interop/OS-branching analyzers (AG0008/AG0009) exempt. -->
+  <PropertyGroup>
+    <RootNamespace>Denice.CrossPlatform.Linux</RootNamespace>
+    <AssemblyName>Denice.CrossPlatform.Linux</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Denice.Abstractions/Denice.Abstractions.csproj" />
+    <ProjectReference Include="../Denice.CrossPlatform/Denice.CrossPlatform.csproj" />
+  </ItemGroup>
+
+  <!-- The pinned managed D-Bus transport for the Linux polkit CheckAuthorization call (tmds-dbus-protocol-pinned).
+       The version lives in Directory.Packages.props (roll-forward disabled); this is the ONLY reference to it, and the
+       ONLY class that touches it is TmdsPolkitAuthority (AG0110). Owners live at their lowest consumer, so the
+       reference is versionless here. -->
+  <ItemGroup>
+    <PackageReference Include="Tmds.DBus.Protocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../Denice.CrossPlatform.MacOS/Posix/PosixNativeMethods.cs" Link="Posix/PosixNativeMethods.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Posix/PosixFileSystem.cs" Link="Posix/PosixFileSystem.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Posix/PlatformServices.cs" Link="Posix/PlatformServices.cs" />
+  </ItemGroup>
+
+  <!-- PlatformServices.Create() is internal (platform-create-internal); Denice.Engine reaches this one door
+       through the grant, and only from SystemServices.Create() (AG0029); the grant moved here from
+       Denice.Boundaries with the container itself. Keyless in source; the signing target injects the public key
+       on a signed build. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Denice.Engine" />
+    <!-- The per-OS presence spec tests reach the internal IPolkitAuthority port, PolkitResult/PolkitSubject,
+         LinuxPresenceCheck, PolkitDecision, and PolkitAction.Id from the one OS-agnostic spec test project, selected
+         onto the Linux impl on the Linux CI leg. -->
+    <InternalsVisibleTo Include="Denice.CrossPlatform.Tests" />
+  </ItemGroup>
+
+</Project>

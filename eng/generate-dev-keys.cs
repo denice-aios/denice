@@ -1,16 +1,16 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-// AgentGuard dev-key generator (decision 36): a single-file C# program, run by
+// Denice dev-key generator (decision 36): a single-file C# program, run by
 // generate-dev-keys.sh / .ps1 via `dotnet run generate-dev-keys.cs -- <outDir>`.
 // No SLN/csproj, no openssl. Cross-platform (pure .NET crypto), so it produces the
 // identical key material on macOS, Windows, and Linux.
 //
 // It writes FOUR files into <outDir> (decision 21: one strong-name key + one code-signing cert):
-//   agentguard-strongname.snk        - CAPI PRIVATEKEYBLOB, the strong-name key (SignAssembly)
-//   agentguard-strongname.publickey  - hex of the strong-name PUBLIC key blob, for InternalsVisibleTo (decision 35)
-//   agentguard-codesign.pfx          - self-signed Code Signing cert, no password (decision 22), used by
+//   denice-strongname.snk        - CAPI PRIVATEKEYBLOB, the strong-name key (SignAssembly)
+//   denice-strongname.publickey  - hex of the strong-name PUBLIC key blob, for InternalsVisibleTo (decision 35)
+//   denice-codesign.pfx          - self-signed Code Signing cert, no password (decision 22), used by
 //                                      codesign (macOS) and signtool (Windows); the SAME cert both OSes (decision 21)
-//   agentguard-codesign.cer          - the public half, for testers to trust (decision 24)
+//   denice-codesign.cer          - the public half, for testers to trust (decision 24)
 //
 // The strong-name key material must be a Microsoft CAPI blob; openssl cannot emit it and `sn` is Windows-only,
 // which is exactly why this is a .NET program rather than a shell + openssl pipeline.
@@ -31,12 +31,12 @@ using (var rsa = RSA.Create(2048))
     RSAParameters p = rsa.ExportParameters(includePrivateParameters: true);
 
     byte[] snk = ToCapiPrivateKeyBlob(p);
-    string snkPath = Path.Combine(outDir, "agentguard-strongname.snk");
+    string snkPath = Path.Combine(outDir, "denice-strongname.snk");
     await File.WriteAllBytesAsync(snkPath, snk).ConfigureAwait(false);
     Console.WriteLine($"wrote {snkPath} ({snk.Length} bytes)");
 
     string pubHex = Convert.ToHexString(ToStrongNamePublicKey(p));
-    string pubPath = Path.Combine(outDir, "agentguard-strongname.publickey");
+    string pubPath = Path.Combine(outDir, "denice-strongname.publickey");
     await File.WriteAllTextAsync(pubPath, pubHex).ConfigureAwait(false);
     Console.WriteLine($"wrote {pubPath} ({pubHex.Length} hex chars)");
 }
@@ -45,7 +45,7 @@ using (var rsa = RSA.Create(2048))
 using (var certRsa = RSA.Create(2048))
 {
     var req = new CertificateRequest(
-        "CN=AgentGuard untrusted-local-dev-only-use, O=4thWAIV",
+        "CN=Denice untrusted-local-dev-only-use, O=4thWAIV",
         certRsa,
         HashAlgorithmName.SHA256,
         RSASignaturePadding.Pkcs1);
@@ -60,14 +60,14 @@ using (var certRsa = RSA.Create(2048))
     using X509Certificate2 cert = req.CreateSelfSigned(notBefore, notAfter);
 
     byte[] pfx = cert.Export(X509ContentType.Pkcs12); // empty password (decision 22)
-    string pfxPath = Path.Combine(outDir, "agentguard-codesign.pfx");
+    string pfxPath = Path.Combine(outDir, "denice-codesign.pfx");
     await File.WriteAllBytesAsync(pfxPath, pfx).ConfigureAwait(false);
     Console.WriteLine($"wrote {pfxPath} ({pfx.Length} bytes), expires {cert.NotAfter:yyyy-MM-dd}");
 
     // Public-only cert (DER) that a tester installs to trust the signature (decision 24). Emitted by the
     // generator itself so no openssl is needed anywhere in the chain.
     byte[] cer = cert.Export(X509ContentType.Cert);
-    string cerPath = Path.Combine(outDir, "agentguard-codesign.cer");
+    string cerPath = Path.Combine(outDir, "denice-codesign.cer");
     await File.WriteAllBytesAsync(cerPath, cer).ConfigureAwait(false);
     Console.WriteLine($"wrote {cerPath} ({cer.Length} bytes)");
 }
