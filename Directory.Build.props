@@ -43,8 +43,8 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Package metadata">
-    <Authors>4thWAIV</Authors>
-    <Company>4thWAIV</Company>
+    <Authors>Denice.ai</Authors>
+    <Company>Denice.ai</Company>
     <Product>Denice</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
@@ -56,7 +56,7 @@
   <PropertyGroup Label="Build version">
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <AssemblyTitle>Denice guards critical files from agent changes</AssemblyTitle>
-    <Copyright>Copyright © 2026 4thWAIV</Copyright>
+    <Copyright>Copyright © 2026 Denice.ai</Copyright>
     <!-- The NuGet package version. NuGet resolves it outside the stamp target, so set PackageVersion at
          evaluation time from the id (args or the generated file). Using PackageVersion, not Version, keeps it
          off AssemblyVersion derivation — so the unstamped analyzer project isn't given an out-of-range version. -->

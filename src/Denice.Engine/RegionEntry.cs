@@ -1,4 +1,4 @@
-// Copyright (c) 4thWAIV. All rights reserved.
+// Copyright (c) Denice.ai. All rights reserved.
 
 namespace Denice.Engine;
 

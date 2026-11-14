@@ -1,4 +1,4 @@
-// Copyright (c) 4thWAIV. All rights reserved.
+// Copyright (c) Denice.ai. All rights reserved.
 
 // Denice dev-key generator (decision 36): a single-file C# program, run by
 // generate-dev-keys.sh / .ps1 via `dotnet run generate-dev-keys.cs -- <outDir>`.
