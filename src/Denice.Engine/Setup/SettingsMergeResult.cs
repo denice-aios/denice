@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The result of merging or stripping the guard's hook entries in <c>.claude/settings.json</c>: either the

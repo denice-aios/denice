@@ -18,7 +18,7 @@ namespace Denice.Analyzers;
 /// return type is the sub-builder scope, which must recursively satisfy the same check to arbitrary depth. A missing
 /// navigator is reported ONCE at that node, not once per leaf beneath it. The walk is the ONE container walk
 /// <see cref="BoundaryServices.ResolveTree"/> performs, so the builder is enforced against the identical structure
-/// AG0034 guards and the identical leaf set AG0025/AG0031 read. The rule runs only in the assembly that DEFINES the
+/// DN0034 guards and the identical leaf set DN0025/DN0031 read. The rule runs only in the assembly that DEFINES the
 /// builder (<c>Denice.TestHelpers</c>): a <c>.Tests</c> project that merely references the builder is not
 /// re-checked. Service parameter types are matched by full name (namespace + name) through <see cref="WellKnownType"/>,
 /// and <c>Func&lt;,&gt;</c> by <see cref="WellKnownType"/> — never a bare name. It is preventive today — the builder is
@@ -30,7 +30,7 @@ public sealed class BuilderCompletenessAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0019";
+    public const string DiagnosticId = "DN0019";
 
     private const string Category = "Denice.Architecture";
     private const string BuilderTypeName = "SystemServicesBuilder";

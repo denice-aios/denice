@@ -9,8 +9,8 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Denice.Analyzers;
 
 /// <summary>
-/// The single-owner-class exemption shared by the OS-primitive boundary rules — the consolidated owner rule (AG0011),
-/// which resolves every primitive's owner through <see cref="OwnedPrimitives"/>, and the OS-divergent rule (AG0101).
+/// The single-owner-class exemption shared by the OS-primitive boundary rules — the consolidated owner rule (DN0011),
+/// which resolves every primitive's owner through <see cref="OwnedPrimitives"/>, and the OS-divergent rule (DN0101).
 /// A raw primitive call is allowed in exactly one place — the class that implements the owning interface, compiled
 /// into the assembly where that owner lives (owners-live-at-lowest-consumer) — and nowhere else, not even in another
 /// class of the same assembly or the same class in another assembly. The exemption is a CONJUNCTION, resolved once in
@@ -18,7 +18,7 @@ namespace Denice.Analyzers;
 /// matched structurally through the semantic model against the type's <see cref="ITypeSymbol.AllInterfaces"/> by full
 /// name) AND the compilation compiles into an owner assembly (matched by <see cref="InAssembly"/> against a shared name
 /// constant, or by a <see cref="CrossPlatformBoundary"/> predicate scoped to the owner's assemblies — e.g.
-/// <see cref="CrossPlatformBoundary.IsPerOsImplementationAssembly"/> for AG0101's per-OS owner). Both halves are
+/// <see cref="CrossPlatformBoundary.IsPerOsImplementationAssembly"/> for DN0101's per-OS owner). Both halves are
 /// required, so a class cannot self-grant by declaring <c>: IFileReader</c> in the wrong assembly. This is the one
 /// place that conjunction lives, so the rules do not each spell it out.
 /// </summary>
@@ -39,7 +39,7 @@ internal static class OwnerClass
     /// <summary>
     /// Resolves the named type that encloses <paramref name="containingSymbol"/> — the symbol itself when it is a
     /// named type, otherwise its containing type. The one place this "symbol → enclosing named type" step lives, so
-    /// callers that hold a symbol rather than an operation context (for example the AG0017 composition-point walk)
+    /// callers that hold a symbol rather than an operation context (for example the DN0017 composition-point walk)
     /// do not re-derive it.
     /// </summary>
     /// <param name="containingSymbol">The symbol whose enclosing named type is wanted.</param>
@@ -121,7 +121,7 @@ internal static class OwnerClass
     /// <param name="compilesIntoOwnerAssembly">The assembly gate — the compilation must compile into an owner
     /// assembly. Built with <see cref="InAssembly"/> for the single-owner-assembly rules, or a
     /// <see cref="CrossPlatformBoundary"/> predicate scoped to the owner's assemblies, such as
-    /// <see cref="CrossPlatformBoundary.IsPerOsImplementationAssembly"/> for AG0101's per-OS owner.</param>
+    /// <see cref="CrossPlatformBoundary.IsPerOsImplementationAssembly"/> for DN0101's per-OS owner.</param>
     /// <returns><see langword="true"/> when the operation is inside the owner class in the owner assembly.</returns>
     internal static bool IsOwner(
         OperationAnalysisContext context,

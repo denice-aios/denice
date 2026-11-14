@@ -13,7 +13,7 @@ namespace Denice.TestHelpers;
 /// reads a test-controlled environment instead of the real process environment. A CLI test points the home directory at a
 /// test directory so the setup commands operate inside the simulator with no real-process mutation. It reaches for no
 /// <c>System.Environment</c> member and no <c>Path.GetTempPath()</c>; every value is held in memory. Its constructor is
-/// private (AG0003) and it is handed out only as its interface.
+/// private (DN0003) and it is handed out only as its interface.
 /// </summary>
 public sealed class FakeEnvironment : IEnvironment
 {
@@ -67,7 +67,7 @@ public sealed class FakeEnvironment : IEnvironment
     /// <see cref="Architecture.X64"/>, but the <see cref="SystemServicesBuilder.Fake"/> default environment no longer
     /// relies on that hardcoded value: the builder reads the REAL host process architecture once through the real adapter
     /// under <see cref="SystemServicesBuilder.Real"/> (an in-memory fake in Denice.TestHelpers cannot read
-    /// <c>RuntimeInformation</c>, which AG0011 owns to the real <c>EnvironmentAdapter</c>) and passes it here, so a
+    /// <c>RuntimeInformation</c>, which DN0011 owns to the real <c>EnvironmentAdapter</c>) and passes it here, so a
     /// <c>Fake()</c> run reports the true host architecture. A unit test simulating another architecture still injects it
     /// here (through the builder's <c>With(IEnvironment)</c>), which wins over the default.</param>
     /// <param name="osArchitecture">The operating-system CPU architecture the fake reports. The parameter default is
@@ -116,7 +116,7 @@ public sealed class FakeEnvironment : IEnvironment
     // home fallback included: it tests the stored value for a trailing separator and appends exactly one when absent,
     // and returns an already-terminated value unchanged so it is never doubled to "//". The separator is the owned
     // IPlatformFileSystem.DirectorySeparator, read once off the real platform service by SystemServicesBuilder — never a
-    // raw Path.DirectorySeparatorChar (AG0020) and never a hardcoded '/', so the fake is correct on Windows too.
+    // raw Path.DirectorySeparatorChar (DN0020) and never a hardcoded '/', so the fake is correct on Windows too.
     public string GetBaseDirectory() =>
         _baseDirectory.EndsWith(_directorySeparator) ? _baseDirectory : _baseDirectory + _directorySeparator;
 

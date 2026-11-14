@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Denice.Abstractions;
 using Denice.Abstractions.Contracts;
-using Denice.Setup;
+using Denice.Engine.Setup;
 
 namespace Denice.Engine;
 

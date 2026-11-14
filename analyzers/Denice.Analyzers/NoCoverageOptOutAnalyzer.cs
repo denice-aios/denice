@@ -22,7 +22,7 @@ public sealed class NoCoverageOptOutAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0032";
+    public const string DiagnosticId = "DN0032";
 
     private const string Category = "Denice.Architecture";
     private const string ExcludeFromCodeCoverageNamespace = "System.Diagnostics.CodeAnalysis";
@@ -79,7 +79,7 @@ public sealed class NoCoverageOptOutAnalyzer : DiagnosticAnalyzer
         // Out of the coverage scope (covered-assemblies): the interfaces-only assembly, the test-only helpers, the
         // analyzer assembly, and the test projects. Everything else that carries the analyzer is covered product code.
         // The "TestHelpers OR .Tests" half is the shared TestAssembly.IsTestSystemAssembly predicate (its De Morgan
-        // dual), owned once so AG0025 and this rule cannot drift apart.
+        // dual), owned once so DN0025 and this rule cannot drift apart.
         return !string.Equals(assemblyName, AbstractionsAssemblyName, StringComparison.Ordinal)
             && !string.Equals(assemblyName, AnalyzersAssemblyName, StringComparison.Ordinal)
             && !TestAssembly.IsTestSystemAssembly(compilation);

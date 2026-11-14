@@ -10,7 +10,7 @@ namespace Denice.Boundaries;
 
 /// <summary>
 /// The owned <see cref="IEnvironment"/> adapter. It is the single class that implements the OS-environment read
-/// seam, so it is the ONE place the raw <c>System.Environment</c> members are allowed (AG0012 exempts exactly this
+/// seam, so it is the ONE place the raw <c>System.Environment</c> members are allowed (DN0012 exempts exactly this
 /// owner class in <c>Denice.Boundaries</c>); every other type reads the environment through
 /// <see cref="IEnvironment"/> pulled off <see cref="ISystemServices"/>. Nothing below Boundaries consumes the
 /// environment, so the owner stays here (owners-live-at-lowest-consumer). It is <c>internal</c> with a
@@ -18,7 +18,7 @@ namespace Denice.Boundaries;
 /// </summary>
 internal sealed class EnvironmentAdapter : IEnvironment
 {
-    // Private constructor (AG0003, Wall 1): only this class's own factory constructs it.
+    // Private constructor (DN0003, Wall 1): only this class's own factory constructs it.
     private EnvironmentAdapter()
     {
     }
@@ -43,7 +43,7 @@ internal sealed class EnvironmentAdapter : IEnvironment
     public string GetTempDirectory() => Path.GetTempPath();
 
     /// <inheritdoc />
-    // The owned AppContext.BaseDirectory read (AG0011 assigns the primitive to the IEnvironment owner in Boundaries).
+    // The owned AppContext.BaseDirectory read (DN0011 assigns the primitive to the IEnvironment owner in Boundaries).
     // It mirrors the primitive faithfully — the value the runtime reports, trailing directory separator included — so
     // no policy is baked into the wrapper; a caller that needs the deployment path composes onto it.
     public string GetBaseDirectory() => AppContext.BaseDirectory;

@@ -23,7 +23,7 @@ public sealed class NoServiceAsParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0031";
+    public const string DiagnosticId = "DN0031";
 
     private const string Category = "Denice.Architecture";
 

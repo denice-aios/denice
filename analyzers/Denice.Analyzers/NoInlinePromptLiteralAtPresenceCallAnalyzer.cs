@@ -27,7 +27,7 @@ public sealed class NoInlinePromptLiteralAtPresenceCallAnalyzer : DiagnosticAnal
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0109";
+    public const string DiagnosticId = "DN0109";
 
     private const string Category = "Denice.Architecture";
 

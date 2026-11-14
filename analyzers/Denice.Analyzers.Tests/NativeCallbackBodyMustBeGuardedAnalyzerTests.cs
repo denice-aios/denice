@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0105: an [UnmanagedCallersOnly] callback body must be a single try statement whose catch handles every managed
+/// DN0105: an [UnmanagedCallersOnly] callback body must be a single try statement whose catch handles every managed
 /// exception (a bare catch or catch (Exception)) and returns a native error code, never letting an exception unwind
 /// across the native frame.
 /// </summary>
@@ -15,7 +15,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
 {
     // The COM-visible completed-handler interface — the shape WinRT invokes back through a COM-callable wrapper (the
     // Windows Hello IAsyncOperationCompletedHandler). A method IMPLEMENTING one of its members is a native callback whose
-    // body AG0105 governs exactly as it governs an [UnmanagedCallersOnly] body (the coverage refactor's AG0105 extension).
+    // body DN0105 governs exactly as it governs an [UnmanagedCallersOnly] body (the coverage refactor's DN0105 extension).
     private const string ComCompletedHandlerInterface = """
         using System.Runtime.InteropServices;
         [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
@@ -42,7 +42,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -59,7 +59,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -150,7 +150,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -174,7 +174,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -265,7 +265,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -290,7 +290,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -315,7 +315,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -354,7 +354,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -473,7 +473,7 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "Denice.CrossPlatform.Windows"));
-        Assert.Equal("AG0105", diagnostic.Id);
+        Assert.Equal("DN0105", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 

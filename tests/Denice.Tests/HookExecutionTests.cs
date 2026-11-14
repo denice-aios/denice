@@ -4,7 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Denice.Abstractions;
-using Denice.Setup;
+using Denice.Engine.Setup;
 using Denice.TestHelpers;
 using FluentAssertions;
 using Xunit;

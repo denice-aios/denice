@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The read machine state and its readability, shared by every machine condition so none re-derives how the

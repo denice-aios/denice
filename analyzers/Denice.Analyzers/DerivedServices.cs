@@ -29,13 +29,13 @@ internal readonly struct DerivedServices
 
     /// <summary>
     /// Gets the leaf owned service interfaces reached through the container's accessors — the owner-interface set
-    /// AG0025 (one owner per interface) and AG0031 (no service as a lone parameter) reason about.
+    /// DN0025 (one owner per interface) and DN0031 (no service as a lone parameter) reason about.
     /// </summary>
     internal ImmutableArray<(string Namespace, string Name)> ServiceInterfaces { get; }
 
     /// <summary>
     /// Gets the service interfaces plus the container <c>ISystemServices</c> itself and the clock
-    /// <c>System.TimeProvider</c> — the set AG0024 (no static service holder) forbids a static from holding.
+    /// <c>System.TimeProvider</c> — the set DN0024 (no static service holder) forbids a static from holding.
     /// </summary>
     internal ImmutableArray<(string Namespace, string Name)> ServiceTypes { get; }
 

@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0115 (no-async-orchestration-in-native-ops): a class implementing a per-OS native-ops interface (IObjCRuntime and
+/// DN0115 (no-async-orchestration-in-native-ops): a class implementing a per-OS native-ops interface (IObjCRuntime and
 /// the two Windows native-ops interfaces) must expose synchronous raw primitives — no await and no
 /// TaskCompletionSource. The async flow (the await of the native reply, the TaskCompletionSource / GCHandle wiring)
 /// belongs in the fake-testable orchestrator. The native-ops owner interface stub is the shared owner
@@ -34,7 +34,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -42,7 +42,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
     public async Task AwaitUsingInNativeOps_IsReported()
     {
         // `await using` produces no IAwaitOperation node — the await folds into the using operation as IsAsynchronous —
-        // and it is not a loop, so the bare await check (and AG0106) would miss it. The asynchronous-using check catches
+        // and it is not a loop, so the bare await check (and DN0106) would miss it. The asynchronous-using check catches
         // it. This is the SOLID-2 gap the fix closes.
         string source = NativeOps + """
 
@@ -61,7 +61,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -87,14 +87,14 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
     }
 
     [Fact]
     public async Task AwaitForEachInNativeOps_IsReported()
     {
         // `await foreach` produces an IForEachLoopOperation with IsAsynchronous set — no IAwaitOperation node — so the
-        // bare await check misses it, and AG0106's loop ban catches it only incidentally. The asynchronous-foreach
+        // bare await check misses it, and DN0106's loop ban catches it only incidentally. The asynchronous-foreach
         // check catches it independently. This is the await-foreach gap the fix closes.
         string source = NativeOps + """
 
@@ -113,15 +113,15 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
     [Fact]
     public async Task SynchronousForEachInNativeOps_IsNotReported()
     {
-        // A plain synchronous `foreach` is ordinary control flow — AG0106's concern, not this rule's. It is NOT async
-        // orchestration, so AG0115 leaves it alone; this pins the IsAsynchronous filter on the foreach check (only an
+        // A plain synchronous `foreach` is ordinary control flow — DN0106's concern, not this rule's. It is NOT async
+        // orchestration, so DN0115 leaves it alone; this pins the IsAsynchronous filter on the foreach check (only an
         // asynchronous foreach is caught here).
         string source = NativeOps + """
 
@@ -184,7 +184,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
     }
 
     [Fact]
@@ -248,7 +248,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
     }
 
     [Fact]
@@ -269,7 +269,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
     }
 
     [Fact]
@@ -290,7 +290,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
     }
 
     [Fact]
@@ -312,7 +312,7 @@ public class NoAsyncOrchestrationInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAsyncOrchestrationInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0115", diagnostic.Id);
+        Assert.Equal("DN0115", diagnostic.Id);
     }
 
     [Fact]

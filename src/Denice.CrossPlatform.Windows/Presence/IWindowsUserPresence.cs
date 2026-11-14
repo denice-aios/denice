@@ -11,8 +11,8 @@ namespace Denice.CrossPlatform.Windows;
 /// fake-testable orchestrator that composes the native ops; the raw interop lives one layer below — the WinRT
 /// <c>UserConsentVerifier</c> binding in <see cref="IWindowsHelloNativeOps"/>'s owner and the
 /// <c>CredUIPromptForWindowsCredentials</c>/<c>LogonUser</c> P/Invoke in <see cref="ICredentialPromptNativeOps"/>'s owner
-/// (per-os-native-behind-a-port; enforced by AG0113/AG0114). It creates a fresh Hello request per call and caches no
-/// auth context (AG0112), and returns a plain <see cref="WindowsPresenceResult"/>.
+/// (per-os-native-behind-a-port; enforced by DN0113/DN0114). It creates a fresh Hello request per call and caches no
+/// auth context (DN0112), and returns a plain <see cref="WindowsPresenceResult"/>.
 /// </summary>
 internal interface IWindowsUserPresence
 {

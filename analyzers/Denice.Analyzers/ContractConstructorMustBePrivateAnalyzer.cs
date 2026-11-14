@@ -16,7 +16,7 @@ public sealed class ContractConstructorMustBePrivateAnalyzer : DiagnosticAnalyze
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0003";
+    public const string DiagnosticId = "DN0003";
 
     private const string Category = "Denice.Architecture";
 

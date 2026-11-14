@@ -2,7 +2,7 @@
 
 using System;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the hook command's wire format — the <c>hook</c> subcommand, the <c>pre</c>/<c>post</c>

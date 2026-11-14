@@ -20,7 +20,7 @@ public sealed class ReturnTypesMustNotBeTuplesAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0002";
+    public const string DiagnosticId = "DN0002";
 
     private const string Category = "Denice.Design";
 

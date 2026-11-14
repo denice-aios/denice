@@ -15,10 +15,10 @@ namespace Denice.Analyzers.Tests;
 /// C# source snippets held in one place so a byte-identical fixture is not spelled twice: most are shared verbatim by
 /// more than one analyzer test class, and the three container-implementer member blocks
 /// (<see cref="SystemServicesContainerMembers"/>, <see cref="FileSystemContainerMembers"/>,
-/// <see cref="PlatformServicesContainerMembers"/>) hold the accessors an AG0022 container implementer must supply,
-/// so each set is spelled once rather than once per implementer. <see cref="LinkTargetSource"/> is read by both the AG0011 owner
+/// <see cref="PlatformServicesContainerMembers"/>) hold the accessors an DN0022 container implementer must supply,
+/// so each set is spelled once rather than once per implementer. <see cref="LinkTargetSource"/> is read by both the DN0011 owner
 /// test (which proves the rule DOES claim the <c>*Info</c> member read now that the wrappers own <c>*Info</c>
-/// wholesale) and the AG0101 OS-divergent test (which proves it does NOT — that member moved to AG0011) — the same
+/// wholesale) and the DN0101 OS-divergent test (which proves it does NOT — that member moved to DN0011) — the same
 /// source, exercised by the two rules on the two sides of the partition it moved across.
 /// <para>
 /// Some members here are not fixture text but the shared readers and assertions the same test classes were each
@@ -43,9 +43,9 @@ internal static class SharedAnalyzerSources
 {
     /// <summary>
     /// The fake <c>Denice.Engine</c> assembly the access rules are exercised against, spelled once and referenced
-    /// by every test class that needs the relocated container to come from a REAL second assembly: AG0041
+    /// by every test class that needs the relocated container to come from a REAL second assembly: DN0041
     /// (<c>EngineInternalsOneDoorAnalyzerTests</c>), which reaches it from the <c>guard</c> and
-    /// <c>Denice.TestHelpers</c> compilations, and AG0017's post-relocation regression
+    /// <c>Denice.TestHelpers</c> compilations, and DN0017's post-relocation regression
     /// (<c>GuardedConstructionAnalyzerTests</c>), which reaches it from an <c>Denice.Tests</c> compilation.
     /// <para>
     /// Every type and member the rules govern is <c>internal</c>, and the three <c>InternalsVisibleTo</c> grants
@@ -160,8 +160,8 @@ internal static class SharedAnalyzerSources
 
     /// <summary>
     /// A <c>FileInfo.LinkTarget</c> read — a <c>*Info</c> instance member. It reads the member off a passed-in
-    /// <c>FileInfo</c> so this fixture isolates the member-read partition: AG0011 reports it (the <c>*Info</c> types are
-    /// owned wholesale by the wrapper interfaces, fileinfo-abstraction-stays-in-ag0011) and AG0101 does not (it kept
+    /// <c>FileInfo</c> so this fixture isolates the member-read partition: DN0011 reports it (the <c>*Info</c> types are
+    /// owned wholesale by the wrapper interfaces, fileinfo-abstraction-stays-in-ag0011) and DN0101 does not (it kept
     /// only the static OS-divergent members after the shrink).
     /// </summary>
     internal const string LinkTargetSource = """
@@ -176,8 +176,8 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// The one <c>ISystemServices</c> container fixture the derived owner set
     /// (derive-service-set-from-isystemservices) walks: <c>IFileReader</c> is the leaf service accessor and
-    /// <c>ISystemServices</c> is the container that exposes it. Prepended to the per-test sources in the AG0024, AG0025,
-    /// and AG0031 test classes so the derivation walk sees a non-empty service set — an empty container would derive an
+    /// <c>ISystemServices</c> is the container that exposes it. Prepended to the per-test sources in the DN0024, DN0025,
+    /// and DN0031 test classes so the derivation walk sees a non-empty service set — an empty container would derive an
     /// empty set — held here so this byte-identical fixture is not spelled once per class.
     /// </summary>
     internal const string AbstractionsPrefix = """
@@ -190,7 +190,7 @@ internal static class SharedAnalyzerSources
 
     /// <summary>
     /// A synthetic <c>ISystemServices</c> mirroring the REAL shipped container, shared byte-identical by the derivation
-    /// tests (<c>DerivedBoundaryServicesTests</c>, which drives the internal walk) and the AG0034 whole-tree preventive
+    /// tests (<c>DerivedBoundaryServicesTests</c>, which drives the internal walk) and the DN0034 whole-tree preventive
     /// test (<c>SystemServicesMemberMustBeServiceAccessorAnalyzerTests.WellFormedRealShape_IsNotReported</c>), so this
     /// ~36-line fixture is spelled exactly once. The <c>IFileSystem</c> sub-container's no-arg accessors expose the four
     /// filesystem services and its parameterized factories return <c>IFileInfo</c>/<c>IDirectoryInfo</c>; the
@@ -251,15 +251,15 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// The <c>Denice.TestHelpers</c> overlay stand-in — the copy-on-write store <c>InMemoryFileSystemStore</c> and
     /// the overlay factory <c>SystemServicesBuilder.NewOverlay</c> — shared byte-identical by the two seed-site rule
-    /// test classes (<c>NoLiteralFakeRootAnalyzerTests</c> for AG0035 and <c>NoLiteralCaseModeSeedAnalyzerTests</c> for
-    /// AG0036), so this fixture is spelled exactly once instead of hand-copied into each preamble. <c>NewOverlay</c>
+    /// test classes (<c>NoLiteralFakeRootAnalyzerTests</c> for DN0035 and <c>NoLiteralCaseModeSeedAnalyzerTests</c> for
+    /// DN0036), so this fixture is spelled exactly once instead of hand-copied into each preamble. <c>NewOverlay</c>
     /// forwards its own <c>tempRoot</c>/<c>caseSensitive</c> parameters to the store constructor, exactly as the real
     /// builder does, so the fixture's own construction seeds from parameters (never a literal) and adds no diagnostic;
     /// the store carries the identity the analyzers pin on when the consuming compilation is named
     /// <c>Denice.TestHelpers</c> (<c>WellKnownType.IsInAssembly</c>). The deliberate post-construction switches
     /// <c>SetCaseSensitive</c> (on the store) and <c>SimulateCaseSensitivity</c> (on the builder) are the entry points
-    /// AG0036 must leave alone; the AG0035 preamble prepends this fixture with its own <c>FakeEnvironment</c> stand-in,
-    /// the extra seed site only AG0035 reads.
+    /// DN0036 must leave alone; the DN0035 preamble prepends this fixture with its own <c>FakeEnvironment</c> stand-in,
+    /// the extra seed site only DN0035 reads.
     /// </summary>
     internal const string OverlaySeedHelpers = """
         namespace Denice.TestHelpers
@@ -283,12 +283,12 @@ internal static class SharedAnalyzerSources
     /// The one canonical stub for the presence Abstractions surface — <c>IPresenceCheck</c> (carrying its single
     /// <c>Check</c> operation) and the <c>PresenceRequest</c> record — shared byte-identical by the three presence-rule
     /// test classes that each prepended their own hand-rolled copy (<c>NoTimeoutInPresenceImplAnalyzerTests</c> for
-    /// AG0107, <c>PresenceCheckOnlyFromApprovalGateAnalyzerTests</c> for AG0108, and
-    /// <c>NoInlinePromptLiteralAtPresenceCallAnalyzerTests</c> for AG0109), so this fixture is spelled exactly once
-    /// (LESSON 1, DRY). It is the fullest shape: AG0107's fixtures implement <c>IPresenceCheck</c> and supply
+    /// DN0107, <c>PresenceCheckOnlyFromApprovalGateAnalyzerTests</c> for DN0108, and
+    /// <c>NoInlinePromptLiteralAtPresenceCallAnalyzerTests</c> for DN0109), so this fixture is spelled exactly once
+    /// (LESSON 1, DRY). It is the fullest shape: DN0107's fixtures implement <c>IPresenceCheck</c> and supply
     /// <c>Check</c> (the analyzer runner requires each fixture to produce exactly the compiler errors its call site
-    /// declares, and these declare none, so an unimplemented member would fail the run), AG0108 invokes <c>Check</c>,
-    /// and AG0109 constructs <c>PresenceRequest</c>.
+    /// declares, and these declare none, so an unimplemented member would fail the run), DN0108 invokes <c>Check</c>,
+    /// and DN0109 constructs <c>PresenceRequest</c>.
     /// </summary>
     internal const string PresenceContract = """
         namespace Denice.Abstractions.Contracts
@@ -305,9 +305,9 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// The one canonical stub for the macOS native presence port — <c>ILocalAuthentication</c> in the
     /// <c>Denice.CrossPlatform.MacOS</c> namespace — shared byte-identical by the three native-port rule test classes
-    /// that each spelled their own copy (<c>NoCachedNativeAuthContextAnalyzerTests</c> for AG0112,
-    /// <c>NativePresencePortSingleImplementerAnalyzerTests</c> for AG0114, and
-    /// <c>NoTimeoutInPresenceImplAnalyzerTests</c> for AG0107's port-owner case), so this stub is spelled exactly once
+    /// that each spelled their own copy (<c>NoCachedNativeAuthContextAnalyzerTests</c> for DN0112,
+    /// <c>NativePresencePortSingleImplementerAnalyzerTests</c> for DN0114, and
+    /// <c>NoTimeoutInPresenceImplAnalyzerTests</c> for DN0107's port-owner case), so this stub is spelled exactly once
     /// (LESSON 1, DRY). It is its own namespace block, so a consuming fixture prepends it and declares the implementer in
     /// a second <c>Denice.CrossPlatform.MacOS</c> block that sees the interface across the two declarations.
     /// </summary>
@@ -323,8 +323,8 @@ internal static class SharedAnalyzerSources
     /// carrying the <c>objc_msgSend</c> P/Invoke (<c>[DllImport("libobjc")] internal static extern IntPtr
     /// ObjcMsgSend(...)</c>) in its own <c>Denice.CrossPlatform.MacOS</c> namespace block — shared byte-identical by
     /// the two native-interop rule test classes that each spelled their own copy
-    /// (<c>OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests</c> for AG0101 and
-    /// <c>PresenceNativeInteropOwnerAnalyzerTests</c> for AG0113), so this binding is spelled exactly once (LESSON 1,
+    /// (<c>OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests</c> for DN0101 and
+    /// <c>PresenceNativeInteropOwnerAnalyzerTests</c> for DN0113), so this binding is spelled exactly once (LESSON 1,
     /// DRY). It pairs with <see cref="LocalAuthenticationPort"/>: a consuming fixture prepends the port interface and
     /// this binding, then declares the presence-port implementer that calls <c>ObjcMsgSend</c>.
     /// </summary>
@@ -345,8 +345,8 @@ internal static class SharedAnalyzerSources
     /// The one canonical stub for the Linux native presence port — <c>IPolkitAuthority</c> in the
     /// <c>Denice.CrossPlatform.Linux</c> namespace — the Linux sibling of <see cref="LocalAuthenticationPort"/>,
     /// shared byte-identical by the three Linux-port rule test classes that each spelled their own copy
-    /// (<c>DbusOnlyInPolkitAuthorityAnalyzerTests</c> for AG0110, <c>NativePresencePortSingleImplementerAnalyzerTests</c>
-    /// for AG0114's Polkit case, and <c>NoTimeoutInPresenceImplAnalyzerTests</c> for AG0107's Polkit port-owner case), so
+    /// (<c>DbusOnlyInPolkitAuthorityAnalyzerTests</c> for DN0110, <c>NativePresencePortSingleImplementerAnalyzerTests</c>
+    /// for DN0114's Polkit case, and <c>NoTimeoutInPresenceImplAnalyzerTests</c> for DN0107's Polkit port-owner case), so
     /// this stub is spelled exactly once (LESSON 1, DRY). Like the macOS sibling it is its own namespace block, so a
     /// consuming fixture prepends it and declares the implementer in a second <c>Denice.CrossPlatform.Linux</c> block
     /// that sees the interface across the two declarations.
@@ -363,10 +363,10 @@ internal static class SharedAnalyzerSources
     /// <c>Denice.CrossPlatform.MacOS</c> namespace — the thin raw-call layer the coverage refactor introduces one
     /// level below the <c>ILocalAuthentication</c> flow port. Shared byte-identical by the rule test classes that scope
     /// to the native-ops owner: the relocated raw-interop exemption (<c>PresenceNativeInteropOwnerAnalyzerTests</c> for
-    /// AG0113, <c>OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests</c> for AG0101's native branch), the three
-    /// native-ops guardrails (<c>NoControlFlowInNativeOpsAnalyzerTests</c> for AG0106,
-    /// <c>NoAsyncOrchestrationInNativeOpsAnalyzerTests</c> for AG0115, <c>NoStateInNativeOpsAnalyzerTests</c> for AG0116),
-    /// and the AG0107/AG0114 extensions, so this stub is spelled exactly once (LESSON 1, DRY). Its own namespace block,
+    /// DN0113, <c>OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests</c> for DN0101's native branch), the three
+    /// native-ops guardrails (<c>NoControlFlowInNativeOpsAnalyzerTests</c> for DN0106,
+    /// <c>NoAsyncOrchestrationInNativeOpsAnalyzerTests</c> for DN0115, <c>NoStateInNativeOpsAnalyzerTests</c> for DN0116),
+    /// and the DN0107/DN0114 extensions, so this stub is spelled exactly once (LESSON 1, DRY). Its own namespace block,
     /// so a consuming fixture prepends it and declares the native-ops implementer in a second
     /// <c>Denice.CrossPlatform.MacOS</c> block that sees the interface across the two declarations.
     /// </summary>
@@ -378,9 +378,9 @@ internal static class SharedAnalyzerSources
         """;
 
     /// <summary>
-    /// The service accessors an <c>ISystemServices</c> implementer supplies for the AG0022 container tree declared by
+    /// The service accessors an <c>ISystemServices</c> implementer supplies for the DN0022 container tree declared by
     /// <c>ContainerInterfaceSingleOwnerAnalyzerTests.ContainersSource</c>, whose root container exposes the
-    /// <c>IFileSystem</c> and <c>IPlatformServices</c> sub-containers. An AG0022 fixture that declares an
+    /// <c>IFileSystem</c> and <c>IPlatformServices</c> sub-containers. An DN0022 fixture that declares an
     /// <c>ISystemServices</c> implementer interpolates this block into the class body, so the pair is spelled exactly
     /// once instead of once per implementer (LESSON 1, DRY).
     /// </summary>
@@ -391,9 +391,9 @@ internal static class SharedAnalyzerSources
         """;
 
     /// <summary>
-    /// The service accessor an <c>IFileSystem</c> implementer supplies for the same AG0022 container tree, whose
+    /// The service accessor an <c>IFileSystem</c> implementer supplies for the same DN0022 container tree, whose
     /// <c>IFileSystem</c> sub-container exposes the single <c>IFileReader</c> accessor. Interpolated into the class
-    /// body of an AG0022 fixture that declares an <c>IFileSystem</c> implementer, so the accessor is spelled exactly
+    /// body of an DN0022 fixture that declares an <c>IFileSystem</c> implementer, so the accessor is spelled exactly
     /// once however many implementers a fixture declares (LESSON 1, DRY).
     /// </summary>
     internal const string FileSystemContainerMembers = """
@@ -401,9 +401,9 @@ internal static class SharedAnalyzerSources
         """;
 
     /// <summary>
-    /// The service accessor an <c>IPlatformServices</c> implementer supplies for the same AG0022 container tree, whose
+    /// The service accessor an <c>IPlatformServices</c> implementer supplies for the same DN0022 container tree, whose
     /// <c>IPlatformServices</c> sub-container exposes the single <c>IPlatformFileSystem</c> accessor. Interpolated
-    /// into the class body of an AG0022 fixture that declares an <c>IPlatformServices</c> implementer, so the
+    /// into the class body of an DN0022 fixture that declares an <c>IPlatformServices</c> implementer, so the
     /// accessor is spelled exactly once however many implementers a fixture declares (LESSON 1, DRY).
     /// </summary>
     internal const string PlatformServicesContainerMembers = """
@@ -420,15 +420,15 @@ internal static class SharedAnalyzerSources
 
     /// <summary>
     /// The identifier every aliased-reach fixture binds its using alias to. A using alias is one of the positions a
-    /// guarded type can be reached through, and four fixtures declare one — AG0023 and AG0029 against their own
-    /// guarded type, and AG0041 against an Engine internal and against the container — so the alias name is spelled
+    /// guarded type can be reached through, and four fixtures declare one — DN0023 and DN0029 against their own
+    /// guarded type, and DN0041 against an Engine internal and against the container — so the alias name is spelled
     /// here once and read by <see cref="AliasUsing"/> and <see cref="TypeofAliasDeclaration"/>.
     /// </summary>
     internal const string AliasName = "Aliased";
 
     /// <summary>
     /// A member that names the ALIASED type in a <c>typeof</c> — the reach three alias fixtures make once the alias is
-    /// declared (AG0023, AG0029 and AG0041 against an Engine internal), spelled here rather than once per rule.
+    /// declared (DN0023, DN0029 and DN0041 against an Engine internal), spelled here rather than once per rule.
     /// </summary>
     internal const string TypeofAliasDeclaration =
         "        internal static object Typed() => typeof(" + AliasName + ");";
@@ -436,7 +436,7 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// The fragment a one-door rule's message carries when the reach is the door but the CALL site is not
     /// <c>Denice.Engine.SystemServices.Create()</c>. The three one-door rules produce one message contract between
-    /// them, and AG0040, AG0023 and AG0029 each asserted on this same text, so the expected fragments are spelled here
+    /// them, and DN0040, DN0023 and DN0029 each asserted on this same text, so the expected fragments are spelled here
     /// once — in the test layer, never read back off the analyzer, so an assertion still proves more than that the
     /// rule equals itself.
     /// </summary>
@@ -444,7 +444,7 @@ internal static class SharedAnalyzerSources
 
     /// <summary>
     /// The same fragment for a reach that NAMES or CARRIES the door type rather than calling it, asserted by the
-    /// AG0023 and AG0029 type-reference tests.
+    /// DN0023 and DN0029 type-reference tests.
     /// </summary>
     internal const string ReferenceSiteFailureFragment = "the reference site is not";
 
@@ -467,7 +467,7 @@ internal static class SharedAnalyzerSources
     internal const string NotTheDoorFragment = "is not the permitted door";
 
     /// <summary>
-    /// The namespace AG0023's and AG0029's guarded types are declared in. AG0023 guards the core assembly and AG0029
+    /// The namespace DN0023's and DN0029's guarded types are declared in. DN0023 guards the core assembly and DN0029
     /// guards the three per-OS implementations, and all four assemblies declare their types in this ONE namespace, so
     /// both test classes spell it — in a using directive and in the qualified names the rules' messages carry. The one
     /// owner of the name, so neither is a loose literal.
@@ -483,7 +483,7 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// Builds a CONSUMER compilation — the shell a gated consumer (<c>guard</c>, <c>Denice.TestHelpers</c>) or the
     /// ungated <c>Denice.Tests</c> reaches the fake Engine assembly from. It is the counterpart of
-    /// <see cref="EngineCompilation"/> on the other side of the reference: AG0041's gate and the shared carried-type
+    /// <see cref="EngineCompilation"/> on the other side of the reference: DN0041's gate and the shared carried-type
     /// lens both place their reach in exactly this shell, so it is spelled once here instead of once per test class.
     /// </summary>
     /// <param name="usings">The using directives the fixture needs, or an empty string.</param>
@@ -509,8 +509,8 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// Builds a source compiled as the <c>Denice.Engine</c> assembly: the <c>Denice.Engine</c> namespace, the
     /// <c>SystemServices</c> container whose body is <paramref name="containerBody"/>, and any further Engine types in
-    /// <paramref name="otherEngineTypes"/>. Every Engine-gated rule needs exactly this shell — AG0040, AG0023 and
-    /// AG0029 all have to place the same reach inside <c>Create()</c>, inside another method on the container, and
+    /// <paramref name="otherEngineTypes"/>. Every Engine-gated rule needs exactly this shell — DN0040, DN0023 and
+    /// DN0029 all have to place the same reach inside <c>Create()</c>, inside another method on the container, and
     /// inside another Engine class — so the shell is spelled once here instead of once per test class.
     /// </summary>
     /// <param name="usings">The using directives the fixture needs, or an empty string.</param>
@@ -600,7 +600,7 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// The fixture for a reach written in a separate Engine HOLDER class beside an inert container factory — the shell
     /// the type-reference positions from <see cref="TypeReferencePositions"/> are dropped into, so the reach is a type
-    /// a member holds or names rather than a call. AG0023 and AG0029 drive the same shell against their own guarded
+    /// a member holds or names rather than a call. DN0023 and DN0029 drive the same shell against their own guarded
     /// type, so it is built here once.
     /// </summary>
     /// <param name="usings">The using directives the fixture needs, or an empty string.</param>
@@ -615,7 +615,7 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// A class declaration whose BASE LIST names <paramref name="baseType"/> — the one position that reaches a type by
     /// inheriting it rather than by using it. Four fixtures need exactly this declaration and differ only in the type
-    /// they derive from — AG0023 against a CrossPlatform-core type, AG0029 against a per-OS type, and AG0041 against
+    /// they derive from — DN0023 against a CrossPlatform-core type, DN0029 against a per-OS type, and DN0041 against
     /// both an Engine internal and the container — so it is built here once. It carries no indentation of its own and
     /// is interpolated into whichever shell the consuming fixture uses.
     /// </summary>
@@ -628,7 +628,7 @@ internal static class SharedAnalyzerSources
 
     /// <summary>
     /// The Engine fixture for a base-list reach: an inert container factory beside a class deriving from
-    /// <paramref name="baseType"/>. AG0023 and AG0029 drive this same shell against their own guarded type, so the
+    /// <paramref name="baseType"/>. DN0023 and DN0029 drive this same shell against their own guarded type, so the
     /// shell is spelled once here rather than once per rule.
     /// </summary>
     /// <param name="usings">The using directives the fixture needs, or an empty string.</param>
@@ -642,7 +642,7 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// The Engine fixture that reaches <c>IPlatformServices</c> — a type declared in <c>Denice.Abstractions</c>,
     /// named in a <c>typeof</c> and held as a property — beside an inert container factory. That type is in NEITHER
-    /// one-door rule's set however its namespace reads, so AG0023 and AG0029 each prove it is never reported, from a
+    /// one-door rule's set however its namespace reads, so DN0023 and DN0029 each prove it is never reported, from a
     /// fixture that was byte-identical for the two of them; it is built here once.
     /// </summary>
     /// <param name="usings">The using directives the fixture needs, or an empty string.</param>
@@ -661,7 +661,7 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// The <c>Denice.Boundaries</c> fixture that NAMES <paramref name="guardedType"/> without calling a member on
     /// it: the type held as a field and named in a <c>typeof</c>. Each one-door rule's Boundaries gate stays
-    /// member-access only after the Engine type-reference extension, so AG0023 and AG0029 each prove such a reference
+    /// member-access only after the Engine type-reference extension, so DN0023 and DN0029 each prove such a reference
     /// is not reported there — from a fixture that was byte-identical for the two of them, comment included. It is
     /// built here once and varies only in the guarded type each rule names.
     /// </summary>
@@ -784,7 +784,7 @@ internal static class SharedAnalyzerSources
     /// (<c>typeof</c>, <c>nameof</c>, a cast, an <c>is</c> pattern, a generic type argument, a generic argument inside
     /// a <c>typeof</c>, and a generic constraint); the last seven land on the carried-type lens (a field, a property,
     /// a method return, a parameter, a local, an inferred <c>var</c> local, and a type argument nested inside a
-    /// generic of an array). The two consumers — AG0023 against a CrossPlatform-core type and AG0029 against a per-OS
+    /// generic of an array). The two consumers — DN0023 against a CrossPlatform-core type and DN0029 against a per-OS
     /// type — differ only in which type name they pass, so the table itself varies in nothing else.
     /// </summary>
     /// <param name="guardedType">The simple name of the guarded type each position reaches.</param>
@@ -860,7 +860,7 @@ internal static class SharedAnalyzerSources
     /// <summary>
     /// Runs <typeparamref name="TAnalyzer"/> over <paramref name="source"/> compiled as
     /// <paramref name="assemblyName"/>, against <see cref="EngineAssemblySource"/> compiled as a real second assembly
-    /// named <see cref="EngineAssemblyName"/>. Three test classes need exactly this pairing — AG0041's gate, AG0017's
+    /// named <see cref="EngineAssemblyName"/>. Three test classes need exactly this pairing — DN0041's gate, DN0017's
     /// post-relocation regression from <c>Denice.Tests</c>, and the shared carried-type lens — so the reference
     /// wiring is spelled once instead of once per class.
     /// </summary>
@@ -989,7 +989,7 @@ internal static class SharedAnalyzerSources
     /// <para>
     /// The one owner of that comparison. Each caller projects its own expected and actual strings and hands both
     /// sequences here — <see cref="AssertSpans"/> projects the actual side through
-    /// <see cref="AnalyzerRunner.SpanText"/>, and the AG0041 tests project the expected side through their own
+    /// <see cref="AnalyzerRunner.SpanText"/>, and the DN0041 tests project the expected side through their own
     /// message builder and the actual side through <see cref="Message"/>.
     /// </para>
     /// </summary>

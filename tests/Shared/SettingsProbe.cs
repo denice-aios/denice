@@ -3,9 +3,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
-using Denice.Setup;
+using Denice.Engine.Setup;
 
-namespace Denice.TestSupport;
+namespace Denice.Tests.Shared;
 
 /// <summary>
 /// Helpers for asserting over the guard's hook entries in a parsed <c>.claude/settings.json</c> tree. A guard

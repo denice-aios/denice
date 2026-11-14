@@ -8,10 +8,10 @@ namespace Denice.Analyzers;
 /// <summary>
 /// The single source of truth for how the <c>System.IO</c> <c>File</c>/<c>Directory</c> member surface is
 /// partitioned between the rules that share it, so no member falls through every rule (allowed everywhere) or trips
-/// two at once. The consolidated owner rule (AG0011) owns the split below through
+/// two at once. The consolidated owner rule (DN0011) owns the split below through
 /// <see cref="OwningInterfaceFor"/> except the members another rule claims; that rule also routes the
-/// current-directory members to the environment owner and the OS-divergent static members to AG0101 by reading
-/// <see cref="IsCurrentDirectoryMember"/> and <see cref="IsOsDivergentMember"/> here. The OS-divergent rule (AG0101)
+/// current-directory members to the environment owner and the OS-divergent static members to DN0101 by reading
+/// <see cref="IsCurrentDirectoryMember"/> and <see cref="IsOsDivergentMember"/> here. The OS-divergent rule (DN0101)
 /// reads the same OS-divergent set and fires on it. The <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c>
 /// wrappers are owned wholesale in <see cref="OwnedPrimitives"/> (fileinfo-abstraction-stays-in-ag0011), so their
 /// construction and instance members are no longer partitioned here.
@@ -20,7 +20,7 @@ internal static class FilesystemMembers
 {
     /// <summary>
     /// The two OS-uniform static filesystem types whose members are split per owner — <c>File</c> and
-    /// <c>Directory</c>. AG0101 reads this set to scope its OS-divergent static-member check to these two types; the
+    /// <c>Directory</c>. DN0101 reads this set to scope its OS-divergent static-member check to these two types; the
     /// <c>*Info</c> types are owned wholesale in <see cref="OwnedPrimitives"/>, not here.
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> FileAndDirectory = ImmutableArray.Create(
@@ -31,8 +31,8 @@ internal static class FilesystemMembers
     /// The stream, watcher, and drive <c>System.IO</c> types — <c>DriveInfo</c>, <c>FileStream</c>,
     /// <c>StreamReader</c>, <c>StreamWriter</c>, <c>FileSystemWatcher</c>. They have zero usage in the tree today and
     /// no member on any of the four filesystem interfaces, so they get NO owning interface: they are banned
-    /// everywhere (the same "nowhere — grow an interface first" pattern as AG0013's forbidden <c>Process</c>), rather
-    /// than lumped under an owner they do not belong to. Named once here so AG0011's filesystem-type gate still
+    /// everywhere (the same "nowhere — grow an interface first" pattern as DN0013's forbidden <c>Process</c>), rather
+    /// than lumped under an owner they do not belong to. Named once here so DN0011's filesystem-type gate still
     /// detects them and the member→owner partition below can return no owner for them.
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> StreamWatcherAndDriveTypes = ImmutableArray.Create(
@@ -43,7 +43,7 @@ internal static class FilesystemMembers
         (KnownNamespaces.SystemIO, "FileSystemWatcher"));
 
     // The four OS-uniform filesystem interfaces in Denice.Abstractions.Contracts, each the single owner of the members
-    // mapped to it below (one-owner-class-per-primitive). Held as one-element sets so AG0011 can pass the resolved
+    // mapped to it below (one-owner-class-per-primitive). Held as one-element sets so DN0011 can pass the resolved
     // owner straight to OwnerClass.IsOwner without allocating a new array per analyzed operation.
     private static readonly ImmutableArray<(string Namespace, string Name)> FileReaderOwner =
         ImmutableArray.Create((KnownNamespaces.DeniceAbstractionsContracts, "IFileReader"));
@@ -68,8 +68,8 @@ internal static class FilesystemMembers
     // and no shared name is left in a flat name set to pick up the wrong one. Each side maps to its
     // IFileReader/IFileWriter (File) or IDirectoryEnumerator/IDirectoryWriter (Directory) member when one exists, else
     // NoOwner (banned everywhere on that side). The OS-divergent shared names (CreateSymbolicLink, ResolveLinkTarget)
-    // and the current-directory shared names (Get/SetCurrentDirectory) are NOT here: they are carved out to AG0101 and
-    // AG0012 respectively before OwningInterfaceFor is ever called. The timestamp getters/setters that have no
+    // and the current-directory shared names (Get/SetCurrentDirectory) are NOT here: they are carved out to DN0101 and
+    // DN0012 respectively before OwningInterfaceFor is ever called. The timestamp getters/setters that have no
     // interface member on either side are mapped to (NoOwner, NoOwner): they stay RED if ever called, and — because
     // none are called in the live tree — compile clean today; if one is ever called it must be raised as an
     // unmapped-but-used complete-the-set question, never given a near-miss owner here.
@@ -157,7 +157,7 @@ internal static class FilesystemMembers
 
     /// <summary>
     /// The OS-divergent STATIC member names on <c>File</c>/<c>Directory</c> that route to <c>IPlatformFileSystem</c>
-    /// (AG0101), not to the OS-uniform filesystem interfaces (AG0011): the static symlink members and the static
+    /// (DN0101), not to the OS-uniform filesystem interfaces (DN0011): the static symlink members and the static
     /// Unix-mode members. The instance <c>LinkTarget</c> and <c>UnixFileMode</c> members are declared on the
     /// <c>*Info</c> types, which are owned wholesale in <see cref="OwnedPrimitives"/>
     /// (fileinfo-abstraction-stays-in-ag0011), so they are NOT in this static set.
@@ -170,8 +170,8 @@ internal static class FilesystemMembers
         "GetUnixFileMode");
 
     /// <summary>
-    /// The environment member names on <c>Directory</c> that route to <c>IEnvironment</c> (AG0012), not to the
-    /// filesystem interfaces (AG0011): the current-directory getter and setter.
+    /// The environment member names on <c>Directory</c> that route to <c>IEnvironment</c> (DN0012), not to the
+    /// filesystem interfaces (DN0011): the current-directory getter and setter.
     /// </summary>
     private static readonly ImmutableHashSet<string> CurrentDirectoryMemberNames = ImmutableHashSet.Create(
         StringComparer.Ordinal,
@@ -180,7 +180,7 @@ internal static class FilesystemMembers
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="member"/> is one of the OS-divergent STATIC symlink or
-    /// Unix-mode members on <c>File</c>/<c>Directory</c> that AG0101 owns.
+    /// Unix-mode members on <c>File</c>/<c>Directory</c> that DN0101 owns.
     /// </summary>
     /// <param name="member">The referenced member.</param>
     /// <returns><see langword="true"/> when the member name is an OS-divergent static member name.</returns>
@@ -202,7 +202,7 @@ internal static class FilesystemMembers
     /// is still RED on <c>File.Exists</c>, which is <c>IFileReader</c>'s). Every member NAME shared between
     /// <c>File</c> and <c>Directory</c> is disambiguated by the declaring type through the one
     /// <see cref="SharedNameOwners"/> table before any flat set is consulted, so a shared name never picks up the
-    /// wrong owner. The result is returned as a one-element set AG0011 hands straight to
+    /// wrong owner. The result is returned as a one-element set DN0011 hands straight to
     /// <see cref="OwnerClass.IsOwner"/>.
     /// </summary>
     /// <param name="member">The referenced filesystem member.</param>

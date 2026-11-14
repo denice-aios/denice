@@ -18,7 +18,7 @@ namespace Denice.CrossPlatform.Tests;
 /// with exactly one separator and never doubled — so an unconditional-append implementation cannot pass.
 /// The separator asserted against is the owned <see cref="IPlatformFileSystem.DirectorySeparator"/>, never a hardcoded
 /// <c>/</c>, so the assertion is correct on macOS, Linux, and Windows. Seed values are runtime reads (never a
-/// compile-time literal), so AG0035 stays clean.
+/// compile-time literal), so DN0035 stays clean.
 /// </summary>
 public sealed class BaseDirectorySeparatorTests
 {
@@ -31,7 +31,7 @@ public sealed class BaseDirectorySeparatorTests
         // Field initializers run before this constructor body, so `real` is already built here. The owned separator and
         // the seed are each read once and shared by every fact (never a hardcoded '/'), instead of recomputing the
         // expression per method. The seed is a runtime value (a real home read) with any trailing separator stripped —
-        // never a compile-time literal, so AG0035 does not fire where it seeds the fake.
+        // never a compile-time literal, so DN0035 does not fire where it seeds the fake.
         separator = real.Platform.FileSystem.DirectorySeparator;
         seed = real.Environment.GetHomeDirectory().TrimEnd(separator);
     }

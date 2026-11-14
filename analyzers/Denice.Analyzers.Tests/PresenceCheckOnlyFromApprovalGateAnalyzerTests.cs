@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0108: in production (src/**) IPresenceCheck.Check may be invoked only from Denice.Setup.ApprovalGate. A test
+/// DN0108: in production (src/**) IPresenceCheck.Check may be invoked only from Denice.Engine.Setup.ApprovalGate. A test
 /// assembly is exempt so the per-OS native smoke can call Check directly.
 /// </summary>
 public class PresenceCheckOnlyFromApprovalGateAnalyzerTests
@@ -21,7 +21,7 @@ public class PresenceCheckOnlyFromApprovalGateAnalyzerTests
     {
         string source = PresenceContract + """
 
-            namespace Denice.Setup
+            namespace Denice.Engine.Setup
             {
                 using Denice.Abstractions.Contracts;
                 internal sealed class InstallCommand
@@ -32,7 +32,7 @@ public class PresenceCheckOnlyFromApprovalGateAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PresenceCheckOnlyFromApprovalGateAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0108", diagnostic.Id);
+        Assert.Equal("DN0108", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -53,7 +53,7 @@ public class PresenceCheckOnlyFromApprovalGateAnalyzerTests
                 }
             }
 
-            namespace Denice.Setup
+            namespace Denice.Engine.Setup
             {
                 using Denice.CrossPlatform.Linux;
                 internal sealed class InstallCommand
@@ -64,7 +64,7 @@ public class PresenceCheckOnlyFromApprovalGateAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PresenceCheckOnlyFromApprovalGateAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0108", diagnostic.Id);
+        Assert.Equal("DN0108", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -73,7 +73,7 @@ public class PresenceCheckOnlyFromApprovalGateAnalyzerTests
     {
         string source = PresenceContract + """
 
-            namespace Denice.Setup
+            namespace Denice.Engine.Setup
             {
                 using Denice.Abstractions.Contracts;
                 internal static class ApprovalGate

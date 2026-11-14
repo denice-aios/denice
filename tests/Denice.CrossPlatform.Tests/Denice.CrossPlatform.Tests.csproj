@@ -28,7 +28,7 @@
        mappers, PolkitAction.Id), so each OS's files compile only on that OS's CI leg — the same selection rule as the
        impl reference below (RID first, build-host OS fallback). The non-selected OS folders are removed from the default
        glob and the selected one re-included, so no #if / OperatingSystem.Is* appears in the OS-agnostic spec source
-       (this project is deliberately subject to AG0008/AG0009). OS-agnostic presence tests live directly under
+       (this project is deliberately subject to DN0008/DN0009). OS-agnostic presence tests live directly under
        Presence/; the native smoke there compiles only when the CI workflow opts in (see below), never otherwise,
        because it drives the real OS auth prompt. -->
   <PropertyGroup>
@@ -45,7 +45,7 @@
        workflow opts in via DeniceRunNativeSmoke (set on the OS test jobs in .github/workflows/ci.yml), never
        otherwise. NOT keyed on the generic CI env var: agent/automation contexts set CI=true too, so it would still
        compile — and pop — on an interactive machine. A build-directive opt-out, not a code-level Skip, so
-       NoOsSkipInTests (AG0026) stays clean. -->
+       NoOsSkipInTests (DN0026) stays clean. -->
   <ItemGroup Condition="'$(DeniceRunNativeSmoke)' != 'true'">
     <Compile Remove="Presence/PresenceNativeSmokeTests.cs" />
   </ItemGroup>

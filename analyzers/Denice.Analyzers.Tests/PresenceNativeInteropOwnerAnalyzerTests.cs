@@ -7,12 +7,12 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0113 (presence-native-owner-rule, family-scoped; fence-relocation): presence-family native interop — a P/Invoke
+/// DN0113 (presence-native-owner-rule, family-scoped; fence-relocation): presence-family native interop — a P/Invoke
 /// that is not one of the filesystem-native bindings, or a Marshal use that is not inside the filesystem owner — is
 /// allowed only in the per-OS native-OPS owner (IObjCRuntime / IWindowsHelloNativeOps / ICredentialPromptNativeOps). The
 /// coverage refactor RELOCATED this exemption off the flow port (ILocalAuthentication / IWindowsUserPresence) and onto
 /// the thin native-ops layer, so a raw presence call left in the flow-port orchestrator is now reported. The
-/// filesystem-native family (PosixNativeMethods calls, the filesystem owner's Marshal) stays AG0101's and is skipped here.
+/// filesystem-native family (PosixNativeMethods calls, the filesystem owner's Marshal) stays DN0101's and is skipped here.
 /// </summary>
 public class PresenceNativeInteropOwnerAnalyzerTests
 {
@@ -58,7 +58,7 @@ public class PresenceNativeInteropOwnerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PresenceNativeInteropOwnerAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0113", diagnostic.Id);
+        Assert.Equal("DN0113", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -101,14 +101,14 @@ public class PresenceNativeInteropOwnerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PresenceNativeInteropOwnerAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0113", diagnostic.Id);
+        Assert.Equal("DN0113", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
     [Fact]
     public async Task FilesystemPInvoke_OutsidePort_IsNotReported()
     {
-        // pathconf is the FILESYSTEM native family (AG0101's), so AG0113 skips it — no false positive on existing code.
+        // pathconf is the FILESYSTEM native family (DN0101's), so DN0113 skips it — no false positive on existing code.
         string source = Fixtures + """
 
             namespace Denice.CrossPlatform.MacOS
@@ -140,13 +140,13 @@ public class PresenceNativeInteropOwnerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PresenceNativeInteropOwnerAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0113", diagnostic.Id);
+        Assert.Equal("DN0113", diagnostic.Id);
     }
 
     [Fact]
     public async Task Marshal_InFilesystemOwner_IsNotReported()
     {
-        // The filesystem owner's Marshal.GetLastPInvokeError (read after a filesystem syscall) is AG0101's family.
+        // The filesystem owner's Marshal.GetLastPInvokeError (read after a filesystem syscall) is DN0101's family.
         string source = Fixtures + """
 
             namespace Denice.CrossPlatform.MacOS
@@ -168,7 +168,7 @@ public class PresenceNativeInteropOwnerAnalyzerTests
     {
         // The native-ops owner's Marshal is presence-family native interop, allowed there through the shared native-ops
         // owner check. Complements PresencePInvoke_InNativeOpsOwner_IsNotReported so BOTH native branches (P/Invoke and
-        // Marshal) are proven clean in the native-ops owner under AG0113.
+        // Marshal) are proven clean in the native-ops owner under DN0113.
         string source = Fixtures + """
 
             namespace Denice.CrossPlatform.MacOS
@@ -202,13 +202,13 @@ public class PresenceNativeInteropOwnerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PresenceNativeInteropOwnerAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0113", diagnostic.Id);
+        Assert.Equal("DN0113", diagnostic.Id);
     }
 
     [Fact]
     public async Task PresencePInvoke_InLinuxAssembly_IsNotReported()
     {
-        // Linux is native-call-free (managed D-Bus); AG0113 registers only in the macOS/Windows assemblies.
+        // Linux is native-call-free (managed D-Bus); DN0113 registers only in the macOS/Windows assemblies.
         string source = Fixtures + """
 
             namespace Denice.CrossPlatform.MacOS

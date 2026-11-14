@@ -19,7 +19,7 @@ namespace Denice.CrossPlatform.Windows;
 /// cancel (cooperative cancellation, mirroring the macOS <c>LAContext</c> invalidate), and branches on the
 /// prompt/unpack/logon outcomes — mapping the raw results through the pure <see cref="MapHelloResult"/>,
 /// <see cref="MapAsyncStatus"/>, and <see cref="MapCredentialStatus"/> functions, which it fakes in tests. It caches no
-/// auth context in a field (AG0112) and mints no timeout of its own (AG0107) — cancellation comes only from the passed
+/// auth context in a field (DN0112) and mints no timeout of its own (DN0107) — cancellation comes only from the passed
 /// token and the gate owns the one 60-second bound.
 /// </summary>
 internal sealed class WindowsUserPresence : IWindowsUserPresence
@@ -60,7 +60,7 @@ internal sealed class WindowsUserPresence : IWindowsUserPresence
     /// <inheritdoc />
     public async Task<WindowsPresenceResult> VerifyAsync(string reason, CancellationToken ct)
     {
-        // The port honors cancellation but mints no timeout of its own (AG0107); the gate owns the 60-second bound.
+        // The port honors cancellation but mints no timeout of its own (DN0107); the gate owns the 60-second bound.
         ct.ThrowIfCancellationRequested();
 
         // Fast-fail availability guard (CheckAvailabilityAsync): on a headless runner it answers a non-Available code
@@ -187,14 +187,14 @@ internal sealed class WindowsUserPresence : IWindowsUserPresence
             onCompleted => _hello.BeginVerification(reason, onCompleted), _hello.GetVerificationResult, ct);
 
     // The one WinRT-operation await both the availability probe and the interactive verification compose. It owns the
-    // TaskCompletionSource the native completed handler forwards its raw async status to (AG0115 keeps this wiring in the
+    // TaskCompletionSource the native completed handler forwards its raw async status to (DN0115 keeps this wiring in the
     // flow port, never the thin native-ops class), and registers the caller's cancellation token to ASK the pending
     // operation to cancel — WinRT cancellation is cooperative, so a cancel unblocks the await promptly with a cancelled
     // async status, mirroring the macOS LAContext invalidate. When the operation did not complete it substitutes a
     // consent code (MapAsyncStatus); otherwise it reads the operation's real result. The registration is disposed FIRST
     // in finally — so no cancel callback can touch the operation after it is released — then the operation is released.
-    // The operation pointer is a per-call local captured in the closures (AG0112), never a field; the port mints no
-    // timeout of its own (AG0107) — cancellation comes only from the passed token.
+    // The operation pointer is a per-call local captured in the closures (DN0112), never a field; the port mints no
+    // timeout of its own (DN0107) — cancellation comes only from the passed token.
     private async Task<int> AwaitOperationAsync(
         Func<Action<int>, IntPtr> begin, Func<IntPtr, int> getResult, CancellationToken ct)
     {

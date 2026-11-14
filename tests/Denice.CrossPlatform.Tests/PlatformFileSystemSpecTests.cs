@@ -248,8 +248,8 @@ public sealed class PlatformFileSystemSpecTests : IDisposable
     [Fact]
     [SuppressMessage(
         "Denice.Architecture",
-        "AG0101:OsDivergentFilesystemOnlyInCrossPlatform",
-        Justification = "This lone pointed-integration test proves the real PosixFileSystem.MakeExecutable adds only the execute bits and preserves the file's other permission bits — a 0755 replace would leak group/other read onto a private file. That is a real-disk security property the in-memory simulator cannot verify (its exec bit is a single boolean flag), and IPlatformFileSystem exposes no owned raw Unix-mode get/set by design (the engine never needs one). Tim approved this ordinary AG0101 suppression on 2026-08-21 as the interim mechanism: raw-primitive test exceptions are suppressed the existing way and monitored manually until the signed-exception system lands, which will flag every unsigned exception so the backlog can be signed.")]
+        "DN0101:OsDivergentFilesystemOnlyInCrossPlatform",
+        Justification = "This lone pointed-integration test proves the real PosixFileSystem.MakeExecutable adds only the execute bits and preserves the file's other permission bits — a 0755 replace would leak group/other read onto a private file. That is a real-disk security property the in-memory simulator cannot verify (its exec bit is a single boolean flag), and IPlatformFileSystem exposes no owned raw Unix-mode get/set by design (the engine never needs one). Tim approved this ordinary DN0101 suppression on 2026-08-21 as the interim mechanism: raw-primitive test exceptions are suppressed the existing way and monitored manually until the signed-exception system lands, which will flag every unsigned exception so the backlog can be signed.")]
     public void ExecutableFlag_IsUniformlyProvenByNeedsExecutableFlag()
     {
         string file = Path.Combine(root, "guard");
@@ -268,7 +268,7 @@ public sealed class PlatformFileSystemSpecTests : IDisposable
 
             // The exact-mode set and read below have no owned-interface path by design: IPlatformFileSystem exposes
             // MakeExecutable/IsExecutable but no raw Unix-mode get/set (the engine never needs one), so this exact-bits
-            // proof runs raw on real disk under the method-level AG0101 suppression Tim approved (see the attribute) —
+            // proof runs raw on real disk under the method-level DN0101 suppression Tim approved (see the attribute) —
             // an interim ordinary suppression, monitored manually until the signed-exception system lands.
             File.SetUnixFileMode(file, initialMode);
 
@@ -309,7 +309,7 @@ public sealed class PlatformFileSystemSpecTests : IDisposable
     // on the CAPABILITY NeedsExecutableFlag(), never on the OS, but the analyzer cannot see that a false-on-Windows
     // capability means the Unix-mode APIs below are unreachable on Windows. [UnsupportedOSPlatformGuard("windows")]
     // states that true invariant (NeedsExecutableFlag() is hard-false on Windows), so File.Get/SetUnixFileMode are
-    // proven safe here without an OS branch (AG0009) and without suppressing CA1416.
+    // proven safe here without an OS branch (DN0009) and without suppressing CA1416.
     [UnsupportedOSPlatformGuard("windows")]
     private bool ExecutableBitsSupported() => fileSystem.NeedsExecutableFlag();
 

@@ -3,7 +3,7 @@
 using System;
 using System.IO;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The machine condition that the shell profile carries the PATH line for the launcher directory.

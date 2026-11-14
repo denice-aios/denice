@@ -12,13 +12,13 @@ namespace Denice.CrossPlatform;
 /// <c>public static IPlatformServices Create()</c> build point — the same self-building shape as
 /// <c>SystemServices.Create()</c>. It lives in the per-OS impl assembly, where <see cref="WindowsFileSystem"/> is
 /// visible, so it builds its own OS-divergent file system with no separate <c>Platform</c> factory and no passed-in
-/// service. <c>Denice.Boundaries</c> reaches exactly this one door (AG0029, AG0010 pins the
+/// service. <c>Denice.Boundaries</c> reaches exactly this one door (DN0029, DN0010 pins the
 /// <see cref="IPlatformServices"/> return), so the type is <c>internal</c> with an <c>InternalsVisibleTo</c> grant to
 /// Boundaries. Windows wires its own <see cref="WindowsFileSystem"/> (it does not link the POSIX source).
 /// </summary>
 internal sealed class PlatformServices : IPlatformServices
 {
-    // Private constructor (AG0003, Wall 1): the built OS-divergent file system and the Windows presence check arrive by
+    // Private constructor (DN0003, Wall 1): the built OS-divergent file system and the Windows presence check arrive by
     // constructor injection; only this class's own Create() builds them, so no second container can be assembled to
     // bypass the one door.
     private PlatformServices(IPlatformFileSystem fileSystem, IPresenceCheck presence)

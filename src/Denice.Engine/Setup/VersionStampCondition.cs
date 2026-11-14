@@ -4,7 +4,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The project condition that the project's stamped guard version matches the installed machine version; a drift

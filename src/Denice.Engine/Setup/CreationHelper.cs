@@ -4,7 +4,7 @@ using System;
 using Denice.Abstractions.Contracts;
 using Denice.Engine;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the imperative creation and merge work: the version-store copy, the atomic <c>current</c>

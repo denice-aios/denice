@@ -3,7 +3,7 @@
 using System;
 using System.IO;
 
-namespace Denice.TestSupport;
+namespace Denice.Tests.Shared;
 
 /// <summary>
 /// The single owner of the "delete a throwaway temporary directory, best effort" cleanup that the test fixtures

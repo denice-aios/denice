@@ -42,7 +42,7 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
             await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(DllImportSource, "Denice.Engine");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0008", diagnostic.Id);
+        Assert.Equal("DN0008", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -53,7 +53,7 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
             await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(LibraryImportSource, "Denice.Engine");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0008", diagnostic.Id);
+        Assert.Equal("DN0008", diagnostic.Id);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
             await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(DllImportSource, "Denice.CrossPlatform.Tests");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0008", diagnostic.Id);
+        Assert.Equal("DN0008", diagnostic.Id);
     }
 
     [Fact]
@@ -220,6 +220,6 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
         Diagnostic diagnostic =
             Assert.Single(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(
                 source, "Denice.Engine", "CS0246", "CS0246"));
-        Assert.Equal("AG0008", diagnostic.Id);
+        Assert.Equal("DN0008", diagnostic.Id);
     }
 }

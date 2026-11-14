@@ -38,7 +38,7 @@ public class PlatformFactoryMustReturnContainerAnalyzerTests
             await AnalyzerRunner.RunAsync<PlatformFactoryMustReturnContainerAnalyzer>(source, "Denice.CrossPlatform.MacOS");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0010", diagnostic.Id);
+        Assert.Equal("DN0010", diagnostic.Id);
         Assert.Equal("Create", AnalyzerRunner.SpanText(source, diagnostic));
     }
 
@@ -66,7 +66,7 @@ public class PlatformFactoryMustReturnContainerAnalyzerTests
             await AnalyzerRunner.RunAsync<PlatformFactoryMustReturnContainerAnalyzer>(source, "Denice.CrossPlatform.MacOS");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0010", diagnostic.Id);
+        Assert.Equal("DN0010", diagnostic.Id);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public class PlatformFactoryMustReturnContainerAnalyzerTests
             await AnalyzerRunner.RunAsync<PlatformFactoryMustReturnContainerAnalyzer>(source, "Denice.CrossPlatform.MacOS");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0010", diagnostic.Id);
+        Assert.Equal("DN0010", diagnostic.Id);
     }
 
     [Fact]

@@ -14,8 +14,8 @@ namespace Denice.Tests;
 /// </summary>
 [SuppressMessage(
     "Denice.Architecture",
-    "AG0011:RawPrimitiveOnlyInOwner",
-    Justification = "This build-stamp-hygiene test reads arbitrary assembly version metadata via reflection (AssemblyName.Version and AssemblyInformationalVersionAttribute.InformationalVersion across the engine and test assemblies). AG0011 owns those reflection reads to IBuildInfo, which reports only the guard's own version, so it cannot express this cross-assembly consistency check. Tim approved this ordinary interim suppression on 2026-08-21 per the interim-suppression model (interim-suppression-model-and-ag0101-exec-test), monitored manually until the signed-exception system lands, when it migrates to a signed exception (issue #33).")]
+    "DN0011:RawPrimitiveOnlyInOwner",
+    Justification = "This build-stamp-hygiene test reads arbitrary assembly version metadata via reflection (AssemblyName.Version and AssemblyInformationalVersionAttribute.InformationalVersion across the engine and test assemblies). DN0011 owns those reflection reads to IBuildInfo, which reports only the guard's own version, so it cannot express this cross-assembly consistency check. Tim approved this ordinary interim suppression on 2026-08-21 per the interim-suppression model (interim-suppression-model-and-ag0101-exec-test), monitored manually until the signed-exception system lands, when it migrates to a signed exception (issue #33).")]
 public sealed class VersionStampTests
 {
     /// <summary>

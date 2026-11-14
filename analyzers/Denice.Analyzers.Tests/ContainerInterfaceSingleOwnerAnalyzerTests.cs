@@ -9,15 +9,15 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0022 (container-interface-single-owner-rule): each of the three container-shaped interfaces — ISystemServices,
+/// DN0022 (container-interface-single-owner-rule): each of the three container-shaped interfaces — ISystemServices,
 /// IFileSystem, IPlatformServices — may be implemented by at most one type per compilation, with NO test-system
 /// exemption. This closes the bypass where a test hand-rolls a container implementation and builds the container
-/// directly, sidestepping SystemServicesBuilder — the one hole AG0025 (leaf services, test-exempt) and AG0017 (static
+/// directly, sidestepping SystemServicesBuilder — the one hole DN0025 (leaf services, test-exempt) and DN0017 (static
 /// factory) do not cover.
 /// </summary>
 public class ContainerInterfaceSingleOwnerAnalyzerTests
 {
-    // A real container tree plus one ordinary interface (to prove the rule guards only the containers). AG0022's checked
+    // A real container tree plus one ordinary interface (to prove the rule guards only the containers). DN0022's checked
     // container set is DERIVED from the tree walk (BoundaryServices.ResolveTree, container-interface-single-owner-rule),
     // not a hardcoded triple, so IFileSystem and IPlatformServices are guarded only because they are genuinely reachable
     // as nested containers from ISystemServices: ISystemServices exposes each through a service accessor, and each has a
@@ -65,7 +65,7 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<ContainerInterfaceSingleOwnerAnalyzer>(source));
-        Assert.Equal("AG0022", diagnostic.Id);
+        Assert.Equal("DN0022", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("ISystemServices", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -90,7 +90,7 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
     [Fact]
     public async Task SecondImplementerOfContainer_InTestAssembly_IsStillReported_NoExemption()
     {
-        // The defining difference from AG0025: NO test-system exemption. In a .Tests compilation, two implementers of a
+        // The defining difference from DN0025: NO test-system exemption. In a .Tests compilation, two implementers of a
         // container is still a build error — the only legal container implementers there are the fakes nested inside
         // SystemServicesBuilder, so a test-declared second implementer is caught.
         string source = ContainersSource + $$"""
@@ -110,7 +110,7 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<ContainerInterfaceSingleOwnerAnalyzer>(source, "Denice.Cli.Tests"));
-        Assert.Equal("AG0022", diagnostic.Id);
+        Assert.Equal("DN0022", diagnostic.Id);
         Assert.Contains("ISystemServices", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -143,7 +143,7 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
 
         var diagnostics = await AnalyzerRunner.RunAsync<ContainerInterfaceSingleOwnerAnalyzer>(source);
         Assert.Equal(2, diagnostics.Length);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0022", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0022", diagnostic.Id));
     }
 
     [Fact]

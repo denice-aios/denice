@@ -23,7 +23,7 @@ public sealed class PlatformFactoryMustReturnContainerAnalyzer : DiagnosticAnaly
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0010";
+    public const string DiagnosticId = "DN0010";
 
     private const string Category = "Denice.Architecture";
     private const string ContainerTypeName = "IPlatformServices";
@@ -65,7 +65,7 @@ public sealed class PlatformFactoryMustReturnContainerAnalyzer : DiagnosticAnaly
             return;
         }
 
-        // AG0010's own concern: the factory must hand back the IPlatformServices container, never a bare service.
+        // DN0010's own concern: the factory must hand back the IPlatformServices container, never a bare service.
         if (!WellKnownType.Is(method.ReturnType as INamedTypeSymbol, KnownNamespaces.DeniceAbstractionsContracts, ContainerTypeName))
         {
             context.ReportDiagnostic(Diagnostic.Create(Rule, method.Locations[0], method.ReturnType.ToDisplayString()));

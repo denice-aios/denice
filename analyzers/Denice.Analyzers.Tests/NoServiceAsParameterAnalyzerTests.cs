@@ -10,7 +10,7 @@ namespace Denice.Analyzers.Tests;
 
 public class NoServiceAsParameterAnalyzerTests
 {
-    // AG0031's owner-interface set is now DERIVED from ISystemServices (derive-service-set-from-isystemservices), so
+    // DN0031's owner-interface set is now DERIVED from ISystemServices (derive-service-set-from-isystemservices), so
     // the fixture's container must expose IFileReader through an accessor for it to count as a service. The container
     // fixture is SharedAnalyzerSources.AbstractionsPrefix. The assertions below are unchanged from the hand-list era.
     [Fact]
@@ -30,7 +30,7 @@ public class NoServiceAsParameterAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0031", diagnostic.Id);
+        Assert.Equal("DN0031", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("Use", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }

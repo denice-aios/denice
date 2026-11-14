@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The project condition that the guard's Pre/Post hook entries are present in <c>.claude/settings.json</c> and

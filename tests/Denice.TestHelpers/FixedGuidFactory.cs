@@ -12,7 +12,7 @@ namespace Denice.TestHelpers;
 /// returns a stable, sequential name, so a test run is reproducible. Temp-directory uniqueness never relies on this fake
 /// — the overlay's own counter guarantees it (copy-on-write-simulator-design) — so a constant GUID is safe. It reaches
 /// for neither <c>Guid.NewGuid()</c> nor <c>Path.GetRandomFileName()</c> (both owned elsewhere); every value is
-/// synthesized in memory. Its constructor is private (AG0003) and it is handed out only as its interface through the
+/// synthesized in memory. Its constructor is private (DN0003) and it is handed out only as its interface through the
 /// static factories.
 /// </summary>
 public sealed class FixedGuidFactory : IRandomGenerator

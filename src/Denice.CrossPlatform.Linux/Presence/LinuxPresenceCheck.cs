@@ -35,7 +35,7 @@ internal sealed class LinuxPresenceCheck : IPresenceCheck
 
     private readonly IPolkitAuthority _polkitAuthority;
 
-    // Private constructor (AG0003): only Create() builds it, from the per-OS PlatformServices.CreatePresence().
+    // Private constructor (DN0003): only Create() builds it, from the per-OS PlatformServices.CreatePresence().
     private LinuxPresenceCheck(IPolkitAuthority polkitAuthority) => _polkitAuthority = polkitAuthority;
 
     /// <inheritdoc />
@@ -53,14 +53,14 @@ internal sealed class LinuxPresenceCheck : IPresenceCheck
             IFileReader reader = services.FileSystem.GetFileReader();
             PolkitSubject subject = BuildSubject(reader.ReadAllText(ProcStatPath), reader.ReadAllText(ProcStatusPath));
 
-            // A fresh, per-call unique cancellation id from the owned randomness seam (AG0011): polkit writes it into the
+            // A fresh, per-call unique cancellation id from the owned randomness seam (DN0011): polkit writes it into the
             // check and rejects a reused id. Held only as a local and captured in the token registration below, so no
             // handle is cached in a field.
             string cancellationId = services.Random.NewGuid().ToString("N");
 
             // Honor the token IN FLIGHT: when it fires, message the port to cancel the pending polkit check (dismissing
             // its out-of-band prompt), mirroring the macOS port's ct.Register(invalidate). Wiring the caller's token is
-            // not minting a timeout (AG0107) — the gate still owns the one 60-second bound.
+            // not minting a timeout (DN0107) — the gate still owns the one 60-second bound.
             CancellationTokenRegistration cancellation =
                 ct.Register(() => _polkitAuthority.CancelCheckAuthorization(cancellationId));
             try

@@ -6,7 +6,7 @@
        because a version pointer is a directory symlink that cannot be re-pointed by a rename, so it rewrites the
        existing link's reparse data in place instead. The [LibraryImport] source generator for these P/Invokes
        requires unsafe blocks. One of the four Denice.CrossPlatform.* libraries the interop/OS-branching analyzers
-       (AG0008/AG0009) exempt. -->
+       (DN0008/DN0009) exempt. -->
   <PropertyGroup>
     <RootNamespace>Denice.CrossPlatform.Windows</RootNamespace>
     <AssemblyName>Denice.CrossPlatform.Windows</AssemblyName>
@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <!-- PlatformServices.Create() is internal (platform-create-internal); Denice.Engine reaches this one door
-       through the grant, and only from SystemServices.Create() (AG0029); the grant moved here from
+       through the grant, and only from SystemServices.Create() (DN0029); the grant moved here from
        Denice.Boundaries with the container itself. Keyless in source; the signing target injects the public key
        on a signed build. -->
   <ItemGroup>

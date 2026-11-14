@@ -12,14 +12,14 @@ namespace Denice.CrossPlatform;
 /// <c>public static IPlatformServices Create()</c> build point — the same self-building shape as
 /// <c>SystemServices.Create()</c>. It lives in the per-OS impl assembly, where <see cref="PosixFileSystem"/> is
 /// visible, so it builds its own OS-divergent file system with no separate <c>Platform</c> factory and no passed-in
-/// service. <c>Denice.Boundaries</c> reaches exactly this one door (AG0029, AG0010 pins the
+/// service. <c>Denice.Boundaries</c> reaches exactly this one door (DN0029, DN0010 pins the
 /// <see cref="IPlatformServices"/> return), so the type is <c>internal</c> with an <c>InternalsVisibleTo</c> grant to
 /// Boundaries. This is shared POSIX source: macOS and Linux wire the same <see cref="PosixFileSystem"/>, so this file
 /// is linked into the Linux impl unchanged. The Windows impl ships its own <c>PlatformServices.Create()</c>.
 /// </summary>
 internal sealed partial class PlatformServices : IPlatformServices
 {
-    // Private constructor (AG0003, Wall 1): the built OS-divergent file system and the per-OS presence check arrive by
+    // Private constructor (DN0003, Wall 1): the built OS-divergent file system and the per-OS presence check arrive by
     // constructor injection; only this class's own Create() builds them, so no second container can be assembled to
     // bypass the one door.
     private PlatformServices(IPlatformFileSystem fileSystem, IPresenceCheck presence)

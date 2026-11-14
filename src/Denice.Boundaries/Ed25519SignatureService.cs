@@ -12,7 +12,7 @@ namespace Denice.Boundaries;
 
 /// <summary>
 /// The owned <see cref="ISignatureService"/> — the single class that implements the Ed25519 grant-signature seam, so
-/// it is the ONE place the raw BouncyCastle Ed25519 types are allowed (AG0021 exempts exactly this owner). The
+/// it is the ONE place the raw BouncyCastle Ed25519 types are allowed (DN0021 exempts exactly this owner). The
 /// <c>Ed25519Signer</c> sequence (<c>Init</c>/<c>BlockUpdate</c>/<c>VerifySignature</c>/<c>GenerateSignature</c>),
 /// key generation, the <c>Ed25519*Parameters</c>, and the choice of Ed25519 all hide inside here, and no BouncyCastle
 /// type crosses <see cref="ISignatureService"/> (signature-verify-behind-isignatureverifier). BouncyCastle is managed
@@ -27,7 +27,7 @@ internal sealed class Ed25519SignatureService : ISignatureService
     // malformed, so Verify denies rather than constructing key parameters that would throw.
     private const int Ed25519KeyLength = 32;
 
-    // Private constructor (AG0003, Wall 1): only this class's own factory constructs it.
+    // Private constructor (DN0003, Wall 1): only this class's own factory constructs it.
     private Ed25519SignatureService()
     {
     }

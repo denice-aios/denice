@@ -20,7 +20,7 @@ internal sealed class FileSystem : IFileSystem
     private readonly IFileWriter _fileWriter;
     private readonly IDirectoryWriter _directoryWriter;
 
-    // Private constructor (AG0003, Wall 1): only this class's own factory constructs it, from the injected seam and
+    // Private constructor (DN0003, Wall 1): only this class's own factory constructs it, from the injected seam and
     // adapters.
     private FileSystem(
         IFileInfoFactory factory,

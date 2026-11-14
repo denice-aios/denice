@@ -21,7 +21,7 @@ internal sealed class WindowsPresenceCheck : IPresenceCheck
 {
     private readonly IWindowsUserPresence _userPresence;
 
-    // Private constructor (AG0003): only Create() builds it, from the per-OS PlatformServices.Create().
+    // Private constructor (DN0003): only Create() builds it, from the per-OS PlatformServices.Create().
     private WindowsPresenceCheck(IWindowsUserPresence userPresence) => _userPresence = userPresence;
 
     /// <inheritdoc />

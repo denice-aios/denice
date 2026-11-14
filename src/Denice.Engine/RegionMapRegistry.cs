@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Text;
 using Denice.Abstractions;
 using Denice.Abstractions.Contracts;
-using Denice.Setup;
+using Denice.Engine.Setup;
 
 namespace Denice.Engine;
 

@@ -9,7 +9,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0035 (no-literal-fake-root): a compile-time literal passed at a fake-root seed site — the
+/// DN0035 (no-literal-fake-root): a compile-time literal passed at a fake-root seed site — the
 /// <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c>/<c>baseDirectory</c> argument of <c>Denice.TestHelpers.FakeEnvironment.Create</c>,
 /// or the <c>tempRoot</c> argument of the overlay factory <c>SystemServicesBuilder.NewOverlay</c> — is a build error, so
 /// the copy-on-write simulator takes a real-host value on every OS. The check targets the <c>NewOverlay</c> call, NOT
@@ -22,7 +22,7 @@ public class NoLiteralFakeRootAnalyzerTests
 {
     // The overlay/store/NewOverlay stand-in is the shared owner SharedAnalyzerSources.OverlaySeedHelpers (spelled once,
     // consumed by both seed-site rule test classes); this preamble prepends it with the FakeEnvironment stand-in — the
-    // extra seed site only AG0035 reads — matched by namespace + name AND the declaring assembly, plus a consumer whose
+    // extra seed site only DN0035 reads — matched by namespace + name AND the declaring assembly, plus a consumer whose
     // body each test replaces. NewOverlay forwards its own tempRoot/caseSensitive parameters to the store constructor,
     // exactly as the real builder does, so the preamble's own construction seeds from parameters (never a literal) and
     // adds no diagnostic. RunAsync compiles this preamble into an assembly named Denice.TestHelpers so the seed
@@ -47,7 +47,7 @@ public class NoLiteralFakeRootAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 
-        Assert.Equal("AG0035", diagnostic.Id);
+        Assert.Equal("DN0035", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -62,7 +62,7 @@ public class NoLiteralFakeRootAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 
-        Assert.Equal("AG0035", diagnostic.Id);
+        Assert.Equal("DN0035", diagnostic.Id);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public class NoLiteralFakeRootAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 
-        Assert.Equal("AG0035", diagnostic.Id);
+        Assert.Equal("DN0035", diagnostic.Id);
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class NoLiteralFakeRootAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 
-        Assert.Equal("AG0035", diagnostic.Id);
+        Assert.Equal("DN0035", diagnostic.Id);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class NoLiteralFakeRootAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await RunAsync(body);
 
         Assert.Equal(2, diagnostics.Length);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0035", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0035", diagnostic.Id));
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class NoLiteralFakeRootAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 
-        Assert.Equal("AG0035", diagnostic.Id);
+        Assert.Equal("DN0035", diagnostic.Id);
     }
 
     [Fact]
@@ -156,7 +156,7 @@ public class NoLiteralFakeRootAnalyzerTests
         // A FakeEnvironment with the SAME namespace + name but compiled into a DIFFERENT assembly than
         // Denice.TestHelpers cannot self-grant the rule: the identity now pins the declaring assembly through
         // WellKnownType.IsInAssembly, so a same-named type elsewhere is left alone even with a literal home (mirrors
-        // the sibling assembly-gate tests such as AG0027's InNonTestHelpersAssembly case).
+        // the sibling assembly-gate tests such as DN0027's InNonTestHelpersAssembly case).
         const string referenceSource = """
             namespace Denice.TestHelpers
             {

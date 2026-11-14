@@ -8,7 +8,7 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// Reports a raw OS/CLR primitive used anywhere but its single owner class. This is the one table-driven owner rule
-/// (AG0011) the bridge's rule-phase consolidates the per-primitive boundary analyzers into: filesystem
+/// (DN0011) the bridge's rule-phase consolidates the per-primitive boundary analyzers into: filesystem
 /// (<c>File</c>/<c>Directory</c> split per member across <c>IFileReader</c>/<c>IDirectoryEnumerator</c>/
 /// <c>IFileWriter</c>/<c>IDirectoryWriter</c>, and the <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c>
 /// wrappers owned wholesale by <c>IFileInfo</c>/<c>IDirectoryInfo</c>/<c>IFileSystemInfo</c>), environment
@@ -18,7 +18,7 @@ namespace Denice.Analyzers;
 /// call is legal only in the class that implements the owning interface AND compiles into the owner assembly — the
 /// conjunction <see cref="OwnerClass.IsOwner"/> applies — so a class cannot self-grant by declaring the interface in
 /// the wrong assembly, and a primitive with no owner stays a build error everywhere. The OS-divergent static members
-/// are AG0101's, the clock members are AG0015's, <c>Path</c> is AG0020's, and OS branching is AG0009's; those are
+/// are DN0101's, the clock members are DN0015's, <c>Path</c> is DN0020's, and OS branching is DN0009's; those are
 /// carved out in <see cref="OwnedPrimitives.Resolve"/> so exactly one rule owns each site.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -27,7 +27,7 @@ public sealed class RawPrimitiveOnlyInOwnerAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0011";
+    public const string DiagnosticId = "DN0011";
 
     private const string Category = "Denice.Architecture";
 
@@ -38,7 +38,7 @@ public sealed class RawPrimitiveOnlyInOwnerAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A raw OS/CLR primitive — a System.IO filesystem type, System.Environment, a version-reflection read, System.Random/Guid.NewGuid/RandomNumberGenerator, System.Console, or a BouncyCastle Ed25519 type — is allowed only in the single class that implements its owning interface (IFileReader/IDirectoryEnumerator/IFileWriter/IDirectoryWriter, IFileInfo/IDirectoryInfo/IFileSystemInfo, IEnvironment, IRandomGenerator, IConsole, ISignatureService, IBuildInfo), compiled into the assembly where that owner lives — not merely somewhere in that assembly. Every other type reaches the primitive through the owned interface on ISystemServices so the engine stays mockable. A primitive with no owner (Process, the stream/drive/watcher types) is a build error everywhere; the OS-divergent static members are governed by AG0101.");
+        description: "A raw OS/CLR primitive — a System.IO filesystem type, System.Environment, a version-reflection read, System.Random/Guid.NewGuid/RandomNumberGenerator, System.Console, or a BouncyCastle Ed25519 type — is allowed only in the single class that implements its owning interface (IFileReader/IDirectoryEnumerator/IFileWriter/IDirectoryWriter, IFileInfo/IDirectoryInfo/IFileSystemInfo, IEnvironment, IRandomGenerator, IConsole, ISignatureService, IBuildInfo), compiled into the assembly where that owner lives — not merely somewhere in that assembly. Every other type reaches the primitive through the owned interface on ISystemServices so the engine stays mockable. A primitive with no owner (Process, the stream/drive/watcher types) is a build error everywhere; the OS-divergent static members are governed by DN0101.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

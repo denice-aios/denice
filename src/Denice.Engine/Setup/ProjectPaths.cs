@@ -3,7 +3,7 @@
 using System.IO;
 using Denice.Engine;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the per-project wiring layout under a repository root. The runtime-store locations reuse

@@ -3,7 +3,7 @@
 using System;
 using System.IO;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Resolves the shell profile the PATH line is appended to from the detected login shell, and owns the exact

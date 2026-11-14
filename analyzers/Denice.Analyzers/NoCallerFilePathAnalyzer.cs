@@ -32,7 +32,7 @@ public sealed class NoCallerFilePathAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0039";
+    public const string DiagnosticId = "DN0039";
 
     private const string Category = "Denice.Architecture";
 
@@ -79,7 +79,7 @@ public sealed class NoCallerFilePathAnalyzer : DiagnosticAnalyzer
     // Thin call to the shared match-then-report owner: report Rule against any applied [CallerFilePath] and leave every
     // other attribute alone. The resolve-first match (so a user attribute of the same simple name in another namespace
     // does not fire, and the CallerMemberName/CallerLineNumber/CallerArgumentExpression siblings never match) lives in
-    // AppliedAttributeBan, shared with AG0008.
+    // AppliedAttributeBan, shared with DN0008.
     private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context) =>
         AppliedAttributeBan.Report(context, CallerFilePathAttribute, Rule);
 }

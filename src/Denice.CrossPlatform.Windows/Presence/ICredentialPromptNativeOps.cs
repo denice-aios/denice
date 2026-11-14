@@ -10,8 +10,8 @@ namespace Denice.CrossPlatform.Windows;
 /// <c>CloseHandle</c>, and their <c>Marshal</c> uses), split out from below the <see cref="IWindowsUserPresence"/> flow
 /// port. It is the second of the two Windows native-ops owners (macos-one-windows-two-native-ops): Hello and the
 /// credential prompt are independent native subsystems sharing no handle. Its sole implementer
-/// (<see cref="CredentialPromptNativeOps"/>) is where the relocated raw-interop exemption lives (AG0113) and it holds no
-/// field (AG0116). Every method is a SYNCHRONOUS raw call with no branching (AG0106): the status/unpack/logon decisions
+/// (<see cref="CredentialPromptNativeOps"/>) is where the relocated raw-interop exemption lives (DN0113) and it holds no
+/// field (DN0116). Every method is a SYNCHRONOUS raw call with no branching (DN0106): the status/unpack/logon decisions
 /// live in the fake-testable orchestrator, which composes these primitives and owns every buffer's lifetime.
 ///
 /// It is marked <see cref="RequiresNativeSpecTestAttribute"/> — the production-side, single source of the guardrail-1

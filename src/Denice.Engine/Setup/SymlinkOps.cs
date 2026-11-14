@@ -3,7 +3,7 @@
 using System;
 using Denice.Abstractions.Contracts;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The engine-side symlink policy over the platform's <see cref="IPlatformFileSystem"/>: it keeps the generic

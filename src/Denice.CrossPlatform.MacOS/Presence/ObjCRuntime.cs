@@ -10,15 +10,15 @@ namespace Denice.CrossPlatform.MacOS;
 
 /// <summary>
 /// The sole implementer of <see cref="IObjCRuntime"/> and the ONE class that binds the macOS Objective-C runtime through
-/// <c>objc_msgSend</c> and its siblings — the presence NATIVE-OPS owner (AG0113 confines raw presence P/Invoke and
-/// <c>Marshal</c> here; AG0114 permits one implementer). It is fully stateless (AG0116): every native handle it returns
+/// <c>objc_msgSend</c> and its siblings — the presence NATIVE-OPS owner (DN0113 confines raw presence P/Invoke and
+/// <c>Marshal</c> here; DN0114 permits one implementer). It is fully stateless (DN0116): every native handle it returns
 /// is a per-call local the <see cref="LocalAuthentication"/> orchestrator owns and releases, and it holds no field but
-/// compile-time <c>const</c>s. Each method is a straight-line raw call with no branching (AG0106) and no task-completion
-/// wiring (AG0115): the flow, mapping, <c>TaskCompletionSource</c>/<c>GCHandle</c> wiring, and cancel-invalidate logic
+/// compile-time <c>const</c>s. Each method is a straight-line raw call with no branching (DN0106) and no task-completion
+/// wiring (DN0115): the flow, mapping, <c>TaskCompletionSource</c>/<c>GCHandle</c> wiring, and cancel-invalidate logic
 /// all live in the fake-testable <see cref="LocalAuthentication"/> orchestrator that composes these primitives. The
 /// interactive <c>evaluatePolicy:localizedReason:reply:</c> completion block is a manually assembled Objective-C block
 /// whose invoke is the static <c>[UnmanagedCallersOnly]</c> <see cref="EvaluateReplyCallback"/> reached by a function
-/// pointer (AG0104), its whole body one guarded try/catch (AG0105); the block captures the orchestrator-supplied
+/// pointer (DN0104), its whole body one guarded try/catch (DN0105); the block captures the orchestrator-supplied
 /// completion handle and the callback merely recovers and invokes the orchestrator's reply handler.
 /// </summary>
 internal sealed partial class ObjCRuntime : IObjCRuntime
@@ -51,7 +51,7 @@ internal sealed partial class ObjCRuntime : IObjCRuntime
     static ObjCRuntime() =>
 
         // Load the framework once so objc_getClass("LAContext") resolves; the handle is intentionally discarded (the
-        // image stays loaded process-wide) so no native handle is cached in a field (AG0116).
+        // image stays loaded process-wide) so no native handle is cached in a field (DN0116).
         NativeLibrary.Load(LocalAuthenticationFramework);
 
     /// <inheritdoc />
@@ -130,17 +130,17 @@ internal sealed partial class ObjCRuntime : IObjCRuntime
     /// <inheritdoc />
     public void FreeReplyBlock(IntPtr replyBlock) => Marshal.FreeHGlobal(replyBlock);
 
-    // The Objective-C reply block invoke. AG0104 requires it be a static [UnmanagedCallersOnly] method reached by a
-    // function pointer, and AG0105 requires its whole body be one try that catches every managed exception and never
+    // The Objective-C reply block invoke. DN0104 requires it be a static [UnmanagedCallersOnly] method reached by a
+    // function pointer, and DN0105 requires its whole body be one try that catches every managed exception and never
     // propagates, so no exception unwinds across the native block invocation. It recovers the orchestrator's captured
     // reply handler (an Action<byte, IntPtr> — no branch, no mapping, which are the orchestrator's) and invokes it with
     // the raw (success, error) reply. On a caught fault the thin native-ops layer only swallows: it holds no
-    // TaskCompletionSource (AG0115), so fail-closed completion is the orchestrator's handler's own responsibility.
+    // TaskCompletionSource (DN0115), so fail-closed completion is the orchestrator's handler's own responsibility.
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     [SuppressMessage(
         "Design",
         "CA1031:Do not catch general exception types",
-        Justification = "AG0105 mandates a native callback body of one try/catch(Exception) that never propagates across the native frame.")]
+        Justification = "DN0105 mandates a native callback body of one try/catch(Exception) that never propagates across the native frame.")]
     private static void EvaluateReplyCallback(IntPtr block, byte success, IntPtr error)
     {
         try
@@ -149,7 +149,7 @@ internal sealed partial class ObjCRuntime : IObjCRuntime
         }
         catch (Exception)
         {
-            // A managed exception must never unwind across the native block invocation (AG0105). Fail-closed: recover
+            // A managed exception must never unwind across the native block invocation (DN0105). Fail-closed: recover
             // the orchestrator's reply handler again and complete it with a failure reply (no success, no error pointer
             // -> the orchestrator maps it to Unknown -> Error) so the awaiting task denies at once instead of hanging
             // for the gate's bound. Recovering our own GCHandle cannot itself throw in practice.
@@ -165,13 +165,13 @@ internal sealed partial class ObjCRuntime : IObjCRuntime
     // Reads the captured completion handle back out of the (copied) block literal ObjC handed the callback.
     private static IntPtr ReadCapturedContext(IntPtr block) => Marshal.PtrToStructure<BlockLiteral>(block).Context;
 
-    // The one unsafe expression the design needs: AG0104 requires the native callback be reached by a function pointer
+    // The one unsafe expression the design needs: DN0104 requires the native callback be reached by a function pointer
     // (&Method), which is only expressible in an unsafe context. The pointer targets the static [UnmanagedCallersOnly]
     // EvaluateReplyCallback, whose signature is blittable.
     [SuppressMessage(
         "Major Code Smell",
         "S6640:Make sure that using \"unsafe\" is safe here.",
-        Justification = "AG0104 requires the native callback be reached by a function pointer (&Method), expressible only in an unsafe context; it targets a static [UnmanagedCallersOnly] method with a blittable signature.")]
+        Justification = "DN0104 requires the native callback be reached by a function pointer (&Method), expressible only in an unsafe context; it targets a static [UnmanagedCallersOnly] method with a blittable signature.")]
     private static unsafe IntPtr ReplyInvokePointer() =>
         (IntPtr)(delegate* unmanaged[Cdecl]<IntPtr, byte, IntPtr, void>)&EvaluateReplyCallback;
 

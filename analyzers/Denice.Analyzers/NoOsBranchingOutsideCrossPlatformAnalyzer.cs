@@ -12,11 +12,11 @@ namespace Denice.Analyzers;
 /// <summary>
 /// Reports OS branching around two boundaries, with a diagnostic id each:
 /// <list type="bullet">
-/// <item><b>AG0009</b> — a call to <c>OperatingSystem.Is*</c> or <c>RuntimeInformation.IsOSPlatform</c>, or a
+/// <item><b>DN0009</b> — a call to <c>OperatingSystem.Is*</c> or <c>RuntimeInformation.IsOSPlatform</c>, or a
 /// platform <c>#if</c>, declared OUTSIDE the <c>Denice.CrossPlatform.*</c> platform implementation libraries.
 /// OS-agnostic code must stay free of platform branches; platform-specific behavior is absorbed by the per-OS
 /// implementation selected in the csproj and reached through <c>IPlatformServices</c>.</item>
-/// <item><b>AG0037</b> — the inverted case: a single-OS POSITIVE branch (<c>OperatingSystem.IsMacOS()</c>,
+/// <item><b>DN0037</b> — the inverted case: a single-OS POSITIVE branch (<c>OperatingSystem.IsMacOS()</c>,
 /// <c>IsLinux()</c>, <c>IsFreeBSD()</c>, and the like — anything but the cross-POSIX <c>!IsWindows()</c> family gate)
 /// declared INSIDE a per-OS implementation library (<c>.MacOS</c>/<c>.Linux</c>/<c>.Windows</c>). A file that is
 /// link-shared across per-OS projects compiles a positive single-OS branch into the OTHER OS's build as permanently
@@ -31,12 +31,12 @@ public sealed class NoOsBranchingOutsideCrossPlatformAnalyzer : DiagnosticAnalyz
     /// <summary>
     /// The diagnostic identifier for OS branching outside the platform implementation libraries.
     /// </summary>
-    public const string DiagnosticId = "AG0009";
+    public const string DiagnosticId = "DN0009";
 
     /// <summary>
     /// The diagnostic identifier for a single-OS positive branch inside a per-OS implementation library.
     /// </summary>
-    public const string SingleOsBranchDiagnosticId = "AG0037";
+    public const string SingleOsBranchDiagnosticId = "DN0037";
 
     private const string Category = "Denice.Architecture";
     private const string OperatingSystemTypeName = "OperatingSystem";
@@ -49,7 +49,7 @@ public sealed class NoOsBranchingOutsideCrossPlatformAnalyzer : DiagnosticAnalyz
 
     // The one cross-POSIX gate a per-OS library MAY branch on: !OperatingSystem.IsWindows() (and its version-guard
     // sibling) partitions POSIX from Windows, so it is live in every per-OS build — not a single-OS positive check.
-    // Every OTHER OperatingSystem.Is* names ONE specific OS and is dead in the others, so AG0037 flags it.
+    // Every OTHER OperatingSystem.Is* names ONE specific OS and is dead in the others, so DN0037 flags it.
     private static readonly ImmutableHashSet<string> AllowedWindowsGateMethods = ImmutableHashSet.Create(
         StringComparer.Ordinal, "IsWindows", "IsWindowsVersionAtLeast");
 
@@ -92,8 +92,8 @@ public sealed class NoOsBranchingOutsideCrossPlatformAnalyzer : DiagnosticAnalyz
 
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        // Inside a per-OS implementation library (.MacOS/.Linux/.Windows), the OUTWARD ban (AG0009) does not apply —
-        // OS-specific code belongs here — but the INVERTED ban (AG0037) does: a single-OS positive branch would
+        // Inside a per-OS implementation library (.MacOS/.Linux/.Windows), the OUTWARD ban (DN0009) does not apply —
+        // OS-specific code belongs here — but the INVERTED ban (DN0037) does: a single-OS positive branch would
         // compile into the other OS's build as permanently-dead code. This is the inverted registration.
         if (CrossPlatformBoundary.IsPerOsImplementationAssembly(context.Compilation.AssemblyName))
         {
@@ -107,7 +107,7 @@ public sealed class NoOsBranchingOutsideCrossPlatformAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        // Every OS-agnostic assembly: AG0009 bans OS branching outright.
+        // Every OS-agnostic assembly: DN0009 bans OS branching outright.
         context.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
         context.RegisterSyntaxTreeAction(AnalyzePlatformDirectives);
     }
@@ -151,7 +151,7 @@ public sealed class NoOsBranchingOutsideCrossPlatformAnalyzer : DiagnosticAnalyz
         }
     }
 
-    // The shared open of both invocation rules (AG0009's AnalyzeInvocation and AG0037's AnalyzeSingleOsBranch): the
+    // The shared open of both invocation rules (DN0009's AnalyzeInvocation and DN0037's AnalyzeSingleOsBranch): the
     // node is an invocation (both register only for SyntaxKind.InvocationExpression), it resolves to a method symbol,
     // and that method has a containing type. Returns false — and each caller returns — when the symbol does not resolve
     // to a method or has no containing type, so the cast + GetSymbolInfo + ContainingType guard is written exactly once.

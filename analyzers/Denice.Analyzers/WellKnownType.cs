@@ -101,7 +101,7 @@ internal static class WellKnownType
     /// Gets a value indicating whether <paramref name="type"/> is declared in the namespace <paramref name="root"/>
     /// OR any namespace nested beneath it — the "namespace tree" match, so <c>Tmds.DBus.Protocol</c> matches a
     /// <paramref name="root"/> of <c>Tmds.DBus.Protocol</c> AND of <c>Tmds.DBus</c>. This is the whole-package match
-    /// the D-Bus owner rule (AG0110) uses to catch every type a package exposes; it is the tree companion to the
+    /// the D-Bus owner rule (DN0110) uses to catch every type a package exposes; it is the tree companion to the
     /// exact-namespace <see cref="IsInNamespace"/>, resolving the type's <see cref="ISymbol.ContainingNamespace"/>
     /// internally so a caller never re-spells the <see cref="ISymbol.ToDisplayString"/> and prefix comparison.
     /// </summary>

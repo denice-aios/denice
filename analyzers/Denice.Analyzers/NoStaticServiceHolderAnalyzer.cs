@@ -9,7 +9,7 @@ namespace Denice.Analyzers;
 /// <summary>
 /// Reports a static (non-const) field or property typed <c>ISystemServices</c> or any of its service types — the
 /// owned boundary interfaces derived from the container plus <c>System.TimeProvider</c> — declared outside the
-/// composition point. AG0017 only stops re-calling <c>SystemServices.Create()</c>; nothing stopped stashing the result
+/// composition point. DN0017 only stops re-calling <c>SystemServices.Create()</c>; nothing stopped stashing the result
 /// (or one service) in a static and reading it ambiently, which is the service-locator shortcut constructor injection
 /// forbids (ag0024-no-static-service-holder). Services arrive by constructor injection; the only place a service type
 /// may sit in a static is the composition point (the <c>Program</c> method or the test <c>SystemServicesBuilder</c>).
@@ -22,7 +22,7 @@ public sealed class NoStaticServiceHolderAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0024";
+    public const string DiagnosticId = "DN0024";
 
     private const string Category = "Denice.Architecture";
 
@@ -92,7 +92,7 @@ public sealed class NoStaticServiceHolderAnalyzer : DiagnosticAnalyzer
     {
         // The composition point (the Program method / the SystemServicesBuilder) is the one place a service type may
         // sit in a static; everywhere else is RED. Walk the holder's enclosing types with the same Encloses form the
-        // three sibling composition-point rules use (AG0017/AG0031/AG0015), so a static nested inside the composition
+        // three sibling composition-point rules use (DN0017/DN0031/DN0015), so a static nested inside the composition
         // point is exempt too, not only one whose immediate containing type is the composition point.
         if (CompositionPoint.Encloses(holder))
         {

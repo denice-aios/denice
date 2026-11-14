@@ -17,7 +17,7 @@ namespace Denice.CrossPlatform.Tests;
 /// <see cref="OperationCanceledException"/> — exactly as the real <c>TmdsPolkitAuthority</c> does when polkit ends the
 /// cancelled check — so the flow port's cancel-registration is proven without a live D-Bus (mirrors
 /// <c>FakeObjCRuntime.CancelledOnInvalidate</c>). It touches no D-Bus. It is the single source implementer of the port
-/// in this test compilation (AG0114 permits one). The call-count/last-argument capture and the fault behavior are not
+/// in this test compilation (DN0114 permits one). The call-count/last-argument capture and the fault behavior are not
 /// hand-built here — it composes the shared <see cref="SingleCallRecorder{TArg,TResult}"/>.
 /// </summary>
 internal sealed class FakePolkitAuthority : IPolkitAuthority

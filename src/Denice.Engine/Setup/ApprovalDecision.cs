@@ -2,7 +2,7 @@
 
 using Denice.Abstractions;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The result of the approval gate for a mutating command: the action requested, the presence reason it resolved to,

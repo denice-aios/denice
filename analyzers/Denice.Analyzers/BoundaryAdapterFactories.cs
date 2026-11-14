@@ -8,7 +8,7 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// The four — and only four — <c>Denice.Boundaries</c> factory identities <c>Denice.Engine</c> may call
-/// (AG0040): the static <c>Create</c> method declared on <c>EnvironmentAdapter</c>, <c>ConsoleAdapter</c>,
+/// (DN0040): the static <c>Create</c> method declared on <c>EnvironmentAdapter</c>, <c>ConsoleAdapter</c>,
 /// <c>Ed25519SignatureService</c>, and <c>BuildInfoReader</c>, each in namespace AND assembly
 /// <c>Denice.Boundaries</c>. Every identity is matched on assembly, namespace, type name, method name, and
 /// staticness together through the shared <see cref="WellKnownType.IsInAssembly"/> conjunction, so a same-named type
@@ -48,7 +48,7 @@ internal static class BoundaryAdapterFactories
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="member"/>, used on <paramref name="type"/>, is one of the four
-    /// permitted boundary adapter factories. This is the call-site shape AG0040 uses, where the used member and the
+    /// permitted boundary adapter factories. This is the call-site shape DN0040 uses, where the used member and the
     /// type it is used on arrive separately from <see cref="MemberUseScanner"/>.
     /// </summary>
     /// <param name="member">The used member symbol.</param>

@@ -9,16 +9,16 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// The single owner of "an applied attribute matched a banned identity set, so report a descriptor against it" — the
-/// match-then-report body shared by the two attribute-ban rules: the native-interop location ban (AG0008, which
+/// match-then-report body shared by the two attribute-ban rules: the native-interop location ban (DN0008, which
 /// forbids <c>[DllImport]</c>/<c>[LibraryImport]</c> outside the per-OS libraries) and the compile-time-source-path
-/// ban (AG0039, which forbids <c>[CallerFilePath]</c> anywhere). Extracted here (LESSON 1, DRY) so the two rules share
+/// ban (DN0039, which forbids <c>[CallerFilePath]</c> anywhere). Extracted here (LESSON 1, DRY) so the two rules share
 /// ONE copy of "cast the visited node to an attribute, match it against an identity set through
 /// <see cref="AttributeIdentity.IsAnyOf"/>, and on a match report the descriptor with the attribute's qualified name"
 /// instead of each spelling the same <see cref="Microsoft.CodeAnalysis.Diagnostics.SyntaxNodeAnalysisContext"/> body.
 /// <para>
 /// The ban is pure mechanism — which attribute identities are banned, and which descriptor to report, are the caller's
 /// policy, passed in per rule. Each analyzer's registered <c>SyntaxNodeAction</c> becomes a thin call to
-/// <see cref="Report"/> with its own identity set and <see cref="DiagnosticDescriptor"/>; AG0008 keeps its own
+/// <see cref="Report"/> with its own identity set and <see cref="DiagnosticDescriptor"/>; DN0008 keeps its own
 /// <c>CompilationStart</c> assembly gate and <c>GeneratedCodeAnalysisFlags.Analyze</c> registration on top.
 /// </para>
 /// This reuses the two existing owners rather than re-deriving either: <see cref="AttributeIdentity.IsAnyOf"/> owns the

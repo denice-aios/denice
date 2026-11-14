@@ -14,14 +14,14 @@ namespace Denice.CrossPlatform.Tests;
 /// <see cref="LocalAuthentication"/> orchestrator — the flow port under test — can be driven through every branch
 /// (probe-fail per error code with NO interactive call, probe-pass then interactive success/fail, and cancellation)
 /// with no dialog and no framework binding. It is stateful (per-call handle bookkeeping, the captured completion,
-/// per-method call counts) — legal in <c>Denice.CrossPlatform.Tests</c> because AG0116/AG0106/AG0115 register only
+/// per-method call counts) — legal in <c>Denice.CrossPlatform.Tests</c> because DN0116/DN0106/DN0115 register only
 /// in the macOS and Windows PRODUCTION assemblies. Per-method call counts compose the shared
 /// <see cref="SingleCallRecorder{TArg,TResult}"/> (reuse-ledger: per-OS native-ops fake with per-method call counts);
 /// the release SET is tracked separately because a fresh interaction releases BOTH the context and the reason string,
 /// so a last-argument recorder cannot answer "was each handle released."
 ///
 /// The interactive reply. The frozen seam hands the block a raw completion handle (<c>BuildReplyBlock(IntPtr
-/// capturedCompletion)</c>) rather than a managed callback, and AG0115 forbids the thin native-ops layer from touching
+/// capturedCompletion)</c>) rather than a managed callback, and DN0115 forbids the thin native-ops layer from touching
 /// a <c>TaskCompletionSource</c> — so the orchestrator captures its reply handler, an
 /// <see cref="Action{T1,T2}"/> of <c>(byte success, IntPtr error)</c>, in the <c>GCHandle</c> the block carries, and the
 /// native reply callback merely recovers and invokes it (no branch, no mapping — those are the orchestrator's). This

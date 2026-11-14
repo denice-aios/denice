@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Denice.Abstractions;
 using Denice.Abstractions.Contracts;
 using Denice.Engine;
-using Denice.Setup;
+using Denice.Engine.Setup;
 using Denice.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;

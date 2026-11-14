@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The result of inspecting <c>.claude/settings.json</c> for the guard's hook entries.

@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Denice.Engine;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Merges, strips, inspects, and reads the guard's hook entries in <c>.claude/settings.json</c>. A guard entry is

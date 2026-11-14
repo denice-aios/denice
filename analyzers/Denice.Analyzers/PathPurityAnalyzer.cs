@@ -21,7 +21,7 @@ namespace Denice.Analyzers;
 /// the <c>IPlatformFileSystem</c> implementers — the per-OS <c>PosixFileSystem</c>/<c>WindowsFileSystem</c> and the
 /// in-memory fake — which pass it straight through. Each is legal ONLY in its one owner (the enclosing type implements
 /// the owning interface AND compiles into the owner assembly, the same <see cref="OwnerClass.IsOwner"/> conjunction
-/// AG0011 uses) and a build error everywhere else. No rule forbids the authorized identical
+/// DN0011 uses) and a build error everywhere else. No rule forbids the authorized identical
 /// <c>DirectorySeparator =&gt; Path.DirectorySeparatorChar</c> across those owners
 /// (directoryseparator-owned-passthrough-with-authorized-dry-exception). This rule owns all of <c>System.IO.Path</c>.
 /// </para>
@@ -32,7 +32,7 @@ public sealed class PathPurityAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0020";
+    public const string DiagnosticId = "DN0020";
 
     private const string Category = "Denice.Architecture";
     private const string PathTypeName = "Path";
@@ -57,7 +57,7 @@ public sealed class PathPurityAnalyzer : DiagnosticAnalyzer
 
     // The separator owner's assembly gate: the three per-OS implementation libraries (where PosixFileSystem/
     // WindowsFileSystem live) OR Denice.TestHelpers (where the in-memory fake lives) — the assemblies whose
-    // IPlatformFileSystem implementers pass DirectorySeparatorChar straight through. Broader than AG0101's per-OS-only
+    // IPlatformFileSystem implementers pass DirectorySeparatorChar straight through. Broader than DN0101's per-OS-only
     // gate because the fake is an owner of the separator read too (directoryseparator-owned-passthrough).
     private static readonly Func<Compilation, bool> InSeparatorOwnerAssembly =
         compilation => CrossPlatformBoundary.IsPerOsImplementationAssembly(compilation.AssemblyName)
@@ -103,7 +103,7 @@ public sealed class PathPurityAnalyzer : DiagnosticAnalyzer
         }
 
         // The three reused impure members are legal only inside their single owner — the same OwnerClass.IsOwner
-        // conjunction (implements the owning interface AND compiles into the owner assembly) AG0011 applies. Every
+        // conjunction (implements the owning interface AND compiles into the owner assembly) DN0011 applies. Every
         // other impure member has no owner and is banned everywhere (default-deny).
         if (ResolveImpureOwner(member) is { } owned && OwnerClass.IsOwner(context, owned.Owners, owned.Gate))
         {

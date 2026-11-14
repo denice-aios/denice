@@ -8,7 +8,7 @@ namespace Denice.Boundaries;
 
 /// <summary>
 /// The owned <see cref="IBuildInfo"/> — the single class that reads the running build's version, so it is the ONE
-/// place the version-reflection reads are allowed (AG0028 exempts exactly this owner). It reads the three
+/// place the version-reflection reads are allowed (DN0028 exempts exactly this owner). It reads the three
 /// already-stamped version attributes from a specific guard assembly (this owner's own assembly), NEVER the ambient
 /// <c>Assembly.GetEntryAssembly()</c> — under <c>dotnet test</c> the entry assembly is the test host, which reports
 /// <c>dotnet</c> rather than the guard (build-version-behind-ibuildinfo). The values are computed and stamped one way
@@ -23,7 +23,7 @@ internal sealed class BuildInfoReader : IBuildInfo
     private readonly string _assemblyVersion;
     private readonly string _fileVersion;
 
-    // Private constructor (AG0003, Wall 1): only this class's own factory constructs it, with the already-read values.
+    // Private constructor (DN0003, Wall 1): only this class's own factory constructs it, with the already-read values.
     private BuildInfoReader(string semVer, string assemblyVersion, string fileVersion)
     {
         _semVer = semVer;

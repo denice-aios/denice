@@ -38,7 +38,7 @@ public sealed class NoLiteralFakeRootAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0035";
+    public const string DiagnosticId = "DN0035";
 
     private const string Category = "Denice.Architecture";
     private const string FakeEnvironmentFactoryName = "Create";

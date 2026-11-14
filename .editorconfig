@@ -91,15 +91,15 @@ dotnet_diagnostic.SA1101.severity = none
 # SA1309: FieldNamesMustNotBeginWithUnderscore contradicts the chosen _camelCase private-field convention.
 dotnet_diagnostic.SA1309.severity = none
 
-# AG0001: the Denice custom architecture rule, surfaced as a warning (promoted to error by TreatWarningsAsErrors).
-dotnet_diagnostic.AG0001.severity = warning
+# DN0001: the Denice custom architecture rule, surfaced as a warning (promoted to error by TreatWarningsAsErrors).
+dotnet_diagnostic.DN0001.severity = warning
 
-# AG0002: bans tuple return types, surfaced as a warning (promoted to error by TreatWarningsAsErrors).
-dotnet_diagnostic.AG0002.severity = warning
+# DN0002: bans tuple return types, surfaced as a warning (promoted to error by TreatWarningsAsErrors).
+dotnet_diagnostic.DN0002.severity = warning
 
-# AG0003-AG0007: the contract-implementation pattern rules, warnings (promoted to error by TreatWarningsAsErrors).
-dotnet_diagnostic.AG0003.severity = warning
-dotnet_diagnostic.AG0004.severity = warning
-dotnet_diagnostic.AG0005.severity = warning
-dotnet_diagnostic.AG0006.severity = warning
-dotnet_diagnostic.AG0007.severity = warning
+# DN0003-DN0007: the contract-implementation pattern rules, warnings (promoted to error by TreatWarningsAsErrors).
+dotnet_diagnostic.DN0003.severity = warning
+dotnet_diagnostic.DN0004.severity = warning
+dotnet_diagnostic.DN0005.severity = warning
+dotnet_diagnostic.DN0006.severity = warning
+dotnet_diagnostic.DN0007.severity = warning

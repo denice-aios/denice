@@ -6,8 +6,8 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Denice.Analyzers;
 
 /// <summary>
-/// The shared gate-then-report block for the operation-scoped native-ops rules — AG0106 (no control flow in a
-/// native-ops implementer) and AG0115 (no async orchestration in one). Both walk the identical tail at every report
+/// The shared gate-then-report block for the operation-scoped native-ops rules — DN0106 (no control flow in a
+/// native-ops implementer) and DN0115 (no async orchestration in one). Both walk the identical tail at every report
 /// site: require the analyzed operation to sit inside a native-ops owner (through
 /// <see cref="PresenceContracts.IsInNativeOpsOwner"/>, the one shared owner check), then report the operation's own
 /// syntax location with a rule-specific description. That tail is spelled exactly once here (LESSON 1, DRY) so neither
@@ -32,7 +32,7 @@ internal static class NativeOpsOperationScan
         string description)
     {
         // Only inside a native-ops owner — a class implementing IObjCRuntime (macOS) or a Windows native-ops interface,
-        // compiled into its per-OS assembly. The same owner check the relocated raw-interop exemption (AG0113/AG0101)
+        // compiled into its per-OS assembly. The same owner check the relocated raw-interop exemption (DN0113/DN0101)
         // uses, so the two families of rule resolve the identical native-ops layer.
         if (!PresenceContracts.IsInNativeOpsOwner(context))
         {

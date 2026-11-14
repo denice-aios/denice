@@ -3,7 +3,7 @@
 using System.IO;
 using System.Text.Json;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Reads the machine state record once, classifying it as present, missing (not installed), or unreadable, so

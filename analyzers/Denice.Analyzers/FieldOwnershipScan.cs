@@ -8,30 +8,30 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Denice.Analyzers;
 
 /// <summary>
-/// The shared symbol-scan skeleton for the presence-layer state-ban rules — AG0112 (no cached native auth-context
-/// handle field in a native presence port) and AG0116 (no field, auto-property, or field-like event in a native-ops
+/// The shared symbol-scan skeleton for the presence-layer state-ban rules — DN0112 (no cached native auth-context
+/// handle field in a native presence port) and DN0116 (no field, auto-property, or field-like event in a native-ops
 /// implementer). Every one of those checks walks the identical tail: require the symbol's containing type to implement
 /// one of the owning interfaces (through <see cref="OwnerClass.Implements"/>, the one shared membership walk), apply a
 /// rule-specific predicate, and report the member by name. That tail is spelled exactly once here (LESSON 1, DRY) in the
-/// symbol-kind-agnostic <see cref="Report{TSymbol}"/> so neither rule — nor AG0116's own field/property/event actions —
+/// symbol-kind-agnostic <see cref="Report{TSymbol}"/> so neither rule — nor DN0116's own field/property/event actions —
 /// copies the other; each supplies its own owner set, predicate, and descriptor. Fields also skip a <c>const</c> (a
 /// compile-time literal that holds no live state), so the field callers route through <see cref="ReportField"/>, the
-/// thin const-skipping wrapper over the shared tail. The AG0116 auto-property and field-like-event state each surface
+/// thin const-skipping wrapper over the shared tail. The DN0116 auto-property and field-like-event state each surface
 /// through their own symbol kind (a compiler-synthesized backing field is implicitly declared and never reaches a field
 /// action), so those actions call <see cref="Report{TSymbol}"/> directly with <c>IPropertySymbol</c>/<c>IEventSymbol</c>
 /// and their own reportability predicate.
 /// The owning interfaces are internal, but a test fake in <c>Denice.CrossPlatform.Tests</c> can implement one
 /// through the verified InternalsVisibleTo grants, so internal-ness alone does NOT keep this scan off a test-assembly
-/// fake; the production-assembly gate (macOS/Windows) is required. A single-field-action rule (AG0112) registers through
+/// fake; the production-assembly gate (macOS/Windows) is required. A single-field-action rule (DN0112) registers through
 /// <see cref="RegisterField"/>,
 /// which bakes <see cref="PresenceContracts.RegisterInMacOsOrWindows"/> into the registration so the gate cannot be
-/// omitted at the consumer; AG0116 registers its four member actions together behind that same gate in its own
+/// omitted at the consumer; DN0116 registers its four member actions together behind that same gate in its own
 /// <c>OnCompilationStart</c>.
 /// </summary>
 internal static class FieldOwnershipScan
 {
     /// <summary>
-    /// Registers the shared const-skipping field scan for a single-field-ban rule (AG0112), gated to the macOS or
+    /// Registers the shared const-skipping field scan for a single-field-ban rule (DN0112), gated to the macOS or
     /// Windows PRODUCTION assembly. The production-assembly gate is baked in here — the field action is registered only
     /// inside <see cref="PresenceContracts.RegisterInMacOsOrWindows"/> — so a consumer cannot register the field scan
     /// while forgetting the gate: an owning interface is internal but a <c>Denice.CrossPlatform.Tests</c> fake can
@@ -82,7 +82,7 @@ internal static class FieldOwnershipScan
         // Only a member declared on a class that implements one of the owning interfaces. The owning interface is
         // internal but reachable from Denice.CrossPlatform.Tests through InternalsVisibleTo, so a match CAN occur on a
         // test-assembly fake; internal-ness alone is not the assembly gate. The production-assembly gate (macOS/Windows)
-        // is baked into the shared registration — RegisterField for a single-field rule, AG0116's own
+        // is baked into the shared registration — RegisterField for a single-field rule, DN0116's own
         // RegisterInMacOsOrWindows for its four member actions — so it cannot be omitted at a consumer.
         if (!OwnerClass.Implements(symbol.ContainingType, owningInterfaces))
         {
@@ -101,7 +101,7 @@ internal static class FieldOwnershipScan
     /// Reports the field under analysis when it is a non-<c>const</c> field, declared on a type implementing one of
     /// <paramref name="owningInterfaces"/>, that satisfies <paramref name="isReportableField"/>. The const skip is the
     /// only field-specific step; it defers to the shared <see cref="Report{TSymbol}"/> tail for the owner gate and the
-    /// report, so the two field-ban rules (AG0112, AG0116) neither copy the tail nor re-spell the const skip.
+    /// report, so the two field-ban rules (DN0112, DN0116) neither copy the tail nor re-spell the const skip.
     /// </summary>
     /// <param name="context">The field symbol analysis context; its <see cref="SymbolAnalysisContext.Symbol"/> is the field.</param>
     /// <param name="owningInterfaces">The (namespace, name) pairs whose implementer this rule constrains.</param>

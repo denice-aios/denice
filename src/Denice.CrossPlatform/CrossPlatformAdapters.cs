@@ -7,7 +7,7 @@ namespace Denice.CrossPlatform;
 /// <summary>
 /// The ONE factory that produces the OS-uniform file-op adapters owned by <c>Denice.CrossPlatform</c> — the
 /// single door <c>Denice.Boundaries</c> reaches into this assembly through (boundaries-calls-one-crossplatform
-/// -factory, pinned by AG0023), and the door the per-OS <c>PlatformServices.Create()</c> factories use to obtain the same
+/// -factory, pinned by DN0023), and the door the per-OS <c>PlatformServices.Create()</c> factories use to obtain the same
 /// adapters for the platform file system. Each adapter lives here because the platform code consumes it
 /// (owners-live-at-lowest-consumer); each is an <c>internal</c> class with a <c>private</c> constructor (Wall 1) handed
 /// out only through its own static factory and only as its interface. The bundle this factory returns exposes the

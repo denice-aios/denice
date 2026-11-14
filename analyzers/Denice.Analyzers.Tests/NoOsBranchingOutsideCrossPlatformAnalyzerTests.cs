@@ -38,7 +38,7 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
         }
         """;
 
-    // A single-OS POSITIVE branch — OperatingSystem.IsMacOS() — the inverted AG0037 rule bans inside a per-OS library.
+    // A single-OS POSITIVE branch — OperatingSystem.IsMacOS() — the inverted DN0037 rule bans inside a per-OS library.
     private const string SingleOsMacBranchSource = """
         public class Sample
         {
@@ -47,7 +47,7 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
         """;
 
     // The cross-POSIX gate a per-OS library MAY branch on: !OperatingSystem.IsWindows() partitions POSIX from Windows
-    // and is live in every per-OS build, so AG0037 leaves it alone.
+    // and is live in every per-OS build, so DN0037 leaves it alone.
     private const string WindowsGateSource = """
         public class Sample
         {
@@ -62,7 +62,7 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
             await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(OperatingSystemBranchSource, "Denice.Engine");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0009", diagnostic.Id);
+        Assert.Equal("DN0009", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -73,7 +73,7 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
             await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(RuntimeInformationBranchSource, "Denice.Engine");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0009", diagnostic.Id);
+        Assert.Equal("DN0009", diagnostic.Id);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
             await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(PlatformIfDirectiveSource, "Denice.Engine");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0009", diagnostic.Id);
+        Assert.Equal("DN0009", diagnostic.Id);
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
             await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(OperatingSystemBranchSource, "Denice.CrossPlatform.Tests");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0009", diagnostic.Id);
+        Assert.Equal("DN0009", diagnostic.Id);
     }
 
     [Fact]
@@ -151,7 +151,7 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
             await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(SingleOsMacBranchSource, "Denice.CrossPlatform.MacOS");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0037", diagnostic.Id);
+        Assert.Equal("DN0037", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -167,17 +167,17 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
     public async Task SingleOsBranch_InCoreCrossPlatformLibrary_IsNotReported()
     {
         // The core Denice.CrossPlatform contract library is shared, not per-OS, so it may branch freely; neither
-        // AG0009 nor AG0037 constrains it.
+        // DN0009 nor DN0037 constrains it.
         Assert.Empty(await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(SingleOsMacBranchSource, "Denice.CrossPlatform"));
     }
 
     [Fact]
     public async Task SingleOsBranch_OutsideCrossPlatformLibraries_IsReportedAsAg0009()
     {
-        // The SAME OperatingSystem.IsMacOS() outside the platform libraries is the OUTWARD ban (AG0009), not AG0037 —
+        // The SAME OperatingSystem.IsMacOS() outside the platform libraries is the OUTWARD ban (DN0009), not DN0037 —
         // proving the two registrations are distinct and never both fire.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(SingleOsMacBranchSource, "Denice.Engine"));
-        Assert.Equal("AG0009", diagnostic.Id);
+        Assert.Equal("DN0009", diagnostic.Id);
     }
 }

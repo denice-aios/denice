@@ -2,7 +2,7 @@
 
 using System;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the presence-gate policy value shared across all three OS: the one 60-second bounded wait the

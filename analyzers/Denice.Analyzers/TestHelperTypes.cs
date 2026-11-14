@@ -10,8 +10,8 @@ namespace Denice.Analyzers;
 /// same literal is not repeated across the analyzers that match them. Each lives in the namespace AND the assembly
 /// <see cref="TestAssembly.TestHelpersName"/>, so a rule pairs a name here with that identity through
 /// <see cref="WellKnownType"/>. <see cref="StoreTypeName"/> is shared by two rule families — the guarded-construction
-/// rule (AG0027) that pins the overlay's single construction site through <see cref="IsStoreConstruction"/>, and the two
-/// seed-site rules (AG0035/AG0036) that read the overlay's <c>tempRoot</c>/<c>caseSensitive</c> seed at the single
+/// rule (DN0027) that pins the overlay's single construction site through <see cref="IsStoreConstruction"/>, and the two
+/// seed-site rules (DN0035/DN0036) that read the overlay's <c>tempRoot</c>/<c>caseSensitive</c> seed at the single
 /// overlay factory <c>SystemServicesBuilder.NewOverlay</c> (<see cref="IsOverlayFactory"/>). That factory call — the one
 /// place a caller's value is visible, because <c>NewOverlay</c> forwards its own parameters to the constructor — is the
 /// single seed site the two rules check; the constructor is only ever reached through <c>NewOverlay</c>, so the
@@ -21,15 +21,15 @@ internal static class TestHelperTypes
 {
     /// <summary>
     /// The shared copy-on-write overlay type <c>Denice.TestHelpers.InMemoryFileSystemStore</c>. The single owner
-    /// of this name: AG0027 pins its construction to <c>SystemServicesBuilder</c> through
-    /// <see cref="IsStoreConstruction"/>, and AG0035/AG0036 name it as the return type of the overlay factory
+    /// of this name: DN0027 pins its construction to <c>SystemServicesBuilder</c> through
+    /// <see cref="IsStoreConstruction"/>, and DN0035/DN0036 name it as the return type of the overlay factory
     /// <c>NewOverlay</c> whose <c>tempRoot</c>/<c>caseSensitive</c> arguments they read for a literal seed.
     /// </summary>
     internal const string StoreTypeName = "InMemoryFileSystemStore";
 
     /// <summary>
     /// The test builder type <c>Denice.TestHelpers.SystemServicesBuilder</c> whose private
-    /// <see cref="OverlayFactoryMethodName"/> helper is the single overlay factory. AG0035/AG0036 read that call's
+    /// <see cref="OverlayFactoryMethodName"/> helper is the single overlay factory. DN0035/DN0036 read that call's
     /// <c>tempRoot</c> and <c>caseSensitive</c> arguments for a literal seed.
     /// </summary>
     internal const string OverlayBuilderTypeName = "SystemServicesBuilder";
@@ -37,12 +37,12 @@ internal static class TestHelperTypes
     /// <summary>
     /// The single overlay factory helper <c>SystemServicesBuilder.NewOverlay</c>. It forwards its own
     /// <c>tempRoot</c>/<c>caseSensitive</c> parameters to the store constructor, so the caller's seed value is visible
-    /// only at the call to it — never at the constructor — which is why AG0035/AG0036 inspect its arguments.
+    /// only at the call to it — never at the constructor — which is why DN0035/DN0036 inspect its arguments.
     /// </summary>
     internal const string OverlayFactoryMethodName = "NewOverlay";
 
     /// <summary>
-    /// The environment fake type <c>Denice.TestHelpers.FakeEnvironment</c>. AG0035 reads its <c>Create</c>
+    /// The environment fake type <c>Denice.TestHelpers.FakeEnvironment</c>. DN0035 reads its <c>Create</c>
     /// factory's <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c> arguments for a literal fake root.
     /// </summary>
     internal const string FakeEnvironmentTypeName = "FakeEnvironment";
@@ -53,8 +53,8 @@ internal static class TestHelperTypes
     /// type is that store, matched by namespace + name AND the declaring assembly
     /// (<see cref="TestAssembly.TestHelpersName"/>) through <see cref="WellKnownType.IsInAssembly"/>, so a type merely
     /// NAMED the same in another assembly does not match. This is the store-construction predicate the
-    /// guarded-construction rule (AG0027) keys on to pin the store's one construction site to
-    /// <c>SystemServicesBuilder</c>; the seed-site rules (AG0035/AG0036) do NOT read the constructor — they read the
+    /// guarded-construction rule (DN0027) keys on to pin the store's one construction site to
+    /// <c>SystemServicesBuilder</c>; the seed-site rules (DN0035/DN0036) do NOT read the constructor — they read the
     /// overlay factory <c>NewOverlay</c> (<see cref="IsOverlayFactory"/>) instead, the single site a caller's seed value
     /// is visible.
     /// </summary>
@@ -74,7 +74,7 @@ internal static class TestHelperTypes
     /// namespace + name AND the declaring assembly (<see cref="TestAssembly.TestHelpersName"/>) through
     /// <see cref="WellKnownType.IsInAssembly"/>, mirroring the <c>FakeEnvironment.Create</c> identity match, so a
     /// same-named method in another assembly does not match. This is the single owner of the overlay-factory-call
-    /// predicate the two seed-site rules share: AG0035 reads the call's <c>tempRoot</c> argument and AG0036 its
+    /// predicate the two seed-site rules share: DN0035 reads the call's <c>tempRoot</c> argument and DN0036 its
     /// <c>caseSensitive</c> argument for a literal seed. This — not the constructor — is where a caller's seed value is
     /// visible, because <c>NewOverlay</c> forwards its own <c>tempRoot</c>/<c>caseSensitive</c> parameters to the store
     /// constructor rather than a literal.

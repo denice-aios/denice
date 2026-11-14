@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0103: in the macOS implementation library, every bool return and parameter of a P/Invoke must be marshalled as
+/// DN0103: in the macOS implementation library, every bool return and parameter of a P/Invoke must be marshalled as
 /// UnmanagedType.I1 (the one-byte Darwin bool). Scoped to the macOS assembly; the Windows 4-byte BOOL is correct there.
 /// </summary>
 public class MacOsNativeBoolMustBeI1AnalyzerTests
@@ -25,7 +25,7 @@ public class MacOsNativeBoolMustBeI1AnalyzerTests
     public async Task BoolReturnWithoutMarshalAs_InMacOs_IsReported()
     {
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<MacOsNativeBoolMustBeI1Analyzer>(BoolReturnSource, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0103", diagnostic.Id);
+        Assert.Equal("DN0103", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -42,7 +42,7 @@ public class MacOsNativeBoolMustBeI1AnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<MacOsNativeBoolMustBeI1Analyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0103", diagnostic.Id);
+        Assert.Equal("DN0103", diagnostic.Id);
     }
 
     [Fact]

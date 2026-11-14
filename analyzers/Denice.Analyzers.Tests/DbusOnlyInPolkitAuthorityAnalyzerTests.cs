@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0110: the low-level Tmds.DBus.Protocol package is confined to the IPolkitAuthority owner in the Linux assembly;
+/// DN0110: the low-level Tmds.DBus.Protocol package is confined to the IPolkitAuthority owner in the Linux assembly;
 /// the reflection-based high-level Tmds.DBus namespace is banned everywhere.
 /// </summary>
 public class DbusOnlyInPolkitAuthorityAnalyzerTests
@@ -51,7 +51,7 @@ public class DbusOnlyInPolkitAuthorityAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<DbusOnlyInPolkitAuthorityAnalyzer>(source, "Denice.CrossPlatform.Linux"));
-        Assert.Equal("AG0110", diagnostic.Id);
+        Assert.Equal("DN0110", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -90,7 +90,7 @@ public class DbusOnlyInPolkitAuthorityAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<DbusOnlyInPolkitAuthorityAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0110", diagnostic.Id);
+        Assert.Equal("DN0110", diagnostic.Id);
     }
 
     [Fact]
@@ -110,6 +110,6 @@ public class DbusOnlyInPolkitAuthorityAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<DbusOnlyInPolkitAuthorityAnalyzer>(source, "Denice.CrossPlatform.Linux"));
-        Assert.Equal("AG0110", diagnostic.Id);
+        Assert.Equal("DN0110", diagnostic.Id);
     }
 }

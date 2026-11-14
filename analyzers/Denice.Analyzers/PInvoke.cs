@@ -8,8 +8,8 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// Recognizes a native-interop (P/Invoke) method — one declared with <c>[DllImport]</c> or <c>[LibraryImport]</c>.
-/// AG0008 confines the P/Invoke <em>declaration</em> to the per-OS platform libraries; this recognizes a
-/// <em>call</em> to such a method, so AG0101 can keep the raw syscall site itself inside those libraries too.
+/// DN0008 confines the P/Invoke <em>declaration</em> to the per-OS platform libraries; this recognizes a
+/// <em>call</em> to such a method, so DN0101 can keep the raw syscall site itself inside those libraries too.
 /// </summary>
 internal static class PInvoke
 {

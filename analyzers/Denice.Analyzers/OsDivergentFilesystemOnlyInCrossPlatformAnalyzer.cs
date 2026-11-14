@@ -22,21 +22,21 @@ namespace Denice.Analyzers;
 /// (<c>File</c>/<c>Directory.CreateSymbolicLink</c>, <c>File</c>/<c>Directory.ResolveLinkTarget</c>), <c>Marshal</c>,
 /// and the call site of a native P/Invoke method (including the native case-sensitivity query). The NATIVE-interop half
 /// — <c>Marshal</c> and a P/Invoke call site — is recognized through the one <see cref="NativeInteropUse"/> detector this
-/// rule SHARES with AG0113, and on those two branches only it ALSO exempts the per-OS native-ops owners
+/// rule SHARES with DN0113, and on those two branches only it ALSO exempts the per-OS native-ops owners
 /// (<c>IObjCRuntime</c> in the macOS assembly / <c>IWindowsHelloNativeOps</c>/<c>ICredentialPromptNativeOps</c> in the
-/// Windows assembly), reusing the one <see cref="PresenceContracts.IsInNativeOpsOwner"/> check the paired AG0113 uses
+/// Windows assembly), reusing the one <see cref="PresenceContracts.IsInNativeOpsOwner"/> check the paired DN0113 uses
 /// (presence-native-owner-rule, family-scoped, Tim's personal yes; fence-relocation moved this carve-out off the flow
 /// port and onto the native-ops layer). The <c>File</c>/<c>Directory</c>-divergent-member ban
 /// stays FILESYSTEM-owner-only — no presence exemption — so a native-ops owner's <c>File.SetUnixFileMode</c> /
-/// <c>CreateSymbolicLink</c> is still RED (it is not the filesystem owner), and AG0101's shared File/Directory owner
-/// identity (<c>ContractInterfaces.PlatformFileSystem</c>, used by AG0020) is untouched. The interface owner is
+/// <c>CreateSymbolicLink</c> is still RED (it is not the filesystem owner), and DN0101's shared File/Directory owner
+/// identity (<c>ContractInterfaces.PlatformFileSystem</c>, used by DN0020) is untouched. The interface owner is
 /// resolved structurally (the enclosing type's implemented interfaces), paired with the platform-library assembly
 /// gate; the raw call is a build error even in another class of the same platform library (including
 /// <c>PlatformFileSystemShared</c>). Every other type reaches OS-divergent behavior through <c>IPlatformFileSystem</c>;
-/// the OS-uniform filesystem members are AG0011's, not this rule's. The <c>FileInfo</c>/<c>DirectoryInfo</c>/
+/// the OS-uniform filesystem members are DN0011's, not this rule's. The <c>FileInfo</c>/<c>DirectoryInfo</c>/
 /// <c>FileSystemInfo</c> construction and their instance members (<c>LinkTarget</c>, <c>UnixFileMode</c>) are NO
-/// LONGER this rule's: the <c>*Info</c> types are owned wholesale by the wrapper interfaces under AG0011
-/// (fileinfo-abstraction-stays-in-ag0011). This is the member-level, OS-divergent counterpart of AG0011, and the
+/// LONGER this rule's: the <c>*Info</c> types are owned wholesale by the wrapper interfaces under DN0011
+/// (fileinfo-abstraction-stays-in-ag0011). This is the member-level, OS-divergent counterpart of DN0011, and the
 /// <c>0101</c> series is where further OS-divergent rules are added.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -45,14 +45,14 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0101";
+    public const string DiagnosticId = "DN0101";
 
     private const string Category = "Denice.Architecture";
 
     // The owning interface whose implementing class is the only place a raw OS-divergent filesystem call is allowed
     // (one-owner-class-per-primitive, ag0101-one-owner-per-os — no shared-helper carve-out). Matched structurally by
     // full name against the enclosing type's implemented interfaces, never by a class-name literal. The identity is
-    // spelled once in ContractInterfaces because AG0020 shares it for the Path.DirectorySeparatorChar owner exemption.
+    // spelled once in ContractInterfaces because DN0020 shares it for the Path.DirectorySeparatorChar owner exemption.
     private static readonly ImmutableArray<(string Namespace, string Name)> OwningInterfaces =
         ContractInterfaces.PlatformFileSystem;
 
@@ -63,7 +63,7 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "An OS-divergent filesystem call — a Unix-mode or symlink member, Marshal, or a native P/Invoke call site — is allowed only in the one per-OS class that implements Denice.Abstractions.Contracts.IPlatformFileSystem, compiled into one of the three per-OS implementation libraries (Denice.CrossPlatform.MacOS/.Linux/.Windows) — not the core Denice.CrossPlatform contract assembly, not merely somewhere in a platform assembly, and NOT in the shared helper PlatformFileSystemShared (ag0101-one-owner-per-os), which must make zero raw divergent calls. Every other type reaches OS-divergent behavior through IPlatformFileSystem; the OS-uniform filesystem members are governed by AG0011.");
+        description: "An OS-divergent filesystem call — a Unix-mode or symlink member, Marshal, or a native P/Invoke call site — is allowed only in the one per-OS class that implements Denice.Abstractions.Contracts.IPlatformFileSystem, compiled into one of the three per-OS implementation libraries (Denice.CrossPlatform.MacOS/.Linux/.Windows) — not the core Denice.CrossPlatform contract assembly, not merely somewhere in a platform assembly, and NOT in the shared helper PlatformFileSystemShared (ag0101-one-owner-per-os), which must make zero raw divergent calls. Every other type reaches OS-divergent behavior through IPlatformFileSystem; the OS-uniform filesystem members are governed by DN0011.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -96,13 +96,13 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
         }
 
         // The NATIVE-interop family — a P/Invoke call site or a Marshal use — recognized through the one
-        // NativeInteropUse detector shared with AG0113. It is the raw syscall site (AG0008 catches only the
+        // NativeInteropUse detector shared with DN0113. It is the raw syscall site (DN0008 catches only the
         // declaration; this confines the native case-sensitivity query too) plus any Marshal use. Banned outside the
         // filesystem owner, EXCEPT the per-OS native-ops owners, which own their presence native interop
-        // (presence-native-owner-rule, family-scoped — the paired AG0113 confines it to those same owners; the coverage
+        // (presence-native-owner-rule, family-scoped — the paired DN0113 confines it to those same owners; the coverage
         // refactor relocated this carve-out off the flow port and onto the native-ops layer). This presence exemption is
-        // a separate check on the native branches only; it does not touch AG0101's File/Directory owner identity
-        // (ContractInterfaces.PlatformFileSystem, shared with AG0020).
+        // a separate check on the native branches only; it does not touch DN0101's File/Directory owner identity
+        // (ContractInterfaces.PlatformFileSystem, shared with DN0020).
         if (NativeInteropUse.IsNativeUse(member, type))
         {
             if (PresenceContracts.IsInNativeOpsOwner(context))
@@ -118,7 +118,7 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
         // ResolveLinkTarget, Get/SetUnixFileMode). This ban stays FILESYSTEM-owner-only: a presence port is NOT exempt
         // here, so a presence port's File.SetUnixFileMode / CreateSymbolicLink is still RED (it is not the filesystem
         // owner). The *Info construction and the *Info instance members (LinkTarget, UnixFileMode) are no longer this
-        // rule's: they are owned wholesale by the wrapper interfaces under AG0011 (fileinfo-abstraction-stays-in-ag0011).
+        // rule's: they are owned wholesale by the wrapper interfaces under DN0011 (fileinfo-abstraction-stays-in-ag0011).
         if (WellKnownType.IsAnyOf(type, FilesystemMembers.FileAndDirectory)
             && FilesystemMembers.IsOsDivergentMember(member))
         {

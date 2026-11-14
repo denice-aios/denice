@@ -9,7 +9,7 @@ namespace Denice.Analyzers;
 /// The single owner a raw OS/CLR primitive resolves to: the interface(s) whose implementing class may make the raw
 /// call, and the assembly gate that class compiles into. An empty <see cref="Owners"/> means the primitive has NO
 /// owner and is banned everywhere (<c>Process</c>, the stream/drive/watcher types, a directory-side <c>Move</c>)
-/// until an interface is deliberately grown for it. This is the pair the consolidated owner rule (AG0011) hands to
+/// until an interface is deliberately grown for it. This is the pair the consolidated owner rule (DN0011) hands to
 /// <see cref="OwnerClass.IsOwner"/>; it replaces the per-primitive owner/assembly pair each folded boundary analyzer
 /// used to spell out for itself.
 /// </summary>

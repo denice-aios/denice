@@ -8,7 +8,7 @@ namespace Denice.CrossPlatform;
 
 /// <summary>
 /// The owned <see cref="IRandomGenerator"/> adapter. It is the single class that implements the randomness seam, so it is
-/// the ONE place the raw <c>Guid.NewGuid()</c> and <c>Path.GetRandomFileName()</c> are allowed (AG0011 and AG0020 exempt
+/// the ONE place the raw <c>Guid.NewGuid()</c> and <c>Path.GetRandomFileName()</c> are allowed (DN0011 and DN0020 exempt
 /// exactly this owner class in this assembly, which sits in <c>Denice.CrossPlatform</c> because the platform code
 /// consumes it — the owner is the randomness concern, so a random file name has a home beside <c>NewGuid</c>). Every
 /// other type obtains randomness through <see cref="IRandomGenerator"/> so tests stay deterministic. It is
@@ -16,7 +16,7 @@ namespace Denice.CrossPlatform;
 /// </summary>
 internal sealed class RandomGeneratorAdapter : IRandomGenerator
 {
-    // Private constructor (AG0003, Wall 1): only this class's own factory constructs it.
+    // Private constructor (DN0003, Wall 1): only this class's own factory constructs it.
     private RandomGeneratorAdapter()
     {
     }

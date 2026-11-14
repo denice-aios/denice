@@ -1,7 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.IO;
-using Denice.Setup;
+using Denice.Engine.Setup;
 using FluentAssertions;
 using Xunit;
 

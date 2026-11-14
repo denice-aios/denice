@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The result of a mutating setup command (<c>install</c>, <c>init</c>, <c>remove</c>): whether it succeeded and

@@ -11,13 +11,13 @@ namespace Denice.CrossPlatform;
 /// <summary>
 /// The owned <see cref="IFileWriter"/> adapter. It is the single class that implements the file-write side of the
 /// filesystem primitive, so it is the ONE place the raw <c>System.IO.File</c> write/copy/move/delete members are
-/// allowed (AG0011 exempts exactly this owner class in this assembly). Directory-mutating operations are
+/// allowed (DN0011 exempts exactly this owner class in this assembly). Directory-mutating operations are
 /// <see cref="IDirectoryWriter"/>'s, not this owner's. It is <c>internal</c> with a <c>private</c> constructor (Wall 1)
 /// and handed out only as its interface.
 /// </summary>
 internal sealed class FileWriterAdapter : IFileWriter
 {
-    // Private constructor (AG0003, Wall 1): only this class's own factory constructs it.
+    // Private constructor (DN0003, Wall 1): only this class's own factory constructs it.
     private FileWriterAdapter()
     {
     }

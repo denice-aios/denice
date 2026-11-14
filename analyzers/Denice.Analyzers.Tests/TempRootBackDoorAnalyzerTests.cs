@@ -11,7 +11,7 @@ namespace Denice.Analyzers.Tests;
 /// <summary>
 /// AGS5443 (ags5443-temp-root-back-door-rule): every call site of <c>IEnvironment.GetTempDirectory()</c> — the owned
 /// abstraction over <c>Path.GetTempPath()</c> that Sonar's <c>S5443</c> cannot see through — is a build error. It does
-/// NOT touch the raw <c>Path.GetTempPath()</c> (owned by AG0020) nor <c>IDirectoryWriter.CreateTempSubdirectory</c> (a
+/// NOT touch the raw <c>Path.GetTempPath()</c> (owned by DN0020) nor <c>IDirectoryWriter.CreateTempSubdirectory</c> (a
 /// uniquely-named atomic subdirectory the caller owns). Zero call sites exist today, so the rule is preventive.
 /// </summary>
 public class TempRootBackDoorAnalyzerTests
@@ -39,7 +39,7 @@ public class TempRootBackDoorAnalyzerTests
 
     // A method-group/delegate capture of IEnvironment.GetTempDirectory — the same back door reached by capturing the
     // member instead of calling it directly. AGS5443 matches by member identity regardless of operation kind (the
-    // sibling AG0017 shape), so the capture-then-invoke shape is flagged too and cannot reopen the back door.
+    // sibling DN0017 shape), so the capture-then-invoke shape is flagged too and cannot reopen the back door.
     private const string MethodGroupCaptureOfGetTempDirectorySource = """
         namespace Denice.Abstractions.Contracts
         {
@@ -87,7 +87,7 @@ public class TempRootBackDoorAnalyzerTests
         }
         """;
 
-    // The raw Path.GetTempPath() — owned and pinned to EnvironmentAdapter by AG0020, out of scope for AGS5443.
+    // The raw Path.GetTempPath() — owned and pinned to EnvironmentAdapter by DN0020, out of scope for AGS5443.
     private const string RawGetTempPathSource = """
         namespace App
         {
@@ -219,7 +219,7 @@ public class TempRootBackDoorAnalyzerTests
     [Fact]
     public async Task RawGetTempPathCall_IsNotReported()
     {
-        // AGS5443 flags the abstraction back door, never the raw Path.GetTempPath — that is AG0020's owned member.
+        // AGS5443 flags the abstraction back door, never the raw Path.GetTempPath — that is DN0020's owned member.
         Assert.Empty(await AnalyzerRunner.RunAsync<TempRootBackDoorAnalyzer>(RawGetTempPathSource));
     }
 

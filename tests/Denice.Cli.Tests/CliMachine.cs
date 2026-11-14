@@ -2,7 +2,7 @@
 
 using Denice.Abstractions.Contracts;
 using Denice.TestHelpers;
-using Denice.TestSupport;
+using Denice.Tests.Shared;
 
 namespace Denice.Cli.Tests;
 
@@ -129,7 +129,7 @@ internal sealed class CliMachine : IDisposable
     }
 
     // Best-effort cleanup of a throwaway isolated directory through the owned directory writer (reached from the
-    // held container, never taken as a service parameter — AG0031), swallowing the two failures a temp tree can
+    // held container, never taken as a service parameter — DN0031), swallowing the two failures a temp tree can
     // raise on teardown (a transient lock or a permission race); cleanup must never fail a test.
     private void DeleteBestEffort(string path)
     {

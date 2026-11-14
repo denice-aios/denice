@@ -13,13 +13,13 @@ namespace Denice.Analyzers;
 /// <c>: IFileReader</c> with stub members to an inconvenient type to launder a raw call past the single-owner
 /// exemption of the boundary rules: the second implementer is flagged here regardless of whether it would have been
 /// exempted. Every named-type kind counts — class, struct, record, and record struct — because the exemption predicate
-/// AG0025 polices (<c>OwnerClass.Implements</c>) has no <see cref="TypeKind"/> gate, so a struct declaring
+/// DN0025 polices (<c>OwnerClass.Implements</c>) has no <see cref="TypeKind"/> gate, so a struct declaring
 /// <c>: IFileReader</c> would otherwise launder a raw call yet be invisible to this scan. The owner-interface set is
 /// the one derived from <c>ISystemServices</c> by <see cref="BoundaryServices.Resolve"/>, captured once per
 /// compilation. Only source types in the compilation are considered — <see cref="SymbolKind.NamedType"/> visits every
 /// declared named type (nested included) and excludes referenced-assembly types, so a referenced assembly's own single
 /// implementer never counts against a second one here. The accumulate-and-report-second-implementer algorithm is the
-/// one shared with the container rule (AG0022) through <see cref="SecondImplementerGuard"/>.
+/// one shared with the container rule (DN0022) through <see cref="SecondImplementerGuard"/>.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
@@ -27,7 +27,7 @@ public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0025";
+    public const string DiagnosticId = "DN0025";
 
     private const string Category = "Denice.Architecture";
 
@@ -66,7 +66,7 @@ public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
         // IFileReader) per service in Denice.TestHelpers — two legitimate implementers of the same owner interface
         // in one compilation — and the test projects reference them, so the test/TestHelpers assemblies are not gated.
         // The "TestHelpers OR .Tests" predicate is the one owned by TestAssembly, shared with NoCoverageOptOutAnalyzer.
-        // The container rule (AG0022) shares the SAME accumulation but deliberately does NOT take this early-return.
+        // The container rule (DN0022) shares the SAME accumulation but deliberately does NOT take this early-return.
         if (TestAssembly.IsTestSystemAssembly(context.Compilation))
         {
             return;

@@ -19,7 +19,7 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0008";
+    public const string DiagnosticId = "DN0008";
 
     private const string Category = "Denice.Architecture";
 
@@ -69,7 +69,7 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
     // non-cross-platform assembly (the CompilationStart gate above has already excluded the per-OS libraries). The
     // resolve-first match — falling back to the syntactic name only for the [LibraryImport] source-generator case where
     // the attribute does not bind, so a same-named user attribute in another namespace is left alone — lives in
-    // AppliedAttributeBan, shared with AG0039. The interop-attribute identity set is owned once by PInvoke.
+    // AppliedAttributeBan, shared with DN0039. The interop-attribute identity set is owned once by PInvoke.
     private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context) =>
         AppliedAttributeBan.Report(context, PInvoke.InteropAttributes, Rule);
 }

@@ -8,7 +8,7 @@ namespace Denice.TestHelpers;
 
 /// <summary>
 /// The <see cref="IPresenceCheck"/> a <see cref="FakePresenceCheck"/> recorder hands out: a contract implementation with
-/// a private constructor (AG0003), handed out only as its interface, whose <see cref="Check"/> records into the
+/// a private constructor (DN0003), handed out only as its interface, whose <see cref="Check"/> records into the
 /// recorder and returns the recorder's configured task. It never touches a native library — it is the above-the-seam
 /// stand-in for the presence boundary.
 /// </summary>

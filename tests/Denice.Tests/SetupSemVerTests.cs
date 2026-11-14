@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using Denice.Setup;
+using Denice.Engine.Setup;
 using FluentAssertions;
 using NuGet.Versioning;
 using Xunit;

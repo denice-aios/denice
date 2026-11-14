@@ -9,7 +9,7 @@ namespace Denice.Boundaries;
 
 /// <summary>
 /// The owned <see cref="IConsole"/> adapter. It is the single class that implements the console seam, so it is the
-/// ONE place the raw <c>System.Console</c> members are allowed (AG0016 exempts exactly this owner class in
+/// ONE place the raw <c>System.Console</c> members are allowed (DN0016 exempts exactly this owner class in
 /// <c>Denice.Boundaries</c>); every other type writes and reads the console through <see cref="IConsole"/>
 /// pulled off <see cref="ISystemServices"/>, so console output is captured in tests instead of hitting the real
 /// streams. It follows the shape of <c>System.Console</c> (iconsole-mirrors-console). Nothing below Boundaries
@@ -18,7 +18,7 @@ namespace Denice.Boundaries;
 /// </summary>
 internal sealed class ConsoleAdapter : IConsole
 {
-    // Private constructor (AG0003, Wall 1): only this class's own factory constructs it.
+    // Private constructor (DN0003, Wall 1): only this class's own factory constructs it.
     private ConsoleAdapter()
     {
     }

@@ -1,7 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.Text.Json.Nodes;
-using Denice.TestSupport;
+using Denice.Tests.Shared;
 using FluentAssertions;
 using Xunit;
 

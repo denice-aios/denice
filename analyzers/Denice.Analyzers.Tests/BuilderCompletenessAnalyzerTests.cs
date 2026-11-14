@@ -11,7 +11,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0019 proves the test SystemServicesBuilder mirrors the ISystemServices container at every nesting level
+/// DN0019 proves the test SystemServicesBuilder mirrors the ISystemServices container at every nesting level
 /// (ag0019-recursive-nested-completeness): a direct leaf service (a Contracts-interface accessor or the TimeProvider
 /// clock) on a container node needs a With(T)/Wrap(Func&lt;T,T&gt;) on that node's builder scope, and a nested container
 /// accessor needs a public zero-parameter On&lt;AccessorMemberName&gt;() navigator whose return type recursively
@@ -84,7 +84,7 @@ public class BuilderCompletenessAnalyzerTests
     {
         // The IFileReader substitution/wrap is parked on the TOP-LEVEL builder instead of the FileSystem sub-builder,
         // which is the correct scope for a nested leaf. The sub-builder is therefore incomplete for IFileReader, so
-        // AG0019 fires there — the top-level overloads do not satisfy the nested-scope requirement.
+        // DN0019 fires there — the top-level overloads do not satisfy the nested-scope requirement.
         const string parkedBuilder = """
             using System;
             using Denice.Abstractions.Contracts;
@@ -114,7 +114,7 @@ public class BuilderCompletenessAnalyzerTests
             parkedBuilder + "\n" + ContainerSource, "Denice.TestHelpers");
 
         Assert.NotEmpty(diagnostics);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0019", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0019", diagnostic.Id));
         Assert.All(
             diagnostics,
             diagnostic => Assert.Contains(
@@ -124,7 +124,7 @@ public class BuilderCompletenessAnalyzerTests
     [Fact]
     public async Task MissingNavigator_ReportsOnce_NotPerNestedLeaf()
     {
-        // The builder has NO OnFileSystem() navigator. The FileSystem sub-container has two nested leaves; AG0019 must
+        // The builder has NO OnFileSystem() navigator. The FileSystem sub-container has two nested leaves; DN0019 must
         // report the missing navigator ONCE at that node, not once per leaf beneath it. The two root leaves are
         // complete, so exactly one diagnostic fires, naming the navigator.
         const string noNavigatorBuilder = """
@@ -146,7 +146,7 @@ public class BuilderCompletenessAnalyzerTests
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<BuilderCompletenessAnalyzer>(
             noNavigatorBuilder + "\n" + ContainerSource, "Denice.TestHelpers"));
 
-        Assert.Equal("AG0019", diagnostic.Id);
+        Assert.Equal("DN0019", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("OnFileSystem", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -183,7 +183,7 @@ public class BuilderCompletenessAnalyzerTests
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<BuilderCompletenessAnalyzer>(
             missingWith + "\n" + ContainerSource, "Denice.TestHelpers"));
 
-        Assert.Equal("AG0019", diagnostic.Id);
+        Assert.Equal("DN0019", diagnostic.Id);
         Assert.Contains("Console", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
         Assert.Contains("With", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -220,7 +220,7 @@ public class BuilderCompletenessAnalyzerTests
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<BuilderCompletenessAnalyzer>(
             missingClock + "\n" + ContainerSource, "Denice.TestHelpers"));
 
-        Assert.Equal("AG0019", diagnostic.Id);
+        Assert.Equal("DN0019", diagnostic.Id);
         Assert.Contains("TimeProvider", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
         Assert.Contains("With", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -294,7 +294,7 @@ public class BuilderCompletenessAnalyzerTests
             containerAndIncompleteBuilder, "Denice.TestHelpers");
 
         Assert.NotEmpty(diagnostics);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0019", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0019", diagnostic.Id));
         Assert.Contains(
             diagnostics,
             diagnostic => diagnostic.GetMessage(CultureInfo.InvariantCulture).Contains("FileReader", StringComparison.Ordinal));

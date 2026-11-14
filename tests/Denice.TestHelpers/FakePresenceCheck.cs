@@ -9,7 +9,7 @@ namespace Denice.TestHelpers;
 
 /// <summary>
 /// The configurable presence recorder the above-the-seam gate tests drive. It is NOT itself an
-/// <see cref="IPresenceCheck"/> — a contract implementation may expose only its interface members (AG0005), and the
+/// <see cref="IPresenceCheck"/> — a contract implementation may expose only its interface members (DN0005), and the
 /// recorded <see cref="CallCount"/>/<see cref="LastRequest"/> are the whole point — so it hands out an
 /// <see cref="IPresenceCheck"/> through <see cref="Presence"/> (installed via
 /// <c>SystemServicesBuilder.OnPlatform().With(IPresenceCheck)</c>). It stands in only for the presence boundary; the

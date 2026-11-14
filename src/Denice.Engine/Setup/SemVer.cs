@@ -3,7 +3,7 @@
 using System.Diagnostics.CodeAnalysis;
 using NuGet.Versioning;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// SemVer precedence for the install downgrade check, including prerelease ordering. Delegates to NuGet's

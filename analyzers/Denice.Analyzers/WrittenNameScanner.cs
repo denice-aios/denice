@@ -19,8 +19,8 @@ namespace Denice.Analyzers;
 /// Registering <see cref="SyntaxKind.IdentifierName"/> and <see cref="SyntaxKind.GenericName"/> is what makes that
 /// true. A qualified name, an alias-qualified name, and a member access all END in one of those two, so the node that
 /// denotes the type or member is always visited however the source spells the path to it; the leading segments bind to
-/// namespaces, which a rule's leaf test ignores. Three rules share this one lens — AG0041, AG0023's Engine gate, and
-/// AG0029's Engine gate — so it is its own owner rather than living inside any of them, and the shared resolution
+/// namespaces, which a rule's leaf test ignores. Three rules share this one lens — DN0041, DN0023's Engine gate, and
+/// DN0029's Engine gate — so it is its own owner rather than living inside any of them, and the shared resolution
 /// mechanics are delegated to <see cref="SymbolResolution"/>.
 /// </para>
 /// <para>

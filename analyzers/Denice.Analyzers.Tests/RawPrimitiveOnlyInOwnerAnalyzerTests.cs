@@ -10,9 +10,9 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// The consolidated owner rule (AG0011) — every primitive's owner is proven here after the bridge folded the former
-/// AG0012/0013/0014/0016/0021/0028 and the *Info half of AG0101 into one table-driven rule. Every case that fired
-/// under those ids now fires under AG0011.
+/// The consolidated owner rule (DN0011) — every primitive's owner is proven here after the bridge folded the former
+/// DN0012/0013/0014/0016/0021/0028 and the *Info half of DN0101 into one table-driven rule. Every case that fired
+/// under those ids now fires under DN0011.
 /// </summary>
 public class RawPrimitiveOnlyInOwnerAnalyzerTests
 {
@@ -396,7 +396,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(FileExistsSource, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -406,7 +406,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         // The file-op owners live in the Denice.CrossPlatform contract assembly, not the per-OS .MacOS library.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(FileExistsSource, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -423,7 +423,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -432,7 +432,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(
                 FileReaderOwnerCallingFileExistsSource, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Contains(
             "File.Exists", AnalyzerRunner.SpanText(FileReaderOwnerCallingFileExistsSource, diagnostic), StringComparison.Ordinal);
     }
@@ -453,7 +453,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(
                 FileWriterOwnerCallingFileExistsSource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -464,7 +464,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(
                 DirectoryWriterOwnerCallingDirectoryMoveSource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Contains(
             "Directory.Move", AnalyzerRunner.SpanText(DirectoryWriterOwnerCallingDirectoryMoveSource, diagnostic), StringComparison.Ordinal);
     }
@@ -494,7 +494,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(
                 DirectoryEnumeratorOwnerReadingFileLastWriteTimeSource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Contains(
             "File.GetLastWriteTimeUtc",
             AnalyzerRunner.SpanText(DirectoryEnumeratorOwnerReadingFileLastWriteTimeSource, diagnostic),
@@ -509,7 +509,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(
                 FileWriterOwnerSettingFileLastWriteTimeSource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Contains(
             "File.SetLastWriteTimeUtc",
             AnalyzerRunner.SpanText(FileWriterOwnerSettingFileLastWriteTimeSource, diagnostic),
@@ -535,11 +535,11 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     public async Task InfoConstruction_OutsideOwner_IsReported()
     {
         // fileinfo-abstraction-stays-in-ag0011: a raw new FileInfo / new DirectoryInfo is now owned wholesale by
-        // IFileInfo/IDirectoryInfo — RED outside the wrapper owner (was AG0101's).
+        // IFileInfo/IDirectoryInfo — RED outside the wrapper owner (was DN0101's).
         ImmutableArray<Diagnostic> diagnostics =
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(InfoConstructionSource, "Denice.Engine");
         Assert.Equal(2, diagnostics.Length);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0011", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0011", diagnostic.Id));
         Assert.Contains(
             diagnostics, diagnostic => AnalyzerRunner.SpanText(InfoConstructionSource, diagnostic).Contains("FileInfo", StringComparison.Ordinal));
         Assert.Contains(
@@ -549,11 +549,11 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     [Fact]
     public async Task LinkTargetRead_OutsideOwner_IsReported()
     {
-        // The *Info instance member LinkTarget is now AG0011's (it belongs to the wrapper), not AG0101's.
+        // The *Info instance member LinkTarget is now DN0011's (it belongs to the wrapper), not DN0101's.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(
                 SharedAnalyzerSources.LinkTargetSource, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Contains(
             "LinkTarget", AnalyzerRunner.SpanText(SharedAnalyzerSources.LinkTargetSource, diagnostic), StringComparison.Ordinal);
     }
@@ -574,7 +574,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics =
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(InfoWrapperOwnerSource, "Denice.Engine");
         Assert.NotEmpty(diagnostics);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0011", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0011", diagnostic.Id));
     }
 
     [Fact]
@@ -586,7 +586,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(
                 EnumeratorWalkingRawDirectoryInfoSource, "Denice.CrossPlatform");
         Assert.NotEmpty(diagnostics);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0011", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0011", diagnostic.Id));
     }
 
     [Fact]
@@ -603,13 +603,13 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
     public async Task GetCurrentDirectory_OutsideOwner_IsReported()
     {
-        // Directory.GetCurrentDirectory is an environment read on the filesystem type → IEnvironment (was AG0012).
+        // Directory.GetCurrentDirectory is an environment read on the filesystem type → IEnvironment (was DN0012).
         const string source = """
             using System.IO;
 
@@ -621,7 +621,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -638,11 +638,11 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
-    public async Task EnvironmentTickCount_IsNotReported_ItBelongsToAG0015()
+    public async Task EnvironmentTickCount_IsNotReported_ItBelongsToDN0015()
     {
         const string source = """
             using System;
@@ -657,9 +657,9 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     }
 
     [Fact]
-    public async Task PathGetFullPath_IsNotClaimed_ItBelongsToAG0020()
+    public async Task PathGetFullPath_IsNotClaimed_ItBelongsToDN0020()
     {
-        // All of System.IO.Path is owned by the default-deny Path-purity rule AG0020; the owner rule never claims it.
+        // All of System.IO.Path is owned by the default-deny Path-purity rule DN0020; the owner rule never claims it.
         const string singleArg = """
             using System.IO;
 
@@ -684,7 +684,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(EnvironmentAdapterOwnerSource, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -701,7 +701,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -718,7 +718,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -748,7 +748,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(RandomGeneratorOwnerSource, "Denice.Boundaries"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -759,7 +759,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         // RandomGeneratorAdapter in the IMPLEMENT pass.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(OldGuidFactoryOwnerSource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -787,7 +787,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.CrossPlatform"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Contains("CreateTempSubdirectory", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -805,7 +805,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Cli"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -820,7 +820,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(ConsoleAdapterOwnerSource, "Denice.Cli"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -828,7 +828,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(SiblingUsingSignerSource, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Contains("Ed25519Signer", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -844,7 +844,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(OwnerUsingSignerSource, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -852,7 +852,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(GetEntryAssemblySource, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
         Assert.Contains("GetEntryAssembly", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -873,7 +873,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -908,7 +908,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         // Process launching has no owner — banned everywhere, including Denice.Boundaries.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(ProcessStartSource, "Denice.Boundaries"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]
@@ -925,7 +925,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]

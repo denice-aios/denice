@@ -13,7 +13,7 @@ namespace Denice.CrossPlatform.Tests;
 /// unpack failure — with no interactive surface. It returns the scripted <see cref="CredentialPromptOutcome"/> and
 /// <see cref="CredentialFields"/> and records the cleanup calls (unpack, logon, close-token, free-fields,
 /// free-buffer) so the flow test can assert the orchestrator both branched correctly AND released what it acquired. It
-/// is stateful, legal in <c>Denice.CrossPlatform.Tests</c> because AG0116/AG0106/AG0115 register only in the
+/// is stateful, legal in <c>Denice.CrossPlatform.Tests</c> because DN0116/DN0106/DN0115 register only in the
 /// PRODUCTION per-OS assemblies; per-method call counts compose the shared <see cref="SingleCallRecorder{TArg,TResult}"/>
 /// (reuse-ledger).
 /// </summary>

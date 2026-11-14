@@ -40,7 +40,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(UtcNowSource, "Denice.Engine"));
-        Assert.Equal("AG0015", diagnostic.Id);
+        Assert.Equal("DN0015", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -49,7 +49,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(UtcNowSource, "Denice.Boundaries"));
-        Assert.Equal("AG0015", diagnostic.Id);
+        Assert.Equal("DN0015", diagnostic.Id);
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0015", diagnostic.Id);
+        Assert.Equal("DN0015", diagnostic.Id);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0015", diagnostic.Id);
+        Assert.Equal("DN0015", diagnostic.Id);
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0015", diagnostic.Id);
+        Assert.Equal("DN0015", diagnostic.Id);
     }
 
     [Fact]
@@ -128,7 +128,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
         // clock-legal-in-create-and-builder: TimeProvider.System is legal inside SystemServices in
         // Denice.Engine — whose Create() wires the clock into the container. This is the construction site the
         // clock is acquired at, distinct from the composition CALLERS (Program + builder) that only call the factory.
-        // The construction site moved to Engine with the container; AG0015 keeps its TYPE-level test, so anywhere
+        // The construction site moved to Engine with the container; DN0015 keeps its TYPE-level test, so anywhere
         // inside the container class qualifies.
         Assert.Empty(await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(
             SystemServicesInEngineSource, "Denice.Engine"));
@@ -153,7 +153,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "Denice.Boundaries"));
-        Assert.Equal("AG0015", diagnostic.Id);
+        Assert.Equal("DN0015", diagnostic.Id);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(
                 SystemServicesInEngineSource, "Denice.Engine.Decoy"));
-        Assert.Equal("AG0015", diagnostic.Id);
+        Assert.Equal("DN0015", diagnostic.Id);
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "guard"));
-        Assert.Equal("AG0015", diagnostic.Id);
+        Assert.Equal("DN0015", diagnostic.Id);
     }
 
     [Fact]

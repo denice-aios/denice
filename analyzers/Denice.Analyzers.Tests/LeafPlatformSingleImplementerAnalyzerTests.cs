@@ -10,21 +10,21 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0030 (leaf-platform-single-implementer-rule): in a <c>.Tests</c> compilation no source type may implement any of
+/// DN0030 (leaf-platform-single-implementer-rule): in a <c>.Tests</c> compilation no source type may implement any of
 /// the four filesystem leaf interfaces (<c>IFileReader</c>/<c>IDirectoryEnumerator</c>/<c>IFileWriter</c>/
 /// <c>IDirectoryWriter</c>) or <c>IPlatformFileSystem</c>. The only sanctioned implementers are the fakes and
 /// <c>Wrap</c> proxies in <c>Denice.TestHelpers</c>, reached through <c>SystemServicesBuilder</c> and referenced —
-/// never re-declared — by a test project. <c>Denice.TestHelpers</c> (not a <c>.Tests</c> assembly) keeps AG0025's
+/// never re-declared — by a test project. <c>Denice.TestHelpers</c> (not a <c>.Tests</c> assembly) keeps DN0025's
 /// fake-plus-proxy exemption, and a shipping assembly's own single implementer is never gated here.
 /// </summary>
 public class LeafPlatformSingleImplementerAnalyzerTests
 {
     // A real container tree exposing all four filesystem leaves through IFileSystem and IPlatformFileSystem through
-    // IPlatformServices, plus one ordinary interface (to prove the rule guards only the nested leaves). AG0030's checked
+    // IPlatformServices, plus one ordinary interface (to prove the rule guards only the nested leaves). DN0030's checked
     // candidate set is the nested-leaf set DERIVED from the tree walk (BoundaryServices.NestedLeafInterfaces), not a
     // hardcoded list, so deriving over this shape yields exactly {IFileReader, IDirectoryEnumerator, IFileWriter,
     // IDirectoryWriter, IPlatformFileSystem}. IWidget is an ordinary App interface, never a leaf; the three CONTAINERS
-    // (ISystemServices/IFileSystem/IPlatformServices) are AG0022's job and are not in this candidate set.
+    // (ISystemServices/IFileSystem/IPlatformServices) are DN0022's job and are not in this candidate set.
     private const string ContainersSource = """
         namespace Denice.Abstractions.Contracts
         {
@@ -69,7 +69,7 @@ public class LeafPlatformSingleImplementerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<LeafPlatformSingleImplementerAnalyzer>(source, "Denice.Tests"));
-        Assert.Equal("AG0030", diagnostic.Id);
+        Assert.Equal("DN0030", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains(
             "IPlatformFileSystem", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
@@ -90,7 +90,7 @@ public class LeafPlatformSingleImplementerAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<LeafPlatformSingleImplementerAnalyzer>(source, "Denice.Tests"));
-        Assert.Equal("AG0030", diagnostic.Id);
+        Assert.Equal("DN0030", diagnostic.Id);
         Assert.Contains(
             "IDirectoryEnumerator", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -111,14 +111,14 @@ public class LeafPlatformSingleImplementerAnalyzerTests
 
         var diagnostics = await AnalyzerRunner.RunAsync<LeafPlatformSingleImplementerAnalyzer>(source, "Denice.Tests");
         Assert.Equal(2, diagnostics.Length);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0030", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0030", diagnostic.Id));
     }
 
     [Fact]
     public async Task LeafImplementer_InTestHelpers_IsNotReported()
     {
-        // Denice.TestHelpers is NOT a .Tests assembly, so it keeps AG0025's fake-plus-Wrap-proxy exemption: the
-        // sanctioned fake implementers live here and are not gated by AG0030.
+        // Denice.TestHelpers is NOT a .Tests assembly, so it keeps DN0025's fake-plus-Wrap-proxy exemption: the
+        // sanctioned fake implementers live here and are not gated by DN0030.
         string source = ContainersSource + """
 
             namespace App
@@ -152,7 +152,7 @@ public class LeafPlatformSingleImplementerAnalyzerTests
     [Fact]
     public async Task ContainerImplementer_InTestProject_IsNotReported()
     {
-        // The three CONTAINER interfaces are NOT in AG0030's nested-leaf candidate set (they are AG0022's job), so a
+        // The three CONTAINER interfaces are NOT in DN0030's nested-leaf candidate set (they are DN0022's job), so a
         // .Tests type implementing a container is not reported here.
         string source = ContainersSource + """
 

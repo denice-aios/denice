@@ -14,7 +14,7 @@ namespace Denice.CrossPlatform.MacOS;
 /// non-interactive capability probe, maps a probe/reply error code through the pure <see cref="MapErrorCode"/> function,
 /// wires the interactive evaluation's <c>TaskCompletionSource</c>/<c>GCHandle</c>/cancel-invalidate, and releases every
 /// per-call handle — composing the raw runtime calls of <see cref="IObjCRuntime"/>, which it fakes in tests. It holds no
-/// native handle in a field (AG0112) and mints no timeout of its own (AG0107) — the gate owns the one 60-second bound.
+/// native handle in a field (DN0112) and mints no timeout of its own (DN0107) — the gate owns the one 60-second bound.
 /// </summary>
 internal sealed class LocalAuthentication : ILocalAuthentication
 {
@@ -39,7 +39,7 @@ internal sealed class LocalAuthentication : ILocalAuthentication
     /// <inheritdoc />
     public Task<LaResult> EvaluateAsync(string reason, CancellationToken ct)
     {
-        // The port honors cancellation but mints no timeout of its own (AG0107); the gate owns the 60-second bound.
+        // The port honors cancellation but mints no timeout of its own (DN0107); the gate owns the 60-second bound.
         ct.ThrowIfCancellationRequested();
 
         IntPtr context = _objc.CreateContext();
@@ -73,7 +73,7 @@ internal sealed class LocalAuthentication : ILocalAuthentication
 
     // The interactive gate: shows the OS dialog through evaluatePolicy and completes when the block reply fires. The
     // fresh LAContext, the reason string, the GCHandle, and the block memory are all released once the reply arrives.
-    // The port mints no timeout of its own (AG0107); it only HONORS the caller's cancellation token — when the gate's
+    // The port mints no timeout of its own (DN0107); it only HONORS the caller's cancellation token — when the gate's
     // 60-second bound (or any caller) cancels, invalidating the context cancels the pending evaluation and dismisses the
     // dialog, and LA fires the reply block with a cancel error, which maps to a non-approved reason. The reply handler
     // captured in the GCHandle does the mapping and completes the TaskCompletionSource; the native-ops layer's callback

@@ -3,7 +3,7 @@
 using System;
 using Denice.Abstractions.Contracts;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The immutable inputs every setup command works from. The setup commands derive the machine layout under

@@ -11,13 +11,13 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// The consolidated construction rule (<see cref="GuardedConstructionAnalyzer"/>): AG0017 pins the container factory
-/// to the composition callers, AG0033 pins the *Info wrapper construction to FileInfoFactory.
+/// The consolidated construction rule (<see cref="GuardedConstructionAnalyzer"/>): DN0017 pins the container factory
+/// to the composition callers, DN0033 pins the *Info wrapper construction to FileInfoFactory.
 /// </summary>
 public class GuardedConstructionAnalyzerTests
 {
     // ISystemServices lives in Denice.Abstractions.Contracts (its real namespace), matching the return-type pin
-    // AG0017 keys on; SystemServices.Create() returns it. CreateDefault() is a differently-named sibling factory that
+    // DN0017 keys on; SystemServices.Create() returns it. CreateDefault() is a differently-named sibling factory that
     // also returns the container — the return-type pin catches it too.
     private const string BoundariesSource = """
         namespace Denice.Abstractions.Contracts
@@ -49,7 +49,7 @@ public class GuardedConstructionAnalyzerTests
         """;
 
     // A differently-named static sibling factory (CreateDefault, not Create) whose return type IS the ISystemServices
-    // container, called deep in the chain — AG0017's return-type pin fires even though the name is not Create.
+    // container, called deep in the chain — DN0017's return-type pin fires even though the name is not Create.
     private const string CallDifferentlyNamedFactoryFromDeepClassSource = """
         using Denice.Boundaries;
         using Denice.Abstractions.Contracts;
@@ -125,12 +125,12 @@ public class GuardedConstructionAnalyzerTests
         }
         """;
 
-    // ---- AG0033 wrapper construction ----
+    // ---- DN0033 wrapper construction ----
 
     // The wrapper stub in namespace Denice.CrossPlatform whose static Create factory returns the OWNED
-    // Denice.Abstractions.Contracts.IFileInfo — the return type AG0033 pins on (same shape as AG0017's container
+    // Denice.Abstractions.Contracts.IFileInfo — the return type DN0033 pins on (same shape as DN0017's container
     // pin). Compiled into a referenced assembly; the consumer that calls it lives in a separate assembly and is the
-    // off-seam construction AG0033 reports.
+    // off-seam construction DN0033 reports.
     private const string WrapperInCrossPlatformSource = """
         namespace Denice.Abstractions.Contracts
         {
@@ -281,7 +281,7 @@ public class GuardedConstructionAnalyzerTests
         """;
 
     // An INSTANCE method returning the owned IFileInfo (the real IFileSystem GetFileInfo shape), declared OUTSIDE
-    // FileInfoFactory and called by an ordinary consumer. AG0033 pins only STATIC wrapper factories, so an instance
+    // FileInfoFactory and called by an ordinary consumer. DN0033 pins only STATIC wrapper factories, so an instance
     // method that hands back an IFileInfo is the legal consumer seam and is never flagged. This is the exact
     // guarantee the IsStatic guard in IsStaticFactoryReturningAnyOf exists for.
     private const string InstanceMethodReturningInfoOutsideFactorySource = """
@@ -306,12 +306,12 @@ public class GuardedConstructionAnalyzerTests
         }
         """;
 
-    // ---- AG0027 store construction ----
+    // ---- DN0027 store construction ----
 
     // The shared overlay InMemoryFileSystemStore (internal to Denice.TestHelpers) constructed in TWO places: inside
-    // SystemServicesBuilder (the one legal site) and inside a sibling type (the off-site second construction AG0027
+    // SystemServicesBuilder (the one legal site) and inside a sibling type (the off-site second construction DN0027
     // reports). Both live in the Denice.TestHelpers namespace, matching the namespace+name pin. Compiled into the
-    // Denice.TestHelpers assembly, the gate AG0027 is scoped to.
+    // Denice.TestHelpers assembly, the gate DN0027 is scoped to.
     private const string StoreConstructedInsideAndOutsideBuilderSource = """
         namespace Denice.TestHelpers
         {
@@ -345,13 +345,13 @@ public class GuardedConstructionAnalyzerTests
     [Fact]
     public async Task StoreConstruction_OutsideBuilder_InTestHelpers_IsReported()
     {
-        // AG0027: a second InMemoryFileSystemStore construction outside SystemServicesBuilder, in the TestHelpers
+        // DN0027: a second InMemoryFileSystemStore construction outside SystemServicesBuilder, in the TestHelpers
         // compilation, is a build error; the construction inside the builder is the one legal site and stays silent —
         // so exactly one diagnostic fires, the off-site one.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
                 StoreConstructedInsideAndOutsideBuilderSource, "Denice.TestHelpers"));
-        Assert.Equal("AG0027", diagnostic.Id);
+        Assert.Equal("DN0027", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains(
             "InMemoryFileSystemStore",
@@ -370,7 +370,7 @@ public class GuardedConstructionAnalyzerTests
     [Fact]
     public async Task StoreConstruction_OutsideBuilder_InNonTestHelpersAssembly_IsNotReported()
     {
-        // AG0027 is gated to the Denice.TestHelpers compilation. The identical off-site construction compiled into a
+        // DN0027 is gated to the Denice.TestHelpers compilation. The identical off-site construction compiled into a
         // DIFFERENT assembly is not reported — the store is internal to TestHelpers, so this within-TestHelpers rule
         // does not reach across assemblies.
         Assert.Empty(await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
@@ -385,7 +385,7 @@ public class GuardedConstructionAnalyzerTests
                 CallFromDeepClassSource, "Denice.Engine", BoundariesSource, "Denice.Boundaries");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0017", diagnostic.Id);
+        Assert.Equal("DN0017", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -394,7 +394,7 @@ public class GuardedConstructionAnalyzerTests
     {
         // After the relocation the main test assembly gains compiler VISIBILITY of the container through the
         // InternalsVisibleTo grant Engine already gives it, so a direct SystemServices.Create() written there now
-        // COMPILES where it previously could not. AG0017 is the one wall that remains; this pins that it still fires
+        // COMPILES where it previously could not. DN0017 is the one wall that remains; this pins that it still fires
         // from that assembly, so tests keep building the container through SystemServicesBuilder.
         const string source = """
             using Denice.Abstractions.Contracts;
@@ -410,7 +410,7 @@ public class GuardedConstructionAnalyzerTests
             await SharedAnalyzerSources.RunAgainstFakeEngineAsync<GuardedConstructionAnalyzer>(
                 source, "Denice.Tests"));
 
-        Assert.Equal("AG0017", diagnostic.Id);
+        Assert.Equal("DN0017", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -434,7 +434,7 @@ public class GuardedConstructionAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(
                 CallFromProgramSource, "Denice.Engine", BoundariesSource, "Denice.Boundaries"));
-        Assert.Equal("AG0017", diagnostic.Id);
+        Assert.Equal("DN0017", diagnostic.Id);
     }
 
     [Fact]
@@ -445,7 +445,7 @@ public class GuardedConstructionAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(
                 CallFromProgramSource, "Denice.Cli", BoundariesSource, "Denice.Boundaries"));
-        Assert.Equal("AG0017", diagnostic.Id);
+        Assert.Equal("DN0017", diagnostic.Id);
     }
 
     [Fact]
@@ -456,23 +456,23 @@ public class GuardedConstructionAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(
                 CallFromProgramInDifferentNamespaceSource, "guard", BoundariesSource, "Denice.Boundaries"));
-        Assert.Equal("AG0017", diagnostic.Id);
+        Assert.Equal("DN0017", diagnostic.Id);
     }
 
     [Fact]
     public async Task DifferentlyNamedFactoryReturningContainer_DeepInTheChain_IsReported()
     {
-        // AG0017's return-type pin: a static sibling factory NOT named Create, but whose return type is the
+        // DN0017's return-type pin: a static sibling factory NOT named Create, but whose return type is the
         // ISystemServices container, still fires outside the composition callers — the name-only path is gone; the
         // return type is what pins the wall.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(
                 CallDifferentlyNamedFactoryFromDeepClassSource, "Denice.Engine", BoundariesSource, "Denice.Boundaries"));
-        Assert.Equal("AG0017", diagnostic.Id);
+        Assert.Equal("DN0017", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
 
         // The message names the ACTUAL violating call (CreateDefault), not the hardcoded literal Create(): the
-        // Open/Closed fix makes AG0017 describe the real member so a developer hitting it on a differently-named
+        // Open/Closed fix makes DN0017 describe the real member so a developer hitting it on a differently-named
         // sibling factory is pointed at a call that is in their code.
         Assert.Contains(
             "CreateDefault", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
@@ -494,7 +494,7 @@ public class GuardedConstructionAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(
                 ConsumerCallingWrapperSource, "Denice.Engine", WrapperInCrossPlatformSource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0033", diagnostic.Id);
+        Assert.Equal("DN0033", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains(
             "AbstractedFileInfo", AnalyzerRunner.SpanText(ConsumerCallingWrapperSource, diagnostic), StringComparison.Ordinal);
@@ -503,14 +503,14 @@ public class GuardedConstructionAnalyzerTests
     [Fact]
     public async Task DifferentlyNamedWrapperFactoryReturningInfo_OutsideFileInfoFactory_IsReported()
     {
-        // AG0033's return-type pin, mirroring AG0017's: a differently-named wrapper (not on any hard-coded name list)
+        // DN0033's return-type pin, mirroring DN0017's: a differently-named wrapper (not on any hard-coded name list)
         // whose static factory returns the owned IDirectoryInfo still fires outside FileInfoFactory — a renamed or
         // additional IFileInfo/IDirectoryInfo wrapper cannot escape the guard, and the rule needs no edit to cover it
         // (Open/Closed).
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
                 DifferentlyNamedWrapperOutsideFactorySource, "Denice.Engine"));
-        Assert.Equal("AG0033", diagnostic.Id);
+        Assert.Equal("DN0033", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -527,7 +527,7 @@ public class GuardedConstructionAnalyzerTests
     {
         // The deleted namespace-name-assembly pin is gone; the return-type pin fires only when the static factory
         // returns the OWNED Denice.Abstractions.Contracts.IFileInfo/IDirectoryInfo. A same-named decoy interface in
-        // a foreign namespace is not the guarded abstraction, so it is not reported (mirrors AG0017's decoy test).
+        // a foreign namespace is not the guarded abstraction, so it is not reported (mirrors DN0017's decoy test).
         Assert.Empty(await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
             WrapperFactoryReturningDecoyInfoSource, "Denice.Engine"));
     }
@@ -547,7 +547,7 @@ public class GuardedConstructionAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
                 WrapperCalledFromSiblingInCrossPlatformSource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0033", diagnostic.Id);
+        Assert.Equal("DN0033", diagnostic.Id);
     }
 
     [Fact]
@@ -566,10 +566,10 @@ public class GuardedConstructionAnalyzerTests
         // Nominal collision: a class literally named FileInfoFactory in the Denice.CrossPlatform NAMESPACE but
         // compiled into a DISALLOWED assembly ("Denice.Engine") cannot self-grant the exemption — the wrapper
         // factory anchors on the compiled assembly too (WellKnownType.IsInAssembly), so the wrapper construction is
-        // still reported. Mirrors CreateCall_InProgramNamedTypeInNonAllowedAssembly_IsReported for AG0017.
+        // still reported. Mirrors CreateCall_InProgramNamedTypeInNonAllowedAssembly_IsReported for DN0017.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
                 WrapperCalledFromFileInfoFactorySource, "Denice.Engine"));
-        Assert.Equal("AG0033", diagnostic.Id);
+        Assert.Equal("DN0033", diagnostic.Id);
     }
 }

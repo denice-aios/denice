@@ -19,7 +19,7 @@ namespace Denice.TestHelpers;
 /// It owns the ONE segment-by-segment multi-hop symlink resolver both fakes call, the owned path comparer (default
 /// <see cref="StringComparer.Ordinal"/>, injectable), and the <c>CreateTempSubdirectory</c> uniqueness counter. It is
 /// <c>internal</c> to <c>Denice.TestHelpers</c> with no <c>InternalsVisibleTo</c> to the <c>.Tests</c> projects, and
-/// is constructed only inside <see cref="SystemServicesBuilder"/> (AG0027), so both fakes are guaranteed the SAME overlay
+/// is constructed only inside <see cref="SystemServicesBuilder"/> (DN0027), so both fakes are guaranteed the SAME overlay
 /// instance by construction — a symlink created via the platform fake resolves for the filesystem fake.
 /// </summary>
 internal sealed class InMemoryFileSystemStore

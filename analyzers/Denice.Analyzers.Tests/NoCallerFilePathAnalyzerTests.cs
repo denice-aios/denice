@@ -9,7 +9,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0039 (no-caller-file-path): the <c>System.Runtime.CompilerServices.CallerFilePathAttribute</c> applied to a
+/// DN0039 (no-caller-file-path): the <c>System.Runtime.CompilerServices.CallerFilePathAttribute</c> applied to a
 /// parameter is a build error, production and test alike, in every assembly the custom analyzers are wired into (every
 /// project except <c>Denice.Analyzers</c> and <c>Denice.Analyzers.Tests</c>, which set
 /// <c>DeniceIsAnalyzerProject</c> and so are skipped by the wiring in <c>Directory.Build.props</c>), because it
@@ -38,7 +38,7 @@ public class NoCallerFilePathAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoCallerFilePathAnalyzer>(source));
 
-        Assert.Equal("AG0039", diagnostic.Id);
+        Assert.Equal("DN0039", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -59,7 +59,7 @@ public class NoCallerFilePathAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoCallerFilePathAnalyzer>(source));
 
-        Assert.Equal("AG0039", diagnostic.Id);
+        Assert.Equal("DN0039", diagnostic.Id);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class NoCallerFilePathAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoCallerFilePathAnalyzer>(source, "Denice.Engine"));
 
-        Assert.Equal("AG0039", diagnostic.Id);
+        Assert.Equal("DN0039", diagnostic.Id);
     }
 
     [Fact]

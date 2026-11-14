@@ -4,7 +4,7 @@ using System;
 using System.IO;
 using Denice.Abstractions.Contracts;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Reads a text file, distinguishing an I/O or permission failure (a cannot-verify signal) from success, so the

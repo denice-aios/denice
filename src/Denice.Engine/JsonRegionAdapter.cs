@@ -4,7 +4,7 @@ using System;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Denice.Setup;
+using Denice.Engine.Setup;
 
 namespace Denice.Engine;
 

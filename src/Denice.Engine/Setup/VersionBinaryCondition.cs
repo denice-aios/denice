@@ -2,7 +2,7 @@
 
 using System.IO;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The machine condition that the installed version's binary is present in the version store.

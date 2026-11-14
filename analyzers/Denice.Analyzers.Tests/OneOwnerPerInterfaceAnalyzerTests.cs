@@ -42,7 +42,7 @@ public class OneOwnerPerInterfaceAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<OneOwnerPerInterfaceAnalyzer>(source));
-        Assert.Equal("AG0025", diagnostic.Id);
+        Assert.Equal("DN0025", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("IFileReader", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -65,7 +65,7 @@ public class OneOwnerPerInterfaceAnalyzerTests
     public async Task FakeAndProxyOfSameOwnerInterface_InTestHelpers_IsNotReported()
     {
         // Denice.TestHelpers ships BOTH a fake and a Wrap proxy per service; two implementers of the same owner
-        // interface there is legitimate, not the second-implementer trick. AG0025 is a shipping-code invariant and is
+        // interface there is legitimate, not the second-implementer trick. DN0025 is a shipping-code invariant and is
         // gated off the test-only helpers assembly.
         Assert.Empty(
             await AnalyzerRunner.RunAsync<OneOwnerPerInterfaceAnalyzer>(FakeAndProxySource, "Denice.TestHelpers"));
@@ -86,7 +86,7 @@ public class OneOwnerPerInterfaceAnalyzerTests
         // second-implementer trick and RED.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OneOwnerPerInterfaceAnalyzer>(FakeAndProxySource, "Denice.Boundaries"));
-        Assert.Equal("AG0025", diagnostic.Id);
+        Assert.Equal("DN0025", diagnostic.Id);
         Assert.Contains("IFileReader", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -106,7 +106,7 @@ public class OneOwnerPerInterfaceAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<OneOwnerPerInterfaceAnalyzer>(source));
-        Assert.Equal("AG0025", diagnostic.Id);
+        Assert.Equal("DN0025", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("IFileReader", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }

@@ -1,12 +1,12 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the reviewed, action-specific prompt strings the OS presence dialog shows — one English string
 /// per setup verb (<c>install</c>/<c>init</c>/<c>remove</c>), keyed by <see cref="SetupVerb"/>
 /// (os-dialog-text-owned-resource). The approval gate resolves the prompt through <see cref="For"/> and never bakes a
-/// literal in at the call site (AG0109 recognizes a read through this accessor as the one sanctioned prompt source).
+/// literal in at the call site (DN0109 recognizes a read through this accessor as the one sanctioned prompt source).
 /// Localization is deferred.
 /// </summary>
 internal static class PresenceDialogText

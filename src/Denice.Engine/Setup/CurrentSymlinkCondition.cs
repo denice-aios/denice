@@ -3,7 +3,7 @@
 using System;
 using System.IO;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The machine condition that <c>current</c> resolves to the installed version and reaches its binary.

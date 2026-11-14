@@ -10,7 +10,7 @@ namespace Denice.Analyzers;
 /// <summary>
 /// Finds the argument bound to a named parameter of an invocation and answers whether the caller
 /// wrote a compile-time literal there. This is the one home for the seed-site inspection the two literal-seed rules
-/// share: AG0035 (no literal fake root at <c>FakeEnvironment.Create</c>/the overlay's <c>tempRoot</c>) and AG0036
+/// share: DN0035 (no literal fake root at <c>FakeEnvironment.Create</c>/the overlay's <c>tempRoot</c>) and DN0036
 /// (no literal case-mode at the overlay's <c>caseSensitive</c>) both match a target member, then ask this helper for
 /// the named argument the caller actually passed.
 /// </summary>
@@ -64,11 +64,11 @@ internal static class SeedArgument
     /// <summary>
     /// Reports <paramref name="rule"/> at the argument the caller EXPLICITLY passed for the parameter named
     /// <paramref name="parameterName"/> when that argument is a compile-time literal, and does nothing when it was
-    /// omitted or given a runtime value. This is the one report path both literal-seed rules share — AG0035 (fake root:
-    /// <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c> and the overlay's <c>tempRoot</c>) and AG0036 (case
+    /// omitted or given a runtime value. This is the one report path both literal-seed rules share — DN0035 (fake root:
+    /// <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c> and the overlay's <c>tempRoot</c>) and DN0036 (case
     /// mode: the overlay's <c>caseSensitive</c>) — after each has matched its target member. The diagnostic is placed
     /// on the argument's syntax and carries <paramref name="messageArgs"/>, so a rule whose message names the offending
-    /// parameter (AG0035) passes it through and a rule whose message is fixed (AG0036) passes none.
+    /// parameter (DN0035) passes it through and a rule whose message is fixed (DN0036) passes none.
     /// </summary>
     /// <param name="context">The operation analysis context whose operation is inspected and on which the diagnostic
     /// is reported.</param>

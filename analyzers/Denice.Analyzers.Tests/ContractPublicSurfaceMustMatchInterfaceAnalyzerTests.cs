@@ -49,7 +49,7 @@ public class ContractPublicSurfaceMustMatchInterfaceAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractPublicSurfaceMustMatchInterfaceAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0005", diagnostic.Id);
+        Assert.Equal("DN0005", diagnostic.Id);
         Assert.Equal("Extra", AnalyzerRunner.SpanText(source, diagnostic));
     }
 

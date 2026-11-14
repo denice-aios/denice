@@ -11,8 +11,8 @@ namespace Denice.Analyzers;
 /// The carried-type lens: the types a symbol or an operation carries WITHOUT the source writing them out — the
 /// declared type of a field, a property, a method return, a method parameter, and a local including an inferred
 /// <c>var</c>, plus the return type of an invoked member. This is how an access rule reaches a guarded type that code
-/// obtains through a public member rather than naming. The four declaration registrations were AG0006's alone; they
-/// live here now and AG0006, AG0041, AG0023's Engine gate, and AG0029's Engine gate all run through this one owner, so
+/// obtains through a public member rather than naming. The four declaration registrations were DN0006's alone; they
+/// live here now and DN0006, DN0041, DN0023's Engine gate, and DN0029's Engine gate all run through this one owner, so
 /// no rule re-spells them.
 /// <para>
 /// Each consumer supplies one inspector that receives the carried type, the symbol the declaration belongs to (the
@@ -28,7 +28,7 @@ internal static class DeclaredTypeScanner
 {
     /// <summary>
     /// The accessor and event method kinds whose declared types are already covered by the property or event they
-    /// belong to; AG0006 has always skipped them and every consumer inherits that.
+    /// belong to; DN0006 has always skipped them and every consumer inherits that.
     /// </summary>
     private static readonly ImmutableArray<MethodKind> SyntheticMethodKinds = ImmutableArray.Create(
         MethodKind.PropertyGet,
@@ -39,7 +39,7 @@ internal static class DeclaredTypeScanner
 
     /// <summary>
     /// Registers the four DECLARATION positions — field, property, method (return and parameters), and local — for
-    /// every compilation. This is the set AG0006 has always scanned, extracted unchanged.
+    /// every compilation. This is the set DN0006 has always scanned, extracted unchanged.
     /// </summary>
     /// <param name="context">The compilation-start context to register on.</param>
     /// <param name="inspect">The rule's inspector, given the carried type, the declaring symbol, and the location;
@@ -58,8 +58,8 @@ internal static class DeclaredTypeScanner
     /// <summary>
     /// Registers the FULL carried-type lens — the four declaration positions plus the return type of an invoked member
     /// — but only when the compilation being analyzed is the assembly named <paramref name="assemblyName"/>. The
-    /// invoked-return position is added here rather than in <see cref="RegisterDeclarations"/> because AG0006 never
-    /// scanned it and this contract forbids changing AG0006's diagnostics; the access rules need it so a guarded type
+    /// invoked-return position is added here rather than in <see cref="RegisterDeclarations"/> because DN0006 never
+    /// scanned it and this contract forbids changing DN0006's diagnostics; the access rules need it so a guarded type
     /// obtained from a call and never declared is still caught.
     /// </summary>
     /// <param name="context">The compilation-start context to gate and register on.</param>

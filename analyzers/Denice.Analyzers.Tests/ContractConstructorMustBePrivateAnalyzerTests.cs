@@ -40,7 +40,7 @@ public class ContractConstructorMustBePrivateAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConstructorMustBePrivateAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0003", diagnostic.Id);
+        Assert.Equal("DN0003", diagnostic.Id);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class ContractConstructorMustBePrivateAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<ContractConstructorMustBePrivateAnalyzer>(source));
-        Assert.Equal("AG0003", diagnostic.Id);
+        Assert.Equal("DN0003", diagnostic.Id);
     }
 
     [Fact]

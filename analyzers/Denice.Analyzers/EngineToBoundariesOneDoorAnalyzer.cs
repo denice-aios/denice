@@ -27,7 +27,7 @@ public sealed class EngineToBoundariesOneDoorAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0040";
+    public const string DiagnosticId = "DN0040";
 
     private const string Category = "Denice.Architecture";
 
@@ -53,7 +53,7 @@ public sealed class EngineToBoundariesOneDoorAnalyzer : DiagnosticAnalyzer
     // (CrossPlatformBoundary.IsSharedNamespaceDecoy) beside its own guarded assemblies, and each then rejects the
     // imitation at its own assembly-pinned door test, so neither rule is silent about an imitation of its own door.
     // The exclusions inside that decoy test are what keep each rule off the other's real territory — the per-OS
-    // assemblies for AG0023, the core assembly for AG0029 — so both legitimate calls inside Create() stay accepted.
+    // assemblies for DN0023, the core assembly for DN0029 — so both legitimate calls inside Create() stay accepted.
     // One imitation reported by both rules is the permitted overlap, not a defect.
     private static readonly Func<INamedTypeSymbol, bool> IsBoundariesType =
         type => string.Equals(type.ContainingAssembly?.Name, BoundaryAssembly.Name, StringComparison.Ordinal)

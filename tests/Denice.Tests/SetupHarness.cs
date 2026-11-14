@@ -3,9 +3,9 @@
 using System;
 using System.Text.Json.Nodes;
 using Denice.Abstractions.Contracts;
-using Denice.Setup;
+using Denice.Engine.Setup;
 using Denice.TestHelpers;
-using Denice.TestSupport;
+using Denice.Tests.Shared;
 
 namespace Denice.Tests;
 

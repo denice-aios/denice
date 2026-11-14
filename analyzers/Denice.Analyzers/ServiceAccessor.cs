@@ -5,7 +5,7 @@ using Microsoft.CodeAnalysis;
 namespace Denice.Analyzers;
 
 /// <summary>
-/// One accessor on a <see cref="ContainerNode"/>: the member NAME the accessor is exposed under (which the AG0019
+/// One accessor on a <see cref="ContainerNode"/>: the member NAME the accessor is exposed under (which the DN0019
 /// navigator name <c>On&lt;MemberName&gt;()</c> is derived from), the target type it yields, its
 /// <see cref="ServiceAccessorKind"/>, and — for a nested container — the sub-node reached through it. A plain sealed
 /// class (not a record) so it needs no <c>IsExternalInit</c> polyfill on this netstandard2.0 analyzer project.

@@ -3,7 +3,7 @@
 using System;
 using System.Security.Cryptography;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the binary SHA-256 used across install, the hook integrity self-check, and the

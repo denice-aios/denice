@@ -37,7 +37,7 @@ public class ContractConcreteTypeMustNotBeReferencedAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeReferencedAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0006", diagnostic.Id);
+        Assert.Equal("DN0006", diagnostic.Id);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class ContractConcreteTypeMustNotBeReferencedAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeReferencedAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0006", diagnostic.Id);
+        Assert.Equal("DN0006", diagnostic.Id);
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class ContractConcreteTypeMustNotBeReferencedAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeReferencedAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0006", diagnostic.Id);
+        Assert.Equal("DN0006", diagnostic.Id);
     }
 
     [Fact]
@@ -132,7 +132,7 @@ public class ContractConcreteTypeMustNotBeReferencedAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeReferencedAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0006", diagnostic.Id);
+        Assert.Equal("DN0006", diagnostic.Id);
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class ContractConcreteTypeMustNotBeReferencedAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeReferencedAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0006", diagnostic.Id);
+        Assert.Equal("DN0006", diagnostic.Id);
     }
 
     [Fact]
@@ -195,7 +195,7 @@ public class ContractConcreteTypeMustNotBeReferencedAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeReferencedAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0006", diagnostic.Id);
+        Assert.Equal("DN0006", diagnostic.Id);
     }
 
     [Fact]

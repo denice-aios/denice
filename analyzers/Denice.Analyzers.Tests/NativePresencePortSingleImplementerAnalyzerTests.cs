@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0114: each internal per-OS native presence interface — the FLOW ports (ILocalAuthentication / IWindowsUserPresence
+/// DN0114: each internal per-OS native presence interface — the FLOW ports (ILocalAuthentication / IWindowsUserPresence
 /// / IPolkitAuthority) AND the native-OPS owners the coverage refactor adds (IObjCRuntime / IWindowsHelloNativeOps /
 /// ICredentialPromptNativeOps) — must have exactly one implementer; the second and later implementer is reported.
 /// </summary>
@@ -30,7 +30,7 @@ public class NativePresencePortSingleImplementerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativePresencePortSingleImplementerAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0114", diagnostic.Id);
+        Assert.Equal("DN0114", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -63,7 +63,7 @@ public class NativePresencePortSingleImplementerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativePresencePortSingleImplementerAnalyzer>(source, "Denice.CrossPlatform.Linux"));
-        Assert.Equal("AG0114", diagnostic.Id);
+        Assert.Equal("DN0114", diagnostic.Id);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class NativePresencePortSingleImplementerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativePresencePortSingleImplementerAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0114", diagnostic.Id);
+        Assert.Equal("DN0114", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 

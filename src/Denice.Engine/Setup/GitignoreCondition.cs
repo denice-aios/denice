@@ -2,7 +2,7 @@
 
 using System.IO;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The project condition that the runtime-store directories are ignored in <c>.gitignore</c>.

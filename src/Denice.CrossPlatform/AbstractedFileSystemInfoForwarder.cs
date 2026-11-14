@@ -16,7 +16,7 @@ namespace Denice.CrossPlatform;
 /// in <see cref="AbstractedFileSystemInfo"/>. It is a plain non-contract base (it does not itself implement a contract
 /// interface), which is why the shared block lives here and not on <see cref="AbstractedFileSystemInfo"/>: a base that
 /// implemented <c>IFileSystemInfo</c> would need a non-private constructor its derived wrappers could call, which the
-/// private-constructor wall (AG0003) forbids.
+/// private-constructor wall (DN0003) forbids.
 /// </summary>
 internal abstract class AbstractedFileSystemInfoForwarder
 {

@@ -16,8 +16,8 @@ namespace Denice.Analyzers;
 internal static class ContractInterfaces
 {
     /// <summary>
-    /// The environment read owner (<c>IEnvironment</c>) — matched against by the consolidated owner rule (AG0011,
-    /// for <c>System.Environment</c> and the deployment-path reads) and the Path-purity rule (AG0020, for the
+    /// The environment read owner (<c>IEnvironment</c>) — matched against by the consolidated owner rule (DN0011,
+    /// for <c>System.Environment</c> and the deployment-path reads) and the Path-purity rule (DN0020, for the
     /// <c>Path.GetTempPath</c> owner exemption).
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> Environment =
@@ -25,8 +25,8 @@ internal static class ContractInterfaces
 
     /// <summary>
     /// The randomness owner (<c>IRandomGenerator</c>, formerly <c>IGuidFactory</c>) — the one concern that owns
-    /// <c>Guid.NewGuid</c>/<c>System.Random</c>/<c>RandomNumberGenerator</c> (AG0011) and
-    /// <c>Path.GetRandomFileName</c> (AG0020, the owner exemption). The owner is the randomness concern, so a random
+    /// <c>Guid.NewGuid</c>/<c>System.Random</c>/<c>RandomNumberGenerator</c> (DN0011) and
+    /// <c>Path.GetRandomFileName</c> (DN0020, the owner exemption). The owner is the randomness concern, so a random
     /// file name has a discoverable home beside <c>NewGuid</c> (iguidfactory-renamed-to-irandomgenerator).
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> RandomGenerator =
@@ -34,8 +34,8 @@ internal static class ContractInterfaces
 
     /// <summary>
     /// The OS-divergent platform-filesystem owner (<c>IPlatformFileSystem</c>) — matched against by the OS-divergent
-    /// rule (AG0101, whose implementers are the per-OS <c>PosixFileSystem</c>/<c>WindowsFileSystem</c>) and the
-    /// Path-purity rule (AG0020, for the <c>Path.DirectorySeparatorChar</c> owner exemption, whose owners are those
+    /// rule (DN0101, whose implementers are the per-OS <c>PosixFileSystem</c>/<c>WindowsFileSystem</c>) and the
+    /// Path-purity rule (DN0020, for the <c>Path.DirectorySeparatorChar</c> owner exemption, whose owners are those
     /// same implementers plus the in-memory fake).
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> PlatformFileSystem =

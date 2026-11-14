@@ -9,14 +9,14 @@ namespace Denice.CrossPlatform.Windows;
 
 /// <summary>
 /// The sole implementer of <see cref="IWindowsHelloNativeOps"/> and the ONE class that binds the WinRT
-/// <c>UserConsentVerifier</c> interop — the Windows Hello native-ops owner (AG0113 confines its raw interop and
-/// <c>Marshal</c> here; AG0114 permits one implementer). It is fully stateless (AG0116): every native handle it returns
+/// <c>UserConsentVerifier</c> interop — the Windows Hello native-ops owner (DN0113 confines its raw interop and
+/// <c>Marshal</c> here; DN0114 permits one implementer). It is fully stateless (DN0116): every native handle it returns
 /// is a per-call local the <see cref="WindowsUserPresence"/> orchestrator owns and releases, and it holds no field but
-/// compile-time <c>const</c>s. Each method is a straight-line raw call with no branching (AG0106) and no task-completion
-/// wiring (AG0115): the <c>TaskCompletionSource</c>, the <c>await</c>, the async-status decision, and the 7-way
+/// compile-time <c>const</c>s. Each method is a straight-line raw call with no branching (DN0106) and no task-completion
+/// wiring (DN0115): the <c>TaskCompletionSource</c>, the <c>await</c>, the async-status decision, and the 7-way
 /// Hello-result mapping all live in the fake-testable orchestrator, which composes these primitives. The COM-visible
 /// completed handler (<see cref="AsyncCompletedHandler"/>) forwards the raw async status to the orchestrator's callback;
-/// its whole body is one guarded try/catch (AG0105) so no managed exception unwinds across the native COM invocation.
+/// its whole body is one guarded try/catch (DN0105) so no managed exception unwinds across the native COM invocation.
 /// </summary>
 internal sealed partial class WindowsHelloNativeOps : IWindowsHelloNativeOps
 {
@@ -317,10 +317,10 @@ internal sealed partial class WindowsHelloNativeOps : IWindowsHelloNativeOps
 
     // The managed completed handler WinRT invokes when the availability check OR the verification finishes; it forwards
     // the raw async status to the orchestrator's callback, which owns the TaskCompletionSource and the async-status
-    // decision (AG0115). It implements BOTH parameterized completed-handler interfaces through one Invoke, so a single CCW
+    // decision (DN0115). It implements BOTH parameterized completed-handler interfaces through one Invoke, so a single CCW
     // binds to put_Completed on either operation under the correct interface id (the two differ only by IID; the vtable
     // Invoke shape is identical). Its whole callback body is one guarded try/catch so no managed exception unwinds across
-    // the native COM invocation (AG0105).
+    // the native COM invocation (DN0105).
     [ComVisible(true)]
     [SuppressMessage(
         "Design",
@@ -345,7 +345,7 @@ internal sealed partial class WindowsHelloNativeOps : IWindowsHelloNativeOps
             }
             catch (Exception)
             {
-                // Never unwind across the native COM invocation (AG0105). Fail-closed: forward an error status so the
+                // Never unwind across the native COM invocation (DN0105). Fail-closed: forward an error status so the
                 // orchestrator's completion is set and the await does not hang; it maps a non-complete status to a
                 // non-verified outcome.
                 _onCompleted(AsyncStatusError);

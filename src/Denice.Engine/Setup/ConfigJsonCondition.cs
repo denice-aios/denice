@@ -2,7 +2,7 @@
 
 using System.IO;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The project condition that <c>.denice/config.json</c> exists and parses. This build does not judge whether

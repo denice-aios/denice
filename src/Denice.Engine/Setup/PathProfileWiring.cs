@@ -2,7 +2,7 @@
 
 using System;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Appends the guard's PATH line to a shell profile, idempotently: an existing line carrying the marker is never

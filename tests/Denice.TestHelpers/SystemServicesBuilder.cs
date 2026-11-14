@@ -10,14 +10,14 @@ namespace Denice.TestHelpers;
 
 /// <summary>
 /// The single approved way a test builds the <see cref="ISystemServices"/> container. It mirrors the container's shape at
-/// every nesting level (builder-mirrors-container-nesting, enforced by AG0019): each direct leaf service is substituted
+/// every nesting level (builder-mirrors-container-nesting, enforced by DN0019): each direct leaf service is substituted
 /// with <c>With</c> and wrapped with <c>Wrap</c> on this top-level scope, and each nested container is reached through a
 /// navigator that follows the container's own shape — <see cref="OnFileSystem"/> for the filesystem leaves and
 /// <see cref="OnPlatform"/> for the platform. It is the only class anywhere with <c>With</c>/<c>Wrap</c>, and — besides
 /// the one CLI composition method — the only caller of <c>SystemServices.Create()</c>. Its sub-builders are public nested
 /// types (a public navigator must return a public type); its fake container implementers are internal nested types, so the
-/// three container interfaces each have exactly one implementer here (AG0022). The one shared copy-on-write overlay
-/// (<see cref="InMemoryFileSystemStore"/>) is constructed only inside this class (AG0027), at the single site
+/// three container interfaces each have exactly one implementer here (DN0022). The one shared copy-on-write overlay
+/// (<see cref="InMemoryFileSystemStore"/>) is constructed only inside this class (DN0027), at the single site
 /// <see cref="NewOverlay"/>.
 /// </summary>
 public sealed class SystemServicesBuilder
@@ -26,7 +26,7 @@ public sealed class SystemServicesBuilder
     // OS directory separator —
     // read ONCE through the single sanctioned Engine entrypoint (SystemServices.Create(), the same door Real() uses)
     // and cached as plain VALUES (two enums, two strings, a bool) — never the container or a service, so there is no
-    // per-build reconstruction and no AG0024 static service holder. The Fake() default environment reports these true
+    // per-build reconstruction and no DN0024 static service holder. The Fake() default environment reports these true
     // host values instead of hardcoded roots: because the simulator is copy-on-write over a real read-only base and never
     // writes to real disk, the real home and temp are safe to pass through to the fake (fake-reads-real-home-and-temp),
     // and a real home/temp is fully-qualified on every OS, which is what keeps the fake correct on Windows. Its current
@@ -59,12 +59,12 @@ public sealed class SystemServicesBuilder
     /// <summary>
     /// Gets the real host's OS directory separator, read ONCE off the owned
     /// <see cref="IPlatformFileSystem.DirectorySeparator"/> through the same single door <see cref="ReadRealHost"/> uses
-    /// for the other host values — never a raw <c>Path.DirectorySeparatorChar</c> (AG0020 owns that field to the
+    /// for the other host values — never a raw <c>Path.DirectorySeparatorChar</c> (DN0020 owns that field to the
     /// <see cref="IPlatformFileSystem"/> implementers) and never a hardcoded <c>/</c>. <see cref="FakeEnvironment"/> reads
     /// it to separator-terminate its base directory on every path, including the seedless default: the fake is in-memory
     /// and reaches no <c>System.*</c> member itself, and its <c>Create</c> factory cannot take the platform service as a
-    /// parameter (AG0031), so the one host read this class already owns is the single source. A plain <c>char</c>, not a
-    /// service, so it is no AG0024 static holder.
+    /// parameter (DN0031), so the one host read this class already owns is the single source. A plain <c>char</c>, not a
+    /// service, so it is no DN0024 static holder.
     /// </summary>
     internal static char HostDirectorySeparator => Host.Separator;
 
@@ -285,10 +285,10 @@ public sealed class SystemServicesBuilder
             fileSystem, environment, random, console, platformServices, signatures, buildInfo, clock);
     }
 
-    // The SINGLE construction site of the shared overlay (AG0027 pins new InMemoryFileSystemStore to this class). Fake()
+    // The SINGLE construction site of the shared overlay (DN0027 pins new InMemoryFileSystemStore to this class). Fake()
     // passes a null base (a pure in-memory filesystem); SimulateFileSystem() passes the real leaves as the read-only
     // base. The tempRoot and caseSensitive seed VALUES are real-host-sourced by the caller (Fake() from the cached host
-    // values, SimulateFileSystem() from the injected real base), never a hardcoded literal (AG0035/AG0036).
+    // values, SimulateFileSystem() from the injected real base), never a hardcoded literal (DN0035/DN0036).
     private static InMemoryFileSystemStore NewOverlay(
         IFileReader? baseReader,
         IDirectoryEnumerator? baseEnumerator,
@@ -298,15 +298,15 @@ public sealed class SystemServicesBuilder
         new(baseReader, baseEnumerator, basePlatform, comparer: null, tempRoot: tempRoot, caseSensitive: caseSensitive);
 
     // Reads the real host VALUES ONCE through the one sanctioned Engine door (SystemServices.Create(), the same
-    // entrypoint Real() calls — legal here because SystemServicesBuilder is a composition caller, AG0017; it is also
-    // the one Engine internal this assembly may reach through Engine's grant, AG0041), then discards
+    // entrypoint Real() calls — legal here because SystemServicesBuilder is a composition caller, DN0017; it is also
+    // the one Engine internal this assembly may reach through Engine's grant, DN0041), then discards
     // the container and keeps only plain VALUES: the two architectures, the home directory, the temp root, the host
     // filesystem's case-sensitivity (read through the case-sensitivity detection the platform already carries, keyed on
     // the real home), and the OS directory separator (the owned IPlatformFileSystem.DirectorySeparator, off the same
     // platform service the case-sensitivity probe uses). GetTempDirectory() is the one AGS5443 owner-exempt call —
     // SystemServicesBuilder is copy-on-write over the real host and reads the real temp root once here to seed the
     // in-memory fake (temp-root-owner-exemption).
-    // Caching the values, not the container or a service, keeps clear of the static-service-holder rule (AG0024).
+    // Caching the values, not the container or a service, keeps clear of the static-service-holder rule (DN0024).
     private static RealHost ReadRealHost()
     {
         ISystemServices services = SystemServices.Create();
@@ -335,7 +335,7 @@ public sealed class SystemServicesBuilder
     // The real host VALUES the Fake() default, the overlay, and the environment fake source from the real environment:
     // process + OS architecture, home directory, temp root, filesystem case-sensitivity, and the OS directory separator.
     // A value type over two enums, two strings, a bool, and a char — not a service — so caching it in a static is not an
-    // AG0024 static service holder.
+    // DN0024 static service holder.
     // LayoutKind.Auto (MA0008): this is a managed-only value holder, never used for interop, so the runtime picks the
     // layout.
     [StructLayout(LayoutKind.Auto)]
@@ -343,7 +343,7 @@ public sealed class SystemServicesBuilder
         Architecture Process, Architecture Os, string Home, string Temp, bool CaseSensitive, char Separator);
 
     /// <summary>
-    /// The filesystem sub-builder: substitutes and wraps the four filesystem leaves on the correct nested scope (AG0019),
+    /// The filesystem sub-builder: substitutes and wraps the four filesystem leaves on the correct nested scope (DN0019),
     /// and installs the per-path failure seam over the shared overlay.
     /// </summary>
     public sealed class FileSystemBuilder
@@ -454,7 +454,7 @@ public sealed class SystemServicesBuilder
     }
 
     /// <summary>
-    /// The platform sub-builder: substitutes and wraps the platform file system on the correct nested scope (AG0019).
+    /// The platform sub-builder: substitutes and wraps the platform file system on the correct nested scope (DN0019).
     /// </summary>
     public sealed class PlatformBuilder
     {
@@ -531,7 +531,7 @@ public sealed class SystemServicesBuilder
     }
 
     /// <summary>
-    /// The one <see cref="ISystemServices"/> implementer in this compilation (AG0022): it holds each resolved service and
+    /// The one <see cref="ISystemServices"/> implementer in this compilation (DN0022): it holds each resolved service and
     /// throws a helpful message when a service with no built-in fake (signatures, build-info) is accessed without being
     /// supplied. It is <c>internal</c> so <see cref="Build"/> can reach its factory; the containing builder cannot call a
     /// nested private constructor, and a private factory returning an interface trips CA1859, so <c>internal</c> is the
@@ -613,7 +613,7 @@ public sealed class SystemServicesBuilder
     }
 
     /// <summary>
-    /// The one <see cref="IFileSystem"/> implementer in this compilation (AG0022): it returns the resolved leaves. The
+    /// The one <see cref="IFileSystem"/> implementer in this compilation (DN0022): it returns the resolved leaves. The
     /// engine reaches the filesystem only through the leaf services, so <see cref="GetFileInfo"/>/<see cref="GetDirectoryInfo"/>
     /// delegate to the real filesystem when present (an integration path) and throw under a pure fake, where no <c>*Info</c>
     /// wrapper is modeled.
@@ -680,7 +680,7 @@ public sealed class SystemServicesBuilder
     }
 
     /// <summary>
-    /// The one <see cref="IPlatformServices"/> implementer in this compilation (AG0022): it exposes the resolved platform
+    /// The one <see cref="IPlatformServices"/> implementer in this compilation (DN0022): it exposes the resolved platform
     /// file system.
     /// </summary>
     internal sealed class FakePlatformServices : IPlatformServices

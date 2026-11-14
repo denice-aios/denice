@@ -16,7 +16,7 @@ namespace Denice.Analyzers;
 /// the polkit no-cached-yes rule. The handle must be created per call and released, never stored. A <c>const</c> is
 /// exempt (it cannot hold a live handle). Its field scan registers through the shared, production-assembly-gated
 /// <see cref="FieldOwnershipScan.RegisterField"/>
-/// (mirroring AG0116's <see cref="PresenceContracts.RegisterInMacOsOrWindows"/> gate), so it fires ONLY inside the macOS
+/// (mirroring DN0116's <see cref="PresenceContracts.RegisterInMacOsOrWindows"/> gate), so it fires ONLY inside the macOS
 /// and Windows PRODUCTION assemblies and is silent elsewhere — including <c>Denice.CrossPlatform.Tests</c>, where a
 /// native-handle-holding presence-port fake legitimately exists through the verified InternalsVisibleTo grants (the
 /// internal port interface is implementable there, so internal-ness alone would not keep the scan off it). Preventive;
@@ -28,7 +28,7 @@ public sealed class NoCachedNativeAuthContextAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0112";
+    public const string DiagnosticId = "DN0112";
 
     private const string Category = "Denice.Architecture";
 
@@ -65,7 +65,7 @@ public sealed class NoCachedNativeAuthContextAnalyzer : DiagnosticAnalyzer
         FieldOwnershipScan.RegisterField(context, PresenceContracts.NativePresencePorts, IsCachedHandleField, Rule);
     }
 
-    // A cached native auth-context handle is the narrower field this rule bans (unlike AG0116, which bans every field).
+    // A cached native auth-context handle is the narrower field this rule bans (unlike DN0116, which bans every field).
     private static bool IsCachedHandleField(IFieldSymbol field) => IsNativeHandleType(field.Type);
 
     private static bool IsNativeHandleType(ITypeSymbol type)

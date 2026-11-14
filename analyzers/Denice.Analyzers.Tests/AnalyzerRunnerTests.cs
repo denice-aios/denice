@@ -74,7 +74,7 @@ public class AnalyzerRunnerTests
         """;
 
     // Invalid on purpose AND analyzer-relevant at the same time — the shape the expectation exists for. The public
-    // class in an .Abstractions namespace is what AG0001 reports, and the unresolved call in its body is the CS0103
+    // class in an .Abstractions namespace is what DN0001 reports, and the unresolved call in its body is the CS0103
     // its caller declares, so the compiler error is the fixture's scenario and the analyzer result is still the
     // thing under test.
     private const string AbstractionsClassWithUnresolvedCallSource = """
@@ -193,7 +193,7 @@ public class AnalyzerRunnerTests
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoClassInAbstractionsAnalyzer>(
             AbstractionsClassWithUnresolvedCallSource, SubjectAssemblyName, "CS0103"));
 
-        Assert.Equal("AG0001", diagnostic.Id);
+        Assert.Equal("DN0001", diagnostic.Id);
     }
 
     [Fact]

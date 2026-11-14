@@ -34,14 +34,14 @@ internal static class KnownNamespaces
     internal const string SystemRuntimeInteropServices = "System.Runtime.InteropServices";
 
     /// <summary>The <c>System.Runtime.CompilerServices</c> namespace, home of <c>CallerFilePathAttribute</c> — the
-    /// compile-time source-path capture the AG0039 rule bans.</summary>
+    /// compile-time source-path capture the DN0039 rule bans.</summary>
     internal const string SystemRuntimeCompilerServices = "System.Runtime.CompilerServices";
 
     /// <summary>The <c>System.Threading</c> namespace, home of <c>CancellationTokenSource</c>, <c>Thread</c>,
-    /// <c>Timer</c>, and <c>PeriodicTimer</c> — the timeout/wait types the AG0038/AG0107 rules match against.</summary>
+    /// <c>Timer</c>, and <c>PeriodicTimer</c> — the timeout/wait types the DN0038/DN0107 rules match against.</summary>
     internal const string SystemThreading = "System.Threading";
 
     /// <summary>The <c>System.Threading.Tasks</c> namespace, home of <c>Task</c> — whose <c>Delay</c>/<c>WaitAsync</c>
-    /// bounded waits the AG0038/AG0107 rules match against.</summary>
+    /// bounded waits the DN0038/DN0107 rules match against.</summary>
     internal const string SystemThreadingTasks = "System.Threading.Tasks";
 }

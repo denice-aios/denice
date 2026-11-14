@@ -2,7 +2,7 @@
 
 using System.IO;
 using System.Linq;
-using Denice.Setup;
+using Denice.Engine.Setup;
 using FluentAssertions;
 using Xunit;
 

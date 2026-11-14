@@ -11,8 +11,8 @@ namespace Denice.Analyzers;
 /// the in-memory fakes, the proxies — made from an assembly that is not a test assembly. The test helpers build the
 /// container without calling <c>SystemServices.Create()</c>, so neither construction wall covers them; this rule is
 /// the wall. It keeps the shipped guard from ever being built against fake state: only a test project (an assembly
-/// whose name ends in <c>.Tests</c>) may reach the test helpers. Built on the same assembly-name gate as AG0008 and
-/// AG0011.
+/// whose name ends in <c>.Tests</c>) may reach the test helpers. Built on the same assembly-name gate as DN0008 and
+/// DN0011.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class TestHelpersOnlyInTestsAnalyzer : DiagnosticAnalyzer
@@ -20,7 +20,7 @@ public sealed class TestHelpersOnlyInTestsAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0018";
+    public const string DiagnosticId = "DN0018";
 
     private const string Category = "Denice.Architecture";
 

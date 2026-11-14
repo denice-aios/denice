@@ -9,8 +9,8 @@ namespace Denice.CrossPlatform.MacOS;
 /// the <see cref="ILocalAuthentication"/> flow port to hold the raw Objective-C runtime calls (<c>objc_getClass</c>,
 /// <c>objc_msgSend</c>, <c>sel_registerName</c>, <c>dlsym</c>, the block build, and their <c>Marshal</c> uses). Its sole
 /// implementer (<see cref="ObjCRuntime"/>) is the only class that binds the runtime, so it is where the relocated
-/// raw-presence-interop exemption lives (AG0113) and the only presence class that may hold no field (AG0116). Every
-/// method is a SYNCHRONOUS straight-line raw call with no branching (AG0106) and no task-completion wiring (AG0115): the
+/// raw-presence-interop exemption lives (DN0113) and the only presence class that may hold no field (DN0116). Every
+/// method is a SYNCHRONOUS straight-line raw call with no branching (DN0106) and no task-completion wiring (DN0115): the
 /// flow, mapping, <c>TaskCompletionSource</c>/<c>GCHandle</c> wiring, and cancel-invalidate logic all live in the
 /// fake-testable <see cref="ILocalAuthentication"/> orchestrator that composes these primitives. Every handle it returns
 /// is a per-call local the orchestrator owns and releases; the native-ops class caches nothing.

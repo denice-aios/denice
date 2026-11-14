@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0106 (no-control-flow-in-native-ops): a class implementing a per-OS native-ops interface (IObjCRuntime and the two
+/// DN0106 (no-control-flow-in-native-ops): a class implementing a per-OS native-ops interface (IObjCRuntime and the two
 /// Windows native-ops interfaces) must be straight-line raw calls with at most try/catch for cleanup — no if/ternary,
 /// loop, switch, null-coalescing, or conditional-access. Branching logic belongs in the fake-testable orchestrator. The
 /// native-ops owner interface stub is the shared owner SharedAnalyzerSources.ObjCRuntimeNativeOps; the implementer sits
@@ -36,7 +36,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -55,7 +55,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -95,7 +95,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -158,7 +158,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -226,7 +226,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -250,7 +250,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -274,7 +274,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -301,7 +301,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -321,7 +321,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -341,7 +341,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -365,7 +365,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -386,7 +386,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoControlFlowInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0106", diagnostic.Id);
+        Assert.Equal("DN0106", diagnostic.Id);
     }
 
     [Fact]
@@ -452,7 +452,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
     [Fact]
     public async Task NativeOpsInterfaceInWrongAssembly_IsNotReported()
     {
-        // The native-ops owner is exempt from AG0113/AG0101 only in its per-OS assembly; symmetrically the guardrails
+        // The native-ops owner is exempt from DN0113/DN0101 only in its per-OS assembly; symmetrically the guardrails
         // scope to that assembly. A class implementing IObjCRuntime compiled into a non-macOS assembly is not matched
         // (the interface is internal to the macOS assembly in production; this proves the assembly gate).
         string source = NativeOps + """

@@ -5,7 +5,7 @@ using System.IO;
 using System.Text.Json;
 using Denice.Abstractions.Contracts;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The hook integrity self-check that gates a <c>guard hook</c> run. It derives the install root from the

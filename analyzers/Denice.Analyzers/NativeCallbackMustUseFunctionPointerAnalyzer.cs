@@ -15,7 +15,7 @@ namespace Denice.Analyzers;
 /// marshalling stub or pinned delegate. A <c>Marshal</c> delegate pointer keeps a managed delegate alive by hand,
 /// crosses the boundary through a generated thunk, and can be collected out from under native code — exactly the
 /// fragile shape this forbids. The static-and-<c>[UnmanagedCallersOnly]</c> half is enforced by the compiler for an
-/// <c>&amp;Method</c> function-pointer conversion; this rule closes the delegate-pointer escape hatch. AG0105 governs
+/// <c>&amp;Method</c> function-pointer conversion; this rule closes the delegate-pointer escape hatch. DN0105 governs
 /// the callback body. Preventive; the codebase marshals no delegate today.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -24,7 +24,7 @@ public sealed class NativeCallbackMustUseFunctionPointerAnalyzer : DiagnosticAna
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0104";
+    public const string DiagnosticId = "DN0104";
 
     private const string Category = "Denice.Architecture";
 
@@ -38,7 +38,7 @@ public sealed class NativeCallbackMustUseFunctionPointerAnalyzer : DiagnosticAna
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A managed callback handed across the native boundary must be a static [UnmanagedCallersOnly] method reached by the address-of operator (&Method), never a marshalled delegate pointer via Marshal.GetFunctionPointerForDelegate/GetDelegateForFunctionPointer. A marshalled delegate crosses through a generated thunk and can be collected out from under native code; the &Method function pointer is verified by the compiler and needs no stub. AG0105 governs the callback body.");
+        description: "A managed callback handed across the native boundary must be a static [UnmanagedCallersOnly] method reached by the address-of operator (&Method), never a marshalled delegate pointer via Marshal.GetFunctionPointerForDelegate/GetDelegateForFunctionPointer. A marshalled delegate crosses through a generated thunk and can be collected out from under native code; the &Method function pointer is verified by the compiler and needs no stub. DN0105 governs the callback body.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

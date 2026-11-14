@@ -26,7 +26,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0002", diagnostic.Id);
+        Assert.Equal("DN0002", diagnostic.Id);
         Assert.Equal("Get", AnalyzerRunner.SpanText(source, diagnostic));
     }
 
@@ -46,7 +46,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0002", diagnostic.Id);
+        Assert.Equal("DN0002", diagnostic.Id);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0002", diagnostic.Id);
+        Assert.Equal("DN0002", diagnostic.Id);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0002", diagnostic.Id);
+        Assert.Equal("DN0002", diagnostic.Id);
         Assert.Equal("GetAsync", AnalyzerRunner.SpanText(source, diagnostic));
     }
 
@@ -105,7 +105,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0002", diagnostic.Id);
+        Assert.Equal("DN0002", diagnostic.Id);
         Assert.Equal("Pair", AnalyzerRunner.SpanText(source, diagnostic));
     }
 
@@ -122,7 +122,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0002", diagnostic.Id);
+        Assert.Equal("DN0002", diagnostic.Id);
     }
 
     [Fact]
@@ -135,7 +135,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0002", diagnostic.Id);
+        Assert.Equal("DN0002", diagnostic.Id);
         Assert.Equal("Combine", AnalyzerRunner.SpanText(source, diagnostic));
     }
 
@@ -160,7 +160,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0002", diagnostic.Id);
+        Assert.Equal("DN0002", diagnostic.Id);
         Assert.Equal("Inner", AnalyzerRunner.SpanText(source, diagnostic));
     }
 }

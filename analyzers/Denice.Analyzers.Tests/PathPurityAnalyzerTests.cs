@@ -79,7 +79,7 @@ public class PathPurityAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(source));
-        Assert.Equal("AG0020", diagnostic.Id);
+        Assert.Equal("DN0020", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("GetTempPath", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -88,7 +88,7 @@ public class PathPurityAnalyzerTests
     public async Task SingleArgumentGetFullPath_IsReported()
     {
         // The single-argument GetFullPath resolves a relative path against the current directory — impure — so it is
-        // banned; only the two-argument overload is pure (AG0012's clause folded in here).
+        // banned; only the two-argument overload is pure (DN0012's clause folded in here).
         const string source = """
             using System.IO;
 
@@ -99,7 +99,7 @@ public class PathPurityAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(source));
-        Assert.Equal("AG0020", diagnostic.Id);
+        Assert.Equal("DN0020", diagnostic.Id);
         Assert.Contains("GetFullPath", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -118,7 +118,7 @@ public class PathPurityAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(source));
-        Assert.Equal("AG0020", diagnostic.Id);
+        Assert.Equal("DN0020", diagnostic.Id);
         Assert.Contains("DirectorySeparatorChar", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -137,7 +137,7 @@ public class PathPurityAnalyzerTests
         // are required.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(GetTempPathOwnerSource, "Denice.Engine"));
-        Assert.Equal("AG0020", diagnostic.Id);
+        Assert.Equal("DN0020", diagnostic.Id);
         Assert.Contains("GetTempPath", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -163,7 +163,7 @@ public class PathPurityAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(source, "Denice.CrossPlatform"));
-        Assert.Equal("AG0020", diagnostic.Id);
+        Assert.Equal("DN0020", diagnostic.Id);
         Assert.Contains("GetRandomFileName", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -189,7 +189,7 @@ public class PathPurityAnalyzerTests
         // not the fake) does not grant the separator exemption — the gate is the per-OS libraries plus TestHelpers only.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(SeparatorOwnerSource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0020", diagnostic.Id);
+        Assert.Equal("DN0020", diagnostic.Id);
         Assert.Contains("DirectorySeparatorChar", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 

@@ -8,7 +8,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0038 (timeout-uses-timeprovider): a bounded wait or timeout must flow through the injected clock. Thread.Sleep is
+/// DN0038 (timeout-uses-timeprovider): a bounded wait or timeout must flow through the injected clock. Thread.Sleep is
 /// banned outright; Task.Delay/Task.WaitAsync/CancellationTokenSource carrying a timeout must take the TimeProvider
 /// overload.
 /// </summary>
@@ -26,7 +26,7 @@ public class TimeoutMustUseTimeProviderAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<TimeoutMustUseTimeProviderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0038", diagnostic.Id);
+        Assert.Equal("DN0038", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -43,7 +43,7 @@ public class TimeoutMustUseTimeProviderAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<TimeoutMustUseTimeProviderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0038", diagnostic.Id);
+        Assert.Equal("DN0038", diagnostic.Id);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public class TimeoutMustUseTimeProviderAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<TimeoutMustUseTimeProviderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0038", diagnostic.Id);
+        Assert.Equal("DN0038", diagnostic.Id);
     }
 
     [Fact]

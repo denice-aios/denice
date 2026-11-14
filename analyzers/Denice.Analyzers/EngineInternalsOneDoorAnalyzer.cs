@@ -36,7 +36,7 @@ public sealed class EngineInternalsOneDoorAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0041";
+    public const string DiagnosticId = "DN0041";
 
     private const string Category = "Denice.Architecture";
 

@@ -4,7 +4,7 @@ using System;
 using System.Text;
 using Denice.Abstractions.Contracts;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Appends a block to a text file exactly once. The caller decides, from the file's current content, which block

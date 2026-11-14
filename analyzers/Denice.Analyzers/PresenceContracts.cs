@@ -7,7 +7,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace Denice.Analyzers;
 
 /// <summary>
-/// The single home for the identities the OS-presence guardrails (AG0105–AG0116) match against — the presence
+/// The single home for the identities the OS-presence guardrails (DN0105–DN0116) match against — the presence
 /// contract on <c>ISystemServices.Platform</c>, the three internal per-OS FLOW ports (the orchestrators), the per-OS
 /// native-OPS owners one layer below them (the thin raw-call classes the coverage refactor introduces), the gate that
 /// owns the one presence call, and the existing filesystem-native binding types the presence native-interop owner rule
@@ -18,38 +18,38 @@ namespace Denice.Analyzers;
 /// filesystem source that sits under <c>Denice.CrossPlatform.Posix</c>. IMPLEMENT/ARCHITECTURE must declare each
 /// port and native-ops owner under the namespace named here; a mismatch leaves the owner unresolved and the native call
 /// RED (the forcing function). The <see cref="AllNativeOpsOwners"/> layer is where the coverage refactor relocates the
-/// raw-native-interop exemption (AG0113 + AG0101's presence branch): raw presence P/Invoke and <c>Marshal</c> are legal
+/// raw-native-interop exemption (DN0113 + DN0101's presence branch): raw presence P/Invoke and <c>Marshal</c> are legal
 /// ONLY inside a native-ops owner, so a raw call left in (or added back into) a flow-port orchestrator is a build error.
 /// </summary>
 internal static class PresenceContracts
 {
     /// <summary>The one production caller of <c>IPresenceCheck.Check</c> — the async approval gate
-    /// (<c>Denice.Setup.ApprovalGate</c>, internal to <c>Denice.Engine</c>). AG0108 exempts only this type.</summary>
-    internal const string ApprovalGateNamespace = "Denice.Setup";
+    /// (<c>Denice.Engine.Setup.ApprovalGate</c>, internal to <c>Denice.Engine</c>). DN0108 exempts only this type.</summary>
+    internal const string ApprovalGateNamespace = "Denice.Engine.Setup";
 
     /// <summary>The simple name of the approval gate type that owns the single production presence call.</summary>
     internal const string ApprovalGateName = "ApprovalGate";
 
-    /// <summary>The one operation on <c>IPresenceCheck</c> — <c>Check</c>. Spelled once here so AG0108 (only the gate may
-    /// invoke it) and AG0109 (no inline prompt literal at the call) resolve the same operation name.</summary>
+    /// <summary>The one operation on <c>IPresenceCheck</c> — <c>Check</c>. Spelled once here so DN0108 (only the gate may
+    /// invoke it) and DN0109 (no inline prompt literal at the call) resolve the same operation name.</summary>
     internal const string CheckMethodName = "Check";
 
     /// <summary>
     /// The presence contract interface (<c>IPresenceCheck</c>) on <c>ISystemServices.Platform.Presence</c> — the
-    /// owner of the one <c>Check</c> operation. Matched by AG0107 (a presence impl is a class implementing it),
-    /// AG0108 (only <c>ApprovalGate</c> may invoke <c>Check</c>), and AG0109 (no inline prompt literal at the call).
+    /// owner of the one <c>Check</c> operation. Matched by DN0107 (a presence impl is a class implementing it),
+    /// DN0108 (only <c>ApprovalGate</c> may invoke <c>Check</c>), and DN0109 (no inline prompt literal at the call).
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> PresenceCheck =
         ImmutableArray.Create((KnownNamespaces.DeniceAbstractionsContracts, "IPresenceCheck"));
 
     /// <summary>The <c>PresenceRequest</c> record (Abstractions) whose prompt text a production call site must resolve
-    /// from the owned per-verb resource, never an inline literal (AG0109).</summary>
+    /// from the owned per-verb resource, never an inline literal (DN0109).</summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> PresenceRequest =
         ImmutableArray.Create((KnownNamespaces.DeniceAbstractionsContracts, "PresenceRequest"));
 
-    /// <summary>The owned dialog-text resource (<c>PresenceDialogText</c>, in the gate's <c>Denice.Setup</c>
+    /// <summary>The owned dialog-text resource (<c>PresenceDialogText</c>, in the gate's <c>Denice.Engine.Setup</c>
     /// namespace) — the single owner of the reviewed, action-specific prompt strings, keyed by <c>SetupVerb</c>
-    /// (os-dialog-text-owned-resource). AG0109 recognizes a read through its accessor as the ONE sanctioned prompt
+    /// (os-dialog-text-owned-resource). DN0109 recognizes a read through its accessor as the ONE sanctioned prompt
     /// source; a bare literal or a const/static-readonly field at the call site is a dodge. Spelled once here so a
     /// rename of the resource touches one place. IMPLEMENT must declare <c>PresenceDialogText</c> under this namespace.</summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> PresenceDialogText =
@@ -68,22 +68,22 @@ internal static class PresenceContracts
 
     /// <summary>The Linux presence port (<c>IPolkitAuthority</c>, the sole <c>Tmds.DBus.Protocol</c> user), declared in
     /// the Linux per-OS implementation assembly. Native-call-free (managed D-Bus), so it is NOT a native-interop owner
-    /// (AG0113), only a Tmds owner (AG0110) and a single-implementer port (AG0114).</summary>
+    /// (DN0113), only a Tmds owner (DN0110) and a single-implementer port (DN0114).</summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> PolkitAuthority =
         ImmutableArray.Create((CrossPlatformBoundary.LinuxName, "IPolkitAuthority"));
 
     /// <summary>
     /// The two per-OS native-interop presence ports (macOS + Windows) — the only owners raw native P/Invoke and
-    /// <c>Marshal</c> for presence are allowed behind (AG0113), and the only implementers that may not cache a native
-    /// auth-context handle in a field (AG0112). Linux is excluded: its polkit path is managed D-Bus, native-call-free.
+    /// <c>Marshal</c> for presence are allowed behind (DN0113), and the only implementers that may not cache a native
+    /// auth-context handle in a field (DN0112). Linux is excluded: its polkit path is managed D-Bus, native-call-free.
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> NativePresencePorts =
         LocalAuthentication.AddRange(WindowsUserPresence);
 
     /// <summary>
     /// All three internal per-OS native ports (macOS <c>ILocalAuthentication</c>, Windows <c>IWindowsUserPresence</c>,
-    /// Linux <c>IPolkitAuthority</c>) — the single-implementer candidate set for AG0114. These ports live outside the
-    /// <c>ISystemServices</c> tree, so AG0025/AG0030 do not cover them; without AG0114 "exactly one class owns each
+    /// Linux <c>IPolkitAuthority</c>) — the single-implementer candidate set for DN0114. These ports live outside the
+    /// <c>ISystemServices</c> tree, so DN0025/DN0030 do not cover them; without DN0114 "exactly one class owns each
     /// native library" would be a convention, not a build invariant.
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> AllNativePorts =
@@ -129,8 +129,8 @@ internal static class PresenceContracts
     /// <summary>
     /// All the per-OS native-ops owners — macOS <c>IObjCRuntime</c> plus the two Windows owners (<see cref="ObjCRuntime"/>
     /// and <see cref="WindowsNativeOps"/>). This is the candidate set the coverage refactor's guardrails scope to: the
-    /// no-control-flow (AG0106), no-async-orchestration (AG0115), and no-state (AG0116) rules constrain only the contents
-    /// of these owners, and the single-implementer guard (AG0114) requires each of these interfaces to have exactly one
+    /// no-control-flow (DN0106), no-async-orchestration (DN0115), and no-state (DN0116) rules constrain only the contents
+    /// of these owners, and the single-implementer guard (DN0114) requires each of these interfaces to have exactly one
     /// implementer (the one thin native-ops class). Linux has no native-ops owner: its polkit path is managed D-Bus. The
     /// interfaces are internal to their per-OS assemblies, so in any one compilation only that assembly's owners resolve.
     /// </summary>
@@ -138,12 +138,12 @@ internal static class PresenceContracts
         ObjCRuntime.AddRange(WindowsNativeOps);
 
     /// <summary>
-    /// The existing filesystem-native binding types whose P/Invoke methods belong to AG0101's FILESYSTEM family — the
+    /// The existing filesystem-native binding types whose P/Invoke methods belong to DN0101's FILESYSTEM family — the
     /// shared POSIX bindings (<c>PosixNativeMethods</c>, <c>libc rename</c>/<c>pathconf</c>) and the Windows bindings
     /// (<c>WindowsNativeMethods</c>, <c>CreateFileW</c>/<c>DeviceIoControl</c>/<c>GetFileInformationByHandleEx</c>). The
-    /// presence native-interop owner rule (AG0113) SKIPS a P/Invoke call to a method declared in one of these so it
-    /// never re-reports or false-positives the existing filesystem-native code AG0101 already confines to
-    /// <c>IPlatformFileSystem</c>. This is the family split's filesystem side; issue #39 folds AG0101 + AG0113 into one
+    /// presence native-interop owner rule (DN0113) SKIPS a P/Invoke call to a method declared in one of these so it
+    /// never re-reports or false-positives the existing filesystem-native code DN0101 already confines to
+    /// <c>IPlatformFileSystem</c>. This is the family split's filesystem side; issue #39 folds DN0101 + DN0113 into one
     /// owner→primitive-family map and removes this by-type coupling.
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> FilesystemNativeMethodTypes =
@@ -151,7 +151,7 @@ internal static class PresenceContracts
             (CrossPlatformBoundary.RootName + ".Posix", "PosixNativeMethods"),
             (CrossPlatformBoundary.WindowsName, "WindowsNativeMethods"));
 
-    /// <summary>The OS-divergent filesystem owner (<c>IPlatformFileSystem</c>) — AG0101's family. AG0113 recognizes a
+    /// <summary>The OS-divergent filesystem owner (<c>IPlatformFileSystem</c>) — DN0101's family. DN0113 recognizes a
     /// <c>Marshal</c> use inside this owner as filesystem-family (the existing <c>Marshal.GetLastPInvokeError</c> after
     /// a filesystem syscall) and does not govern it.</summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> PlatformFileSystem =
@@ -176,7 +176,7 @@ internal static class PresenceContracts
     /// The assembly gate spanning the two per-OS implementation libraries that can host a native-OPS owner — the macOS
     /// and Windows assemblies (macos-one-windows-two-native-ops; Linux is native-call-free managed D-Bus). The compound
     /// of <see cref="InMacOs"/> and <see cref="InWindows"/>, spelled once here (LESSON 1, DRY) so the native-ops rules
-    /// (AG0106, AG0113, AG0115) each call this one gate instead of hand-copying
+    /// (DN0106, DN0113, DN0115) each call this one gate instead of hand-copying
     /// <c>!InMacOs(compilation) &amp;&amp; !InWindows(compilation)</c>. Cached in a static field like its sibling gates,
     /// so no delegate is allocated per compilation start.
     /// </summary>
@@ -188,7 +188,7 @@ internal static class PresenceContracts
     /// implementation libraries that can host a native-OPS owner — the macOS or Windows assembly
     /// (<see cref="InMacOsOrWindows"/>); any other compilation registers nothing. The "gate to macOS-or-Windows, then
     /// register" block is owned once here (LESSON 1, DRY) rather than re-spelled in each native-ops rule's
-    /// <c>OnCompilationStart</c> (AG0106 no-control-flow, AG0113 native-interop-owner, AG0115 no-async-orchestration),
+    /// <c>OnCompilationStart</c> (DN0106 no-control-flow, DN0113 native-interop-owner, DN0115 no-async-orchestration),
     /// mirroring <see cref="MemberUseScanner.RegisterForAssembly"/> — the same gate-then-register extraction the two
     /// one-door rules share. Each caller passes only its own registration lambda; the OS gate lives here.
     /// </summary>
@@ -213,8 +213,8 @@ internal static class PresenceContracts
     /// <c>IObjCRuntime</c> compiled into the macOS assembly, or one of the two Windows native-ops interfaces
     /// (<c>IWindowsHelloNativeOps</c>/<c>ICredentialPromptNativeOps</c>) compiled into the Windows assembly. This is the
     /// relocated presence-native-interop exemption: the coverage refactor moves the raw-interop carve-out OFF the flow
-    /// port and ONTO this native-ops layer, so this is the ONE owner check both AG0113 (which confines the presence
-    /// native family here) and AG0101 (whose narrow family-scoped edit exempts these same owners on its P/Invoke and
+    /// port and ONTO this native-ops layer, so this is the ONE owner check both DN0113 (which confines the presence
+    /// native family here) and DN0101 (whose narrow family-scoped edit exempts these same owners on its P/Invoke and
     /// <c>Marshal</c> branches) call — the two rules resolve the identical owner and neither over-grants. A raw presence
     /// P/Invoke or <c>Marshal</c> left in a flow-port orchestrator (<c>LocalAuthentication</c>/<c>WindowsUserPresence</c>)
     /// is therefore RED until it moves into a native-ops owner (the forcing function; RED-first against the pre-refactor
@@ -233,7 +233,7 @@ internal static class PresenceContracts
     /// implementing <c>ILocalAuthentication</c> compiled into the macOS assembly, or <c>IWindowsUserPresence</c>
     /// compiled into the Windows assembly. These are the orchestrators one level above the native-ops layer; the raw
     /// native interop no longer lives here (that exemption moved to <see cref="IsInNativeOpsOwner"/>), but the timeout
-    /// ban (AG0107, through <see cref="IsInAnyPresencePortOwner"/>) still covers them so a flow port cannot wrap its own
+    /// ban (DN0107, through <see cref="IsInAnyPresencePortOwner"/>) still covers them so a flow port cannot wrap its own
     /// timeout around the native call. The two per-OS <see cref="OwnerClass.IsOwner"/> calls are kept separate (each with
     /// its own per-OS assembly gate) so a class implementing one port's interface in the OTHER OS's assembly is not
     /// matched.
@@ -249,8 +249,8 @@ internal static class PresenceContracts
     /// the two native flow ports (<see cref="IsInNativePresencePortOwner"/>: <c>ILocalAuthentication</c> in the macOS
     /// assembly, <c>IWindowsUserPresence</c> in the Windows assembly) PLUS the Linux <c>IPolkitAuthority</c> owner
     /// (<c>TmdsPolkitAuthority</c> in the Linux assembly). This spans <see cref="AllNativePorts"/> — the flow-port layer
-    /// one level below <c>IPresenceCheck</c> — for the timeout ban (AG0107), which must catch a port implementer that
-    /// wraps its own timeout around the native or D-Bus call, not only the <c>IPresenceCheck</c> impl above it. AG0107
+    /// one level below <c>IPresenceCheck</c> — for the timeout ban (DN0107), which must catch a port implementer that
+    /// wraps its own timeout around the native or D-Bus call, not only the <c>IPresenceCheck</c> impl above it. DN0107
     /// additionally covers the native-ops layer below these ports through <see cref="IsInNativeOpsOwner"/>. Like
     /// <see cref="IsInNativePresencePortOwner"/>, the three <see cref="OwnerClass.IsOwner"/> calls keep their own per-OS
     /// assembly gate rather than a combined set + combined gate, so a class implementing one port's interface in another
@@ -268,7 +268,7 @@ internal static class PresenceContracts
     /// OR through a CONCRETE-typed reference to an implementer (<c>LinuxPresenceCheck</c>/<c>MacOsPresenceCheck</c>/
     /// <c>WindowsPresenceCheck</c>/<c>FakePresenceCheck</c>), so a same-named <c>Check</c> on an unrelated type is not
     /// caught but a call through a concrete reference is not a bypass. This is the single "is this the presence check
-    /// call" recognition both AG0108 (which then requires the caller to be the approval gate) and AG0109 (which then bans
+    /// call" recognition both DN0108 (which then requires the caller to be the approval gate) and DN0109 (which then bans
     /// an inline prompt literal at the call) key off, so the two rules resolve the identical operation. It routes through
     /// the centralized <see cref="OwnerClass.IsInterfaceMemberInvocation"/> — which resolves interface membership through
     /// <see cref="OwnerClass.Implements"/>/<see cref="WellKnownType"/> — rather than re-deriving an interface-membership

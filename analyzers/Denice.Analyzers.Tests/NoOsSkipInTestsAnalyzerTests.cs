@@ -10,7 +10,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0026 (os-skip-ban-rule): in a test compilation, a type deriving from xUnit's FactAttribute/TheoryAttribute is a
+/// DN0026 (os-skip-ban-rule): in a test compilation, a type deriving from xUnit's FactAttribute/TheoryAttribute is a
 /// build error — that custom-attribute subclass is exactly how an OS-conditional skip is reintroduced under a new name
 /// (the deleted PosixOnlyFactAttribute). The xUnit bases live in a REFERENCED assembly here, as they do in reality, so
 /// xUnit's own TheoryAttribute : FactAttribute (metadata, not source) is never flagged and only a source-declared
@@ -41,7 +41,7 @@ public class NoOsSkipInTestsAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunWithReferenceAsync<NoOsSkipInTestsAnalyzer>(
             source, "Denice.Cli.Tests", XunitReference, "xunit.core"));
-        Assert.Equal("AG0026", diagnostic.Id);
+        Assert.Equal("DN0026", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("PosixOnlyFactAttribute", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -59,7 +59,7 @@ public class NoOsSkipInTestsAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunWithReferenceAsync<NoOsSkipInTestsAnalyzer>(
             source, "Denice.Cli.Tests", XunitReference, "xunit.core"));
-        Assert.Equal("AG0026", diagnostic.Id);
+        Assert.Equal("DN0026", diagnostic.Id);
         Assert.Contains("OsTheoryAttribute", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -80,7 +80,7 @@ public class NoOsSkipInTestsAnalyzerTests
             source, "Denice.Cli.Tests", XunitReference, "xunit.core");
 
         Assert.Equal(2, diagnostics.Length);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0026", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0026", diagnostic.Id));
         Assert.Contains(
             diagnostics,
             diagnostic => diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("LeafFactAttribute", StringComparison.Ordinal));

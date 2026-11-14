@@ -9,7 +9,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0036 (no-literal-case-mode-seed): a <c>true</c>/<c>false</c> literal passed as the <c>caseSensitive</c> argument
+/// DN0036 (no-literal-case-mode-seed): a <c>true</c>/<c>false</c> literal passed as the <c>caseSensitive</c> argument
 /// of the overlay factory <c>SystemServicesBuilder.NewOverlay</c> is a build error, so the simulator's case mode is
 /// seeded from the real host. The check targets the <c>NewOverlay</c> call, NOT the <c>InMemoryFileSystemStore</c>
 /// constructor: the constructor is only ever reached through <c>NewOverlay</c>, which forwards its own parameter, so a
@@ -38,7 +38,7 @@ public class NoLiteralCaseModeSeedAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 
-        Assert.Equal("AG0036", diagnostic.Id);
+        Assert.Equal("DN0036", diagnostic.Id);
     }
 
     [Fact]

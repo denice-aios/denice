@@ -4,7 +4,7 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// Identifies the one shipping CLI whose single <c>Program</c> composition method is the one place
-/// <c>SystemServices.Create()</c> may be called (AG0017). The CLI has TWO distinct identities that must be matched
+/// <c>SystemServices.Create()</c> may be called (DN0017). The CLI has TWO distinct identities that must be matched
 /// separately: its <see cref="RootNamespace"/> is <c>Denice.Cli</c> (where the <c>Program</c> type is declared),
 /// while its real compiled assembly name is <c>guard</c> — set by <c>&lt;AssemblyName&gt;guard&lt;/AssemblyName&gt;</c>
 /// in <c>Denice.Cli.csproj</c>, so <c>Program.ContainingAssembly.Name</c> reports <c>guard</c>, not the namespace.

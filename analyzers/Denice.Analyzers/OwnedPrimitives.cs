@@ -10,11 +10,11 @@ namespace Denice.Analyzers;
 /// resolved once in <see cref="Resolve"/>. This is the consolidation the bridge's rule-phase makes: the per-primitive
 /// boundary analyzers that each spelled out one owner (filesystem, environment, randomness, console, crypto, version,
 /// Process, and the <c>*Info</c> half of the OS-divergent rule) collapse into this single table-driven owner rule
-/// (AG0011). <c>File</c>/<c>Directory</c> keep their per-member split across the four filesystem interfaces (through
+/// (DN0011). <c>File</c>/<c>Directory</c> keep their per-member split across the four filesystem interfaces (through
 /// <see cref="FilesystemMembers.OwningInterfaceFor"/>); every other type maps whole to one owner. The families are
 /// keyed by disjoint types, so <see cref="Resolve"/> chains the per-family resolvers with <c>??</c>: a member a
-/// DIFFERENT standalone rule still owns (the OS-divergent static <c>File</c>/<c>Directory</c> members → AG0101, the
-/// clock members on <c>Environment</c> → AG0015, <c>RuntimeInformation.IsOSPlatform</c> → AG0009) resolves to
+/// DIFFERENT standalone rule still owns (the OS-divergent static <c>File</c>/<c>Directory</c> members → DN0101, the
+/// clock members on <c>Environment</c> → DN0015, <c>RuntimeInformation.IsOSPlatform</c> → DN0009) resolves to
 /// <see langword="null"/> and — because no other family's types match it — stays <see langword="null"/> to the end.
 /// </summary>
 internal static class OwnedPrimitives
@@ -23,7 +23,7 @@ internal static class OwnedPrimitives
     /// The single authoritative (namespace, name) identity of the owned <c>IFileInfo</c> wrapper — the owner of the raw
     /// <c>System.IO.FileInfo</c> primitive (the AbstractedFileInfo wrapper in Denice.CrossPlatform, where raw
     /// <c>FileInfo</c> construction and every <c>FileInfo</c> member is legal). Held as a one-element set so the resolver
-    /// hands it straight to <see cref="OwnerClass"/> without allocating per operation. AG0033's WrapperInterfaces is
+    /// hands it straight to <see cref="OwnerClass"/> without allocating per operation. DN0033's WrapperInterfaces is
     /// built from this owner (and <see cref="DirectoryInfoOwner"/>), so the <c>IFileInfo</c> literal is spelled once.
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> FileInfoOwner =
@@ -32,7 +32,7 @@ internal static class OwnedPrimitives
     /// <summary>
     /// The single authoritative (namespace, name) identity of the owned <c>IDirectoryInfo</c> wrapper — the owner of the
     /// raw <c>System.IO.DirectoryInfo</c> primitive (the AbstractedDirectoryInfo wrapper in Denice.CrossPlatform).
-    /// AG0033's WrapperInterfaces is built from this owner (and <see cref="FileInfoOwner"/>), so the
+    /// DN0033's WrapperInterfaces is built from this owner (and <see cref="FileInfoOwner"/>), so the
     /// <c>IDirectoryInfo</c> literal is spelled once.
     /// </summary>
     internal static readonly ImmutableArray<(string Namespace, string Name)> DirectoryInfoOwner =
@@ -41,8 +41,8 @@ internal static class OwnedPrimitives
     /// <summary>
     /// The two owned <c>*Info</c> wrapper interfaces (<c>IFileInfo</c> + <c>IDirectoryInfo</c>) as one combined set,
     /// composed once from <see cref="FileInfoOwner"/> and <see cref="DirectoryInfoOwner"/> so the
-    /// <c>FileInfoOwner.AddRange(DirectoryInfoOwner)</c> is spelled exactly once. Both AG0033's wrapper-construction pin
-    /// (<see cref="GuardedConstructionAnalyzer"/>) and AG0034's sub-container <c>*Info</c>-factory allowance
+    /// <c>FileInfoOwner.AddRange(DirectoryInfoOwner)</c> is spelled exactly once. Both DN0033's wrapper-construction pin
+    /// (<see cref="GuardedConstructionAnalyzer"/>) and DN0034's sub-container <c>*Info</c>-factory allowance
     /// (<see cref="SystemServicesMemberMustBeServiceAccessorAnalyzer"/>) reference this instead of each recomputing the
     /// same union.
     /// </summary>
@@ -52,7 +52,7 @@ internal static class OwnedPrimitives
     /// <summary>
     /// The assembly gate for the owners that live in Denice.CrossPlatform (owners-live-at-lowest-consumer): the
     /// file-op adapters, the <c>*Info</c> wrappers, and the randomness adapter. Cached once so no delegate is allocated
-    /// per analyzed operation. Internal so AG0020 (<see cref="PathPurityAnalyzer"/>) references this exact gate for its
+    /// per analyzed operation. Internal so DN0020 (<see cref="PathPurityAnalyzer"/>) references this exact gate for its
     /// randomness owner exemption (<c>GetRandomFileName</c>) rather than reconstructing an identical one.
     /// </summary>
     internal static readonly Func<Compilation, bool> InCrossPlatform =
@@ -61,7 +61,7 @@ internal static class OwnedPrimitives
     /// <summary>
     /// The assembly gate for the owners that live in Denice.Boundaries (owners-live-at-lowest-consumer): the
     /// environment, console, signature, and build-info owners. Cached once so no delegate is allocated per analyzed
-    /// operation. Internal so AG0020 (<see cref="PathPurityAnalyzer"/>) references this exact gate for its temp-path
+    /// operation. Internal so DN0020 (<see cref="PathPurityAnalyzer"/>) references this exact gate for its temp-path
     /// owner exemption (<c>GetTempPath</c>) rather than reconstructing an identical one.
     /// </summary>
     internal static readonly Func<Compilation, bool> InBoundaries =
@@ -69,20 +69,20 @@ internal static class OwnedPrimitives
 
     // The FileSystemInfo base owner (fileinfo-abstraction-stays-in-ag0011): the FileSystemInfo base is owned wholesale by
     // the class implementing IFileSystemInfo — the *Info wrappers in Denice.CrossPlatform, where raw *Info
-    // construction and every *Info member is legal, fully. IFileSystemInfo is the base, not an AG0033 wrapper, so it is
+    // construction and every *Info member is legal, fully. IFileSystemInfo is the base, not an DN0033 wrapper, so it is
     // not part of WrapperInterfaces. Held as a one-element set so the resolver hands it straight to OwnerClass.IsOwner
     // without allocating per operation.
     private static readonly ImmutableArray<(string Namespace, string Name)> FileSystemInfoOwner =
         ImmutableArray.Create((KnownNamespaces.DeniceAbstractionsContracts, "IFileSystemInfo"));
 
-    // The environment owner (IEnvironment) — the identity is spelled once in ContractInterfaces because AG0020 shares
+    // The environment owner (IEnvironment) — the identity is spelled once in ContractInterfaces because DN0020 shares
     // it for the Path.GetTempPath owner exemption.
     private static readonly ImmutableArray<(string Namespace, string Name)> EnvironmentOwner =
         ContractInterfaces.Environment;
 
     // The randomness owner (IRandomGenerator, renamed from IGuidFactory: the owner is the randomness concern, so a
     // random file name has a home beside NewGuid — iguidfactory-renamed-to-irandomgenerator). It owns Guid.NewGuid,
-    // System.Random, and RandomNumberGenerator here; the identity is spelled once in ContractInterfaces because AG0020
+    // System.Random, and RandomNumberGenerator here; the identity is spelled once in ContractInterfaces because DN0020
     // shares it for the Path.GetRandomFileName owner exemption. Until IMPLEMENT renames the adapter, the old
     // GuidFactoryAdapter (which implements IGuidFactory) no longer matches this owner and its Guid.NewGuid() goes RED —
     // the forcing function for the rename.
@@ -106,25 +106,25 @@ internal static class OwnedPrimitives
         StringComparer.Ordinal, "NewGuid", "CreateVersion7", "CreateVersion1");
 
     // The Assembly reflection entry points that resolve a running assembly to read its version off — the version reads
-    // (IBuildInfo, was AG0028). Assembly.Location is instead a deployment-path read (IEnvironment, was AG0012); both
+    // (IBuildInfo, was DN0028). Assembly.Location is instead a deployment-path read (IEnvironment, was DN0012); both
     // live on System.Reflection.Assembly and are disambiguated by member name in ResolveEnvironmentAndReflection.
     private static readonly ImmutableHashSet<string> AssemblyVersionEntryPointMethods = ImmutableHashSet.Create(
         StringComparer.Ordinal, "GetEntryAssembly", "GetExecutingAssembly", "GetCallingAssembly");
 
-    // The two version-attribute types whose reflection reads are banned outside the IBuildInfo owner (was AG0028): any
+    // The two version-attribute types whose reflection reads are banned outside the IBuildInfo owner (was DN0028): any
     // member read on either is a version read.
     private static readonly ImmutableArray<(string Namespace, string Name)> VersionAttributeTypes = ImmutableArray.Create(
         (KnownNamespaces.SystemReflection, "AssemblyInformationalVersionAttribute"),
         (KnownNamespaces.SystemReflection, "AssemblyFileVersionAttribute"));
 
-    // The banned BouncyCastle Ed25519 types (was AG0021), matched by full name so a same-named type in another
+    // The banned BouncyCastle Ed25519 types (was DN0021), matched by full name so a same-named type in another
     // namespace is not caught. The signer sequence and the public-key parameters both hide inside the ISignatureService
     // owner; no BouncyCastle type crosses the boundary.
     private static readonly ImmutableArray<(string Namespace, string Name)> BouncyCastleEd25519Types = ImmutableArray.Create(
         ("Org.BouncyCastle.Crypto.Signers", "Ed25519Signer"),
         ("Org.BouncyCastle.Crypto.Parameters", "Ed25519PublicKeyParameters"));
 
-    // Process launching is not a wrapped primitive (was AG0013): System.Diagnostics.Process and ProcessStartInfo are
+    // Process launching is not a wrapped primitive (was DN0013): System.Diagnostics.Process and ProcessStartInfo are
     // banned everywhere; grow an owned interface first if the capability is ever needed.
     private static readonly ImmutableArray<(string Namespace, string Name)> ProcessTypes = ImmutableArray.Create(
         (KnownNamespaces.SystemDiagnostics, "Process"),
@@ -194,14 +194,14 @@ internal static class OwnedPrimitives
         }
 
         // The OS-divergent static members (CreateSymbolicLink/ResolveLinkTarget/Get+SetUnixFileMode) are the per-OS
-        // rule's (AG0101) — carve out so exactly one rule owns each.
+        // rule's (DN0101) — carve out so exactly one rule owns each.
         if (FilesystemMembers.IsOsDivergentMember(member))
         {
             return null;
         }
 
         // Directory.GetCurrentDirectory/SetCurrentDirectory is an environment read on the filesystem type: it is owned
-        // by IEnvironment in Boundaries (was AG0012), not by the filesystem interfaces.
+        // by IEnvironment in Boundaries (was DN0012), not by the filesystem interfaces.
         if (FilesystemMembers.IsCurrentDirectoryMember(member))
         {
             return OwnedPrimitive.OwnedBy(EnvironmentOwner, InBoundaries);
@@ -214,7 +214,7 @@ internal static class OwnedPrimitives
     }
 
     // The stream, watcher, and drive System.IO types and every System.IO.Enumeration type: no owning interface, so
-    // banned everywhere until an interface is grown (was AG0011's no-owner set).
+    // banned everywhere until an interface is grown (was DN0011's no-owner set).
     private static OwnedPrimitive? ResolveStreamsAndEnumeration(INamedTypeSymbol type)
     {
         return WellKnownType.IsAnyOf(type, FilesystemMembers.StreamWatcherAndDriveTypes)
@@ -228,7 +228,7 @@ internal static class OwnedPrimitives
     // both (System.Reflection.Assembly).
     private static OwnedPrimitive? ResolveEnvironmentAndReflection(ISymbol member, INamedTypeSymbol type)
     {
-        // System.Environment — every member except the clock members (TickCount/TickCount64), which are AG0015's.
+        // System.Environment — every member except the clock members (TickCount/TickCount64), which are DN0015's.
         if (WellKnownType.Is(type, KnownNamespaces.System, "Environment"))
         {
             return TimeMembers.IsEnvironmentClockMember(member)
@@ -260,7 +260,7 @@ internal static class OwnedPrimitives
         }
 
         // RuntimeInformation host-description properties (OSDescription, FrameworkDescription, …) → IEnvironment. The
-        // IsOSPlatform method is OS branching, owned by AG0009, so only the properties are claimed here.
+        // IsOSPlatform method is OS branching, owned by DN0009, so only the properties are claimed here.
         if (WellKnownType.Is(type, KnownNamespaces.SystemRuntimeInteropServices, "RuntimeInformation"))
         {
             return member.Kind == SymbolKind.Property

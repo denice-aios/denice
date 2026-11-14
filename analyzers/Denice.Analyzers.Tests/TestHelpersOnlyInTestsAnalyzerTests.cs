@@ -37,7 +37,7 @@ public class TestHelpersOnlyInTestsAnalyzerTests
                 UseBuilderSource, "Denice.Engine", TestHelpersSource, "Denice.TestHelpers");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0018", diagnostic.Id);
+        Assert.Equal("DN0018", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 

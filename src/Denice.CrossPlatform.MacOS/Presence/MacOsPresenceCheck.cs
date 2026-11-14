@@ -20,7 +20,7 @@ internal sealed class MacOsPresenceCheck : IPresenceCheck
 {
     private readonly ILocalAuthentication _localAuthentication;
 
-    // Private constructor (AG0003): only Create() builds it, from the per-OS PlatformServices.CreatePresence().
+    // Private constructor (DN0003): only Create() builds it, from the per-OS PlatformServices.CreatePresence().
     private MacOsPresenceCheck(ILocalAuthentication localAuthentication) =>
         _localAuthentication = localAuthentication;
 

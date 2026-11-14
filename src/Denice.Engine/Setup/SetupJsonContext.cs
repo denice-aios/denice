@@ -3,7 +3,7 @@
 using System.Text.Json.Serialization;
 using Denice.Engine;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The source-generated serialization context for the setup records. Source generation keeps JSON handling free

@@ -16,7 +16,7 @@ namespace Denice.CrossPlatform;
 /// <see cref="IFileWriter"/>, <see cref="IDirectoryWriter"/>), and every GUID through the injected
 /// <see cref="IRandomGenerator"/>. The OS-DIVERGENT primitives (the symlink reads/writes, the executable bit, the atomic
 /// re-point, and constructing a <c>FileInfo</c>/<c>DirectoryInfo</c>) do NOT live here — they live only in the one
-/// per-OS class (AG0101, ag0101-one-owner-per-os).
+/// per-OS class (DN0101, ag0101-one-owner-per-os).
 /// </summary>
 internal sealed class PlatformFileSystemShared
 {

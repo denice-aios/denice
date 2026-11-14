@@ -17,7 +17,7 @@ public sealed class ContractPublicSurfaceMustMatchInterfaceAnalyzer : Diagnostic
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0005";
+    public const string DiagnosticId = "DN0005";
 
     private const string Category = "Denice.Architecture";
 

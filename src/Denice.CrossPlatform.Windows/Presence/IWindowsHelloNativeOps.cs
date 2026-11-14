@@ -11,9 +11,9 @@ namespace Denice.CrossPlatform.Windows;
 /// <c>IAsyncInfo.Cancel</c> cancel primitive, and their <c>Marshal</c> uses), split out from below the
 /// <see cref="IWindowsUserPresence"/> flow port. Windows gets TWO native-ops owners because Hello and the credential
 /// prompt are independent native subsystems sharing no handle (macos-one-windows-two-native-ops); this is the Hello one.
-/// Its sole implementer (<see cref="WindowsHelloNativeOps"/>) is where the relocated raw-interop exemption lives (AG0113)
-/// and it holds no field (AG0116). Every method is a SYNCHRONOUS raw call with no branching (AG0106) and no
-/// task-completion wiring (AG0115): the <c>TaskCompletionSource</c>, the <c>await</c>, the async-status decision, the
+/// Its sole implementer (<see cref="WindowsHelloNativeOps"/>) is where the relocated raw-interop exemption lives (DN0113)
+/// and it holds no field (DN0116). Every method is a SYNCHRONOUS raw call with no branching (DN0106) and no
+/// task-completion wiring (DN0115): the <c>TaskCompletionSource</c>, the <c>await</c>, the async-status decision, the
 /// availability short-circuit, the cancel-registration, and the 7-way Hello-result mapping all live in the fake-testable
 /// orchestrator, which composes these primitives.
 /// </summary>

@@ -10,19 +10,19 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// The one shared "at most N implementers per candidate interface" accumulation, extracted so the single-owner and
-/// single-implementer rules do not each spell it out: the owned-leaf-service rule (AG0025,
-/// <see cref="OneOwnerPerInterfaceAnalyzer"/>), the container-interface rule (AG0022,
-/// <see cref="ContainerInterfaceSingleOwnerAnalyzer"/>), and the leaf/platform test-implementer rule (AG0030,
+/// single-implementer rules do not each spell it out: the owned-leaf-service rule (DN0025,
+/// <see cref="OneOwnerPerInterfaceAnalyzer"/>), the container-interface rule (DN0022,
+/// <see cref="ContainerInterfaceSingleOwnerAnalyzer"/>), and the leaf/platform test-implementer rule (DN0030,
 /// <see cref="LeafPlatformSingleImplementerAnalyzer"/>). It accumulates, per candidate interface, every named type in
 /// the compilation that implements it — routed through the same <see cref="OwnerClass.Implements"/>
 /// (<see cref="WellKnownType.IsAnyOf"/> over <see cref="ITypeSymbol.AllInterfaces"/>) every boundary rule uses, never a
 /// bespoke membership walk — then reports the implementers past the permitted count of each at compilation end, ordered
 /// by <see cref="ISymbol.ToDisplayString"/> in <see cref="System.StringComparer.Ordinal"/> so the reported set is stable
 /// under concurrent symbol actions. Each caller supplies its own candidate <c>candidateInterfaces</c> set, its own
-/// <c>rule</c> descriptor, and how many implementers it permits before reporting: AG0025 and AG0022 permit ONE (the one
-/// owner) and report the second-and-later — AG0025 passes the derived leaf-service set
-/// (<see cref="DerivedServices.ServiceInterfaces"/>) AFTER its own test-system early-return, and AG0022 passes the
-/// container-interface set derived from the tree, with NO test exemption. AG0030 permits ZERO (the sanctioned
+/// <c>rule</c> descriptor, and how many implementers it permits before reporting: DN0025 and DN0022 permit ONE (the one
+/// owner) and report the second-and-later — DN0025 passes the derived leaf-service set
+/// (<see cref="DerivedServices.ServiceInterfaces"/>) AFTER its own test-system early-return, and DN0022 passes the
+/// container-interface set derived from the tree, with NO test exemption. DN0030 permits ZERO (the sanctioned
 /// implementers live in <c>Denice.TestHelpers</c>, referenced not source) and so reports the FIRST-and-later source
 /// implementer in a <c>.Tests</c> compilation. All descriptors share the same two-arg message shape — <c>{0}</c> the
 /// reported implementer's name, <c>{1}</c> the interface's full name.

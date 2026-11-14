@@ -9,10 +9,10 @@ namespace Denice.CrossPlatform.Windows;
 /// <summary>
 /// The sole implementer of <see cref="ICredentialPromptNativeOps"/> and the ONE class that binds the secure-desktop
 /// credential prompt (<c>CredUIPromptForWindowsCredentials</c> + <c>LogonUser</c>) — the Windows credential-prompt
-/// native-ops owner (AG0113 confines its raw P/Invoke and <c>Marshal</c> here; AG0114 permits one implementer). It is
-/// fully stateless (AG0116): every native buffer it returns is a per-call local the <see cref="WindowsUserPresence"/>
+/// native-ops owner (DN0113 confines its raw P/Invoke and <c>Marshal</c> here; DN0114 permits one implementer). It is
+/// fully stateless (DN0116): every native buffer it returns is a per-call local the <see cref="WindowsUserPresence"/>
 /// orchestrator owns and frees, and it holds no field but compile-time <c>const</c>s. Each method is a straight-line raw
-/// call with no branching (AG0106) and no task-completion wiring (AG0115): the status/unpack/logon decisions live in the
+/// call with no branching (DN0106) and no task-completion wiring (DN0115): the status/unpack/logon decisions live in the
 /// fake-testable orchestrator, which composes these primitives and owns every buffer's lifetime.
 /// </summary>
 internal sealed partial class CredentialPromptNativeOps : ICredentialPromptNativeOps
@@ -108,7 +108,7 @@ internal sealed partial class CredentialPromptNativeOps : ICredentialPromptNativ
     {
         // Own the raw logon token in a SafeFileHandle and dispose it at once: on Windows its release closes the handle
         // through CloseHandle — the exception-safe .NET pattern for closing a Win32 HANDLE, so no raw CloseHandle
-        // P/Invoke is needed and the native-ops layer stays branch-free (AG0106).
+        // P/Invoke is needed and the native-ops layer stays branch-free (DN0106).
         using var handle = new SafeFileHandle(token, ownsHandle: true);
     }
 
@@ -131,7 +131,7 @@ internal sealed partial class CredentialPromptNativeOps : ICredentialPromptNativ
     /// round-trip seam the Windows native-ops spec test drives (pack → unpack → logon) to cover this owner end to end
     /// without showing the interactive prompt. It is deliberately NOT on <see cref="ICredentialPromptNativeOps"/>, so the
     /// production orchestrator — which only ever receives a prompt-produced buffer — can never reach it. Straight-line
-    /// (AG0106): allocate, size, one raw call.
+    /// (DN0106): allocate, size, one raw call.
     /// </summary>
     /// <param name="userName">The plaintext user name to pack.</param>
     /// <param name="password">The plaintext password to pack.</param>
@@ -149,7 +149,7 @@ internal sealed partial class CredentialPromptNativeOps : ICredentialPromptNativ
     private static IntPtr AllocFieldBuffer() => Marshal.AllocHGlobal(CredentialFieldChars * sizeof(char));
 
     // Overwrite the password buffer with zeros. A zero-filled managed array copied over the native buffer clears it
-    // without a loop, keeping the native-ops layer branch-free (AG0106); the orchestrator never hands a zero buffer here
+    // without a loop, keeping the native-ops layer branch-free (DN0106); the orchestrator never hands a zero buffer here
     // on the real path (the unpack always allocates the field buffers).
     private static void ZeroFieldBuffer(IntPtr buffer)
     {

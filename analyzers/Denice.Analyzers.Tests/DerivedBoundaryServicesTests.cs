@@ -13,7 +13,7 @@ namespace Denice.Analyzers.Tests;
 /// <summary>
 /// Proves the boundary service set is DERIVED from ISystemServices at compile time
 /// (derive-service-set-from-isystemservices), through the observable behaviour of the three rules that consume it —
-/// AG0031 (a lone service parameter) as the probe for "is a service interface", AG0024 (a static holder) as the probe
+/// DN0031 (a lone service parameter) as the probe for "is a service interface", DN0024 (a static holder) as the probe
 /// for "is a service type". The derivation is exercised over a synthetic ISystemServices that mirrors the real one, so
 /// the derived set is asserted to equal the previously hard-coded ten, and over focused fixtures for the direct,
 /// nested, parameterized-factory, and clock cases.
@@ -21,7 +21,7 @@ namespace Denice.Analyzers.Tests;
 public class DerivedBoundaryServicesTests
 {
     // The synthetic ISystemServices mirroring the REAL shipped container lives once in
-    // SharedAnalyzerSources.RealShapeContainer (shared byte-identical with the AG0034 whole-tree test): the IFileSystem
+    // SharedAnalyzerSources.RealShapeContainer (shared byte-identical with the DN0034 whole-tree test): the IFileSystem
     // sub-container (whose no-arg accessors expose the four filesystem services and whose parameterized factories return
     // IFileInfo/IDirectoryInfo), environment, guids, console, signatures, build-info, the platform sub-container (which
     // nests IPlatformFileSystem), and the TimeProvider clock. The four filesystem services are reached THROUGH
@@ -35,7 +35,7 @@ public class DerivedBoundaryServicesTests
     // FileSystem's four sub-services, then Environment/Guids/Console, then Platform's nested IPlatformFileSystem, then
     // Signatures/BuildInfo. Held here as the regression oracle so the tree extraction (BoundaryServices.ResolveTree +
     // flatten) is proven BYTE-IDENTICAL to the former hand-rolled recursion (contract rule-phase item 1), which is what
-    // keeps AG0024/AG0025/AG0031 provably unaffected.
+    // keeps DN0024/DN0025/DN0031 provably unaffected.
     private static readonly ImmutableArray<(string Namespace, string Name)> ExpectedServiceInterfaces =
         ImmutableArray.Create(
             ("Denice.Abstractions.Contracts", "IFileReader"),
@@ -70,12 +70,12 @@ public class DerivedBoundaryServicesTests
     [Fact]
     public async Task ContainerInterfaces_OverRealShape_AreExactlyTheTriple()
     {
-        // AG0022's checked container set is DERIVED from the ONE tree walk (BoundaryServices.ResolveTree), not a
+        // DN0022's checked container set is DERIVED from the ONE tree walk (BoundaryServices.ResolveTree), not a
         // hardcoded triple: it is the root container plus every nested container reached through a Container accessor,
         // in pre-order. Over the real shape that is exactly ISystemServices, then IFileSystem (via the FileSystem
         // accessor), then IPlatformServices (via the Platform accessor). The leaf services and the clock are never
         // containers, so none of them appears. This proves the derivation yields the triple today AND would pick up a
-        // future nested container with no edit to AG0022.
+        // future nested container with no edit to DN0022.
         Compilation compilation = await AnalyzerRunner.CompileAsync(RealShapeContainer, "Denice.Abstractions");
         ContainerNode root = Assert.IsType<ContainerNode>(BoundaryServices.ResolveTree(compilation));
 
@@ -93,7 +93,7 @@ public class DerivedBoundaryServicesTests
     public async Task DerivedServiceInterfaces_OverRealShape_AreExactlyTheTen()
     {
         // One method per prior hard-coded owner interface, INCLUDING the nested IPlatformFileSystem reached through the
-        // Platform sub-container. Each fires AG0031, so the derived owner-interface set equals the ten.
+        // Platform sub-container. Each fires DN0031, so the derived owner-interface set equals the ten.
         string source = RealShapeContainer + """
 
             namespace App
@@ -117,7 +117,7 @@ public class DerivedBoundaryServicesTests
         ImmutableArray<Diagnostic> diagnostics =
             await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "Denice.Engine");
         Assert.Equal(10, diagnostics.Length);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0031", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0031", diagnostic.Id));
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public class DerivedBoundaryServicesTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0031", diagnostic.Id);
+        Assert.Equal("DN0031", diagnostic.Id);
     }
 
     [Fact]
@@ -194,7 +194,7 @@ public class DerivedBoundaryServicesTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0031", diagnostic.Id);
+        Assert.Equal("DN0031", diagnostic.Id);
         Assert.Contains("UseLeaf", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
@@ -229,15 +229,15 @@ public class DerivedBoundaryServicesTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0031", diagnostic.Id);
+        Assert.Equal("DN0031", diagnostic.Id);
         Assert.Contains("UseFileReader", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task TimeProviderTypedMember_IsAServiceType_ForAG0024()
+    public async Task TimeProviderTypedMember_IsAServiceType_ForDN0024()
     {
         // (d) A TimeProvider-typed member makes TimeProvider a service TYPE, so a static TimeProvider holder is flagged
-        // by AG0024.
+        // by DN0024.
         string source = """
             namespace Denice.Abstractions.Contracts
             {
@@ -260,13 +260,13 @@ public class DerivedBoundaryServicesTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoStaticServiceHolderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0024", diagnostic.Id);
+        Assert.Equal("DN0024", diagnostic.Id);
     }
 
     [Fact]
-    public async Task TimeProviderTypedMember_IsNotAnOwnerInterface_ForAG0031()
+    public async Task TimeProviderTypedMember_IsNotAnOwnerInterface_ForDN0031()
     {
-        // (d) …but TimeProvider is not an OWNER interface, so a TimeProvider parameter is not flagged by AG0031 (only
+        // (d) …but TimeProvider is not an OWNER interface, so a TimeProvider parameter is not flagged by DN0031 (only
         // the IFileReader parameter is).
         string source = """
             namespace Denice.Abstractions.Contracts
@@ -291,7 +291,7 @@ public class DerivedBoundaryServicesTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0031", diagnostic.Id);
+        Assert.Equal("DN0031", diagnostic.Id);
         Assert.Contains("UseFileReader", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 }

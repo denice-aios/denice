@@ -17,14 +17,14 @@ namespace Denice.CrossPlatform.Tests;
 /// <c>WindowsPresenceCheck</c>, or Linux <c>LinuxPresenceCheck</c> — through the real container, and proves it HONORS
 /// its cancellation token: when the token is cancelled the port dismisses its out-of-band prompt and returns a
 /// non-approved reason WITHIN a bounded wall-clock, never blocking forever. This is the cross-platform cancellation
-/// proof — the same test on all three legs. It calls the real <c>Check</c> directly (AG0108 exempts the test assembly).
+/// proof — the same test on all three legs. It calls the real <c>Check</c> directly (DN0108 exempts the test assembly).
 /// Runs on the per-OS CI legs.
 /// </summary>
 public sealed class PresenceNativeSmokeTests
 {
     // A near-zero bound: on a headless CI runner the real binding answers fast; if it would instead block on an
     // interactive prompt, this cancels it almost at once, and the port must dismiss the dialog and return a non-approved
-    // reason. Flows through the injected clock (AG0038). Tunable.
+    // reason. Flows through the injected clock (DN0038). Tunable.
     private static readonly TimeSpan NearZeroBound = TimeSpan.FromSeconds(1);
 
     // The outer no-hang bound: the cancelled Check must RETURN well within this. A port that ignores its token (the #47

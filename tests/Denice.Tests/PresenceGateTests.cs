@@ -4,7 +4,7 @@ using System;
 using System.Threading.Tasks;
 using Denice.Abstractions;
 using Denice.Abstractions.Contracts;
-using Denice.Setup;
+using Denice.Engine.Setup;
 using Denice.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
@@ -87,7 +87,7 @@ public sealed class PresenceGateTests
     }
 
     // Returns the configured builder (never a built ISystemServices — a static method returning the container would be
-    // an off-site composition, AG0017); the caller builds inline with the instance .Build().
+    // an off-site composition, DN0017); the caller builds inline with the instance .Build().
     private static SystemServicesBuilder Configure(FakePresenceCheck presence, TimeProvider? clock = null)
     {
         SystemServicesBuilder builder = SystemServicesBuilder.Fake();

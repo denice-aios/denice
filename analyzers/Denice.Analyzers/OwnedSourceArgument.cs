@@ -8,7 +8,7 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// The single recognizer for "does this argument value come from the ONE owned accessor, or is it a dodge" — the
-/// shape the owned-resource rules (AG0109, the inline-prompt ban) key off, extracted here (LESSON 1, DRY) as reusable
+/// shape the owned-resource rules (DN0109, the inline-prompt ban) key off, extracted here (LESSON 1, DRY) as reusable
 /// boundary boilerplate so future literal-vs-owned-source rules answer the same question against their OWN owned
 /// accessor rather than re-spelling the literal/const/field detection. A sanctioned value comes from an owned accessor
 /// (an <see cref="IInvocationOperation"/> or <see cref="IPropertyReferenceOperation"/> on one of the owned resource

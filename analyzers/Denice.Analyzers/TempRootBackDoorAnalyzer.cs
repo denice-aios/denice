@@ -10,7 +10,7 @@ namespace Denice.Analyzers;
 /// Reports every call site of <c>IEnvironment.GetTempDirectory()</c> — the owned abstraction over
 /// <c>Path.GetTempPath()</c>, which Sonar's <c>S5443</c> cannot see through (ags5443-temp-root-back-door-rule). Sonar
 /// <c>S5443</c> fires only on the raw <c>Path.GetTempPath()</c>, and that raw read lives in exactly one place —
-/// <c>EnvironmentAdapter.GetTempDirectory</c>, where it is owned (AG0020) and its one Sonar hit is suppressed and
+/// <c>EnvironmentAdapter.GetTempDirectory</c>, where it is owned (DN0020) and its one Sonar hit is suppressed and
 /// approved (<c>s5443-suppression-approved</c>). Every CALLER of the <c>GetTempDirectory()</c> abstraction then receives
 /// the shared, publicly-writable temp root while Sonar sees nothing: that is the back door, and this rule closes it by
 /// flagging the callers so a use of the shared temp root must be justified with a suppression, exactly as Sonar would
@@ -19,9 +19,9 @@ namespace Denice.Analyzers;
 /// The target is matched by the containing interface's full identity (<c>Denice.Abstractions.Contracts.IEnvironment</c>,
 /// through the shared <see cref="ContractInterfaces.Environment"/> identity) AND the method name, and every USE is
 /// flagged — a direct call OR a method-group/delegate capture (<c>Func&lt;string&gt; g = env.GetTempDirectory;</c>),
-/// matched by member identity regardless of operation kind, the same way the sibling AG0017 matches a captured
+/// matched by member identity regardless of operation kind, the same way the sibling DN0017 matches a captured
 /// container factory, so the capture-then-invoke shape cannot reopen the back door. It does NOT touch the raw
-/// <c>Path.GetTempPath()</c> — owned and pinned by <see cref="PathPurityAnalyzer"/> (AG0020) to
+/// <c>Path.GetTempPath()</c> — owned and pinned by <see cref="PathPurityAnalyzer"/> (DN0020) to
 /// <c>EnvironmentAdapter</c> — nor <c>IDirectoryWriter.CreateTempSubdirectory</c>, which creates a uniquely-named atomic
 /// subdirectory the caller owns rather than the shared root (which is why Sonar has no rule against it).
 /// </para>
@@ -53,7 +53,7 @@ public sealed class TempRootBackDoorAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Every call site of IEnvironment.GetTempDirectory() is a build error. Sonar S5443 flags only the raw Path.GetTempPath(), which lives in the one owned reader EnvironmentAdapter.GetTempDirectory (its Sonar hit suppressed and approved); every caller of the GetTempDirectory() abstraction then receives the shared, publicly-writable temp root while Sonar sees nothing. This rule is the owned equivalent that closes that back door by flagging the callers, so a use of the shared temp root must be justified with a suppression exactly as Sonar would force at the raw call. It does not touch the raw Path.GetTempPath (owned by AG0020) or IDirectoryWriter.CreateTempSubdirectory (a uniquely-named atomic subdirectory the caller owns). Zero call sites exist today, so the rule is preventive.");
+        description: "Every call site of IEnvironment.GetTempDirectory() is a build error. Sonar S5443 flags only the raw Path.GetTempPath(), which lives in the one owned reader EnvironmentAdapter.GetTempDirectory (its Sonar hit suppressed and approved); every caller of the GetTempDirectory() abstraction then receives the shared, publicly-writable temp root while Sonar sees nothing. This rule is the owned equivalent that closes that back door by flagging the callers, so a use of the shared temp root must be justified with a suppression exactly as Sonar would force at the raw call. It does not touch the raw Path.GetTempPath (owned by DN0020) or IDirectoryWriter.CreateTempSubdirectory (a uniquely-named atomic subdirectory the caller owns). Zero call sites exist today, so the rule is preventive.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -77,10 +77,10 @@ public sealed class TempRootBackDoorAnalyzer : DiagnosticAnalyzer
     {
         // Every USE of the abstraction is the back door — a direct call OR a method-group/delegate capture
         // (Func<string> g = env.GetTempDirectory;) — matched by member identity regardless of operation kind, the same
-        // way the sibling AG0017 matches a captured container factory, so the capture-then-invoke shape cannot reopen
+        // way the sibling DN0017 matches a captured container factory, so the capture-then-invoke shape cannot reopen
         // the back door. The target is IEnvironment.GetTempDirectory, matched by the containing interface's full
         // identity (namespace + name via the shared ContractInterfaces.Environment) AND the method name, so a
-        // same-named method on another type is never flagged and the raw Path.GetTempPath (owned by AG0020) is out of
+        // same-named method on another type is never flagged and the raw Path.GetTempPath (owned by DN0020) is out of
         // scope entirely.
         if (member is IMethodSymbol
             && string.Equals(member.Name, GetTempDirectoryMethodName, StringComparison.Ordinal)

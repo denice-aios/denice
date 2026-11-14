@@ -9,7 +9,7 @@ namespace Denice.CrossPlatform.MacOS;
 /// The internal macOS presence native port — the one seam through which the macOS presence check reaches
 /// LocalAuthentication. Its sole implementer (<see cref="LocalAuthentication"/>) is the fake-testable orchestrator that
 /// composes the native ops; the raw <c>objc_msgSend</c> binding lives one layer below in <see cref="IObjCRuntime"/>'s
-/// owner, <c>ObjCRuntime</c> (per-os-native-behind-a-port; enforced by AG0113/AG0114). It creates a fresh
+/// owner, <c>ObjCRuntime</c> (per-os-native-behind-a-port; enforced by DN0113/DN0114). It creates a fresh
 /// <c>LAContext</c> per call (fresh-interaction-no-cached-yes) and returns a plain <see cref="LaResult"/>; the
 /// <c>ApprovalReason</c> mapping is the caller's pure function, so no native detail leaks above this seam.
 /// </summary>

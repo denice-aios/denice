@@ -8,9 +8,9 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// Reports an off-convention member on ANY container node in the <c>ISystemServices</c> tree — the guard of the guard
-/// for the derived service set (derive-service-set-from-isystemservices, ag0034-recurses-every-container). AG0024/
-/// AG0025/AG0031 derive their service set by walking the container tree for its SERVICE ACCESSORS (a property, or a
-/// zero-parameter method, whose value type is a <c>Contracts</c> interface); AG0019 mirrors that same tree against the
+/// for the derived service set (derive-service-set-from-isystemservices, ag0034-recurses-every-container). DN0024/
+/// DN0025/DN0031 derive their service set by walking the container tree for its SERVICE ACCESSORS (a property, or a
+/// zero-parameter method, whose value type is a <c>Contracts</c> interface); DN0019 mirrors that same tree against the
 /// builder. This rule keeps every level of the walk complete by recursing the ONE tree
 /// <see cref="BoundaryServices.ResolveTree"/> builds and guarding each node's surface: at the ROOT, every member must
 /// be a service accessor or the one deliberately-named non-interface service, the <c>System.TimeProvider</c> clock; at
@@ -18,7 +18,7 @@ namespace Denice.Analyzers;
 /// accessor or an owned per-path <c>*Info</c> factory (a member whose return type is <c>IFileInfo</c>/
 /// <c>IDirectoryInfo</c>, reused from <see cref="OwnedPrimitives"/>). Any other member — a field, a stray parameterized
 /// factory, or a member of a non-service type — is a build error, so a sub-container that grew an off-convention member
-/// the walk cannot classify can never silently break the "mirror at every level" guarantee or the AG0025/AG0031
+/// the walk cannot classify can never silently break the "mirror at every level" guarantee or the DN0025/DN0031
 /// coverage of that level (fail-closed). Each node is guarded only in the assembly that DECLARES it, so the diagnostic
 /// lands on the source member. It passes on the current well-formed container, so it is preventive today. What counts
 /// as a service accessor or the clock is the single definition shared with the walk in <see cref="BoundaryServices"/>.
@@ -29,12 +29,12 @@ public sealed class SystemServicesMemberMustBeServiceAccessorAnalyzer : Diagnost
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0034";
+    public const string DiagnosticId = "DN0034";
 
     private const string Category = "Denice.Architecture";
 
     // The owned per-path *Info factory return types allowed on a SUB-CONTAINER — IFileInfo/IDirectoryInfo — reused from
-    // OwnedPrimitives.InfoWrapperInterfaces (the single combined union, shared with AG0033) so the wrapper-interface
+    // OwnedPrimitives.InfoWrapperInterfaces (the single combined union, shared with DN0033) so the wrapper-interface
     // identities and the AddRange are spelled exactly once (fileinfo-abstraction-stays-in-ag0011).
     private static readonly ImmutableArray<(string Namespace, string Name)> InfoFactoryReturnTypes =
         OwnedPrimitives.InfoWrapperInterfaces;
@@ -46,7 +46,7 @@ public sealed class SystemServicesMemberMustBeServiceAccessorAnalyzer : Diagnost
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Every member of every container node in the ISystemServices tree must be a service accessor (a property or zero-parameter method whose value type is an Denice.Abstractions.Contracts interface), plus — at the root — the System.TimeProvider clock, or — at a sub-container — an owned per-path *Info factory (returning IFileInfo/IDirectoryInfo). The static-holder (AG0024), one-owner (AG0025), and no-service-parameter (AG0031) rules derive their service set by walking these accessors, and AG0019 mirrors the same tree against the builder; a field, a stray parameterized factory, or a member of a non-service type would add surface the walk cannot see, leaving a service ungoverned, so it is a build error. Each container node is guarded in its declaring assembly.",
+        description: "Every member of every container node in the ISystemServices tree must be a service accessor (a property or zero-parameter method whose value type is an Denice.Abstractions.Contracts interface), plus — at the root — the System.TimeProvider clock, or — at a sub-container — an owned per-path *Info factory (returning IFileInfo/IDirectoryInfo). The static-holder (DN0024), one-owner (DN0025), and no-service-parameter (DN0031) rules derive their service set by walking these accessors, and DN0019 mirrors the same tree against the builder; a field, a stray parameterized factory, or a member of a non-service type would add surface the walk cannot see, leaving a service ungoverned, so it is a build error. Each container node is guarded in its declaring assembly.",
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);

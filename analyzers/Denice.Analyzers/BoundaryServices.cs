@@ -8,22 +8,22 @@ using Microsoft.CodeAnalysis;
 namespace Denice.Analyzers;
 
 /// <summary>
-/// Derives the boundary service set the three constructor-injection rules reason about — AG0024's static-holder ban,
-/// AG0025's one-owner-per-interface check, and AG0031's no-service-as-a-parameter check — from the shape of
+/// Derives the boundary service set the three constructor-injection rules reason about — DN0024's static-holder ban,
+/// DN0025's one-owner-per-interface check, and DN0031's no-service-as-a-parameter check — from the shape of
 /// <c>ISystemServices</c> at compile time, replacing the hand-maintained list that drifted as services were added
 /// (derive-service-set-from-isystemservices). <see cref="ResolveTree"/> walks the container ONCE per compilation into a
 /// <see cref="ContainerNode"/> tree — the single walk of the container shape — and <see cref="Resolve"/> flattens over
 /// it, byte-identical to the former hand-rolled recursion (proven by the regression assertion in the analyzer tests),
-/// so AG0024/AG0025/AG0031 read the identical set and the recursive rules AG0019 (builder completeness) and AG0034
+/// so DN0024/DN0025/DN0031 read the identical set and the recursive rules DN0019 (builder completeness) and DN0034
 /// (container surface) reason about the identical structure. Starting from <c>ISystemServices</c>, the walk follows
 /// every SERVICE ACCESSOR — a property, or a zero-parameter method, whose value type is an interface declared in
 /// <c>Denice.Abstractions.Contracts</c> — recursing (visited-guarded, so cycles terminate) into each. A
 /// sub-container such as <c>IFileSystem</c> or <c>IPlatformServices</c> is a structural pass-through: its accessors are
 /// followed to reach the services it exposes, but the sub-container itself is not a leaf service. A parameterized
 /// factory (<c>GetFileInfo(string)</c>) is not an accessor, so its return interface is never collected. The leaf
-/// interfaces are the <see cref="DerivedServices.ServiceInterfaces"/> that feed AG0025 and AG0031; those plus the
+/// interfaces are the <see cref="DerivedServices.ServiceInterfaces"/> that feed DN0025 and DN0031; those plus the
 /// container and the one non-interface clock service <c>System.TimeProvider</c> are the
-/// <see cref="DerivedServices.ServiceTypes"/> that feed AG0024. Every type is matched by full (namespace + name)
+/// <see cref="DerivedServices.ServiceTypes"/> that feed DN0024. Every type is matched by full (namespace + name)
 /// identity through <see cref="WellKnownType"/>, never a bare name.
 /// </summary>
 internal static class BoundaryServices
@@ -35,15 +35,15 @@ internal static class BoundaryServices
 
     /// <summary>
     /// The simple name of <c>System.TimeProvider</c> — the clock, the one deliberately-named non-interface service on
-    /// the container: a BCL class rather than an owned interface, so it is a service TYPE for AG0024 but not an owner
-    /// interface for AG0025 or AG0031. It is the single named exception; the drift-prone interface set is derived,
+    /// the container: a BCL class rather than an owned interface, so it is a service TYPE for DN0024 but not an owner
+    /// interface for DN0025 or DN0031. It is the single named exception; the drift-prone interface set is derived,
     /// not named.
     /// </summary>
     internal const string TimeProviderName = "TimeProvider";
 
     /// <summary>
     /// Walks <c>ISystemServices</c> in <paramref name="compilation"/> into the container tree — the ONE walk of the
-    /// container shape shared by <see cref="Resolve"/>, AG0019, and AG0034. Returns <see langword="null"/> when the
+    /// container shape shared by <see cref="Resolve"/>, DN0019, and DN0034. Returns <see langword="null"/> when the
     /// container is not in scope (a compilation that does not reference the contracts assembly), so every consuming
     /// rule is simply inert there.
     /// </summary>
@@ -92,7 +92,7 @@ internal static class BoundaryServices
     /// <summary>
     /// The full-name identities of every CONTAINER node in the tree rooted at <paramref name="root"/> — the root
     /// container and every nested container reached through a <see cref="ServiceAccessorKind.Container"/> accessor,
-    /// recursively, in pre-order. This is the container-interface set the single-owner container rule (AG0022) guards,
+    /// recursively, in pre-order. This is the container-interface set the single-owner container rule (DN0022) guards,
     /// derived from the ONE tree walk <see cref="ResolveTree"/> builds rather than a hand-maintained triple, so a future
     /// nested container is covered automatically. Over the shipped container it yields exactly
     /// <c>ISystemServices</c>, <c>IFileSystem</c>, <c>IPlatformServices</c>. A leaf service and the clock are never
@@ -115,7 +115,7 @@ internal static class BoundaryServices
     /// filesystem/platform interfaces the shared copy-on-write overlay implements. The root's own direct leaves
     /// (environment, randomness, console, signatures, build-info) are NOT included, because each of those has a single
     /// dedicated fake a test supplies through <c>With(...)</c>, whereas the filesystem/platform leaves must be built
-    /// through the overlay. This is the candidate set the leaf/platform single-implementer rule (AG0030) guards in a
+    /// through the overlay. This is the candidate set the leaf/platform single-implementer rule (DN0030) guards in a
     /// <c>.Tests</c> compilation, derived from the ONE tree walk <see cref="ResolveTree"/> builds by reusing the same
     /// <see cref="FlattenLeaves"/> the byte-identical <see cref="Resolve"/> uses, so a future filesystem leaf added under
     /// a nested container is covered automatically with no edit here.
@@ -146,7 +146,7 @@ internal static class BoundaryServices
     /// zero-parameter method, whose value type is an interface declared in
     /// <c>Denice.Abstractions.Contracts</c> — or <see langword="null"/> when the member is not such an accessor
     /// (a parameterized factory, a method returning a non-interface, or a member that is not accessor-shaped). Shared
-    /// by the derivation walk and AG0034 so both agree on exactly what a service accessor is.
+    /// by the derivation walk and DN0034 so both agree on exactly what a service accessor is.
     /// </summary>
     /// <param name="member">The member to classify.</param>
     /// <returns>The exposed <c>Contracts</c> interface, or <see langword="null"/> when the member is not an
@@ -162,7 +162,7 @@ internal static class BoundaryServices
     /// <summary>
     /// Gets a value indicating whether <paramref name="member"/> exposes the clock — a non-indexer property, or an
     /// ordinary zero-parameter method, whose value type is <c>System.TimeProvider</c>. The clock is the one
-    /// deliberately-named non-interface service AG0034 permits alongside the derived service accessors.
+    /// deliberately-named non-interface service DN0034 permits alongside the derived service accessors.
     /// </summary>
     /// <param name="member">The member to test.</param>
     /// <returns><see langword="true"/> when the member exposes the <c>System.TimeProvider</c> clock.</returns>
@@ -175,7 +175,7 @@ internal static class BoundaryServices
     /// <summary>
     /// The value a member produces — the property type for a non-indexer property, or the return type for an ordinary
     /// method REGARDLESS of its parameters, or <see langword="null"/> for anything else. Unlike
-    /// <see cref="AccessorValueType"/> this does not require a method to be zero-parameter, so AG0034 can classify a
+    /// <see cref="AccessorValueType"/> this does not require a method to be zero-parameter, so DN0034 can classify a
     /// parameterized per-path <c>*Info</c> factory (<c>GetFileInfo(string)</c>) by its return type on a sub-container.
     /// </summary>
     /// <param name="member">The member whose produced value type is wanted.</param>
@@ -192,7 +192,7 @@ internal static class BoundaryServices
 
     /// <summary>
     /// The declared surface of an interface for the accessor walk: its own members plus those of every interface it
-    /// extends (so a member exposed through an inherited accessor is still seen). Internal so AG0034
+    /// extends (so a member exposed through an inherited accessor is still seen). Internal so DN0034
     /// (<see cref="SystemServicesMemberMustBeServiceAccessorAnalyzer"/>) guards the SAME surface the derivation walks —
     /// the one definition of the container surface — instead of a diverging <c>GetMembers()</c> copy.
     /// </summary>
@@ -208,7 +208,7 @@ internal static class BoundaryServices
     // nested container (recurse into it, visited-guarded so a cycle yields a null child and terminates); one whose
     // target exposes none is a leaf service; a TimeProvider member is the clock. An off-convention member (a
     // parameterized *Info factory, a field, a non-service member) is not a governed accessor and is simply absent —
-    // AG0034 re-walks the surface to guard those.
+    // DN0034 re-walks the surface to guard those.
     private static ContainerNode BuildNode(INamedTypeSymbol node, HashSet<INamedTypeSymbol> visited)
     {
         visited.Add(node);

@@ -11,16 +11,16 @@ namespace Denice.Analyzers;
 /// root <c>ISystemServices</c> and every nested container it exposes (<c>IFileSystem</c>, <c>IPlatformServices</c>, and
 /// any future one), DERIVED from the container tree rather than a hand-maintained triple
 /// (container-interface-single-owner-rule). Each container has exactly one implementer per compilation; a second is a
-/// build error. Unlike the leaf-service one-owner rule (AG0025), this has NO test-system exemption: in a test
+/// build error. Unlike the leaf-service one-owner rule (DN0025), this has NO test-system exemption: in a test
 /// compilation the only legal container implementers are the fake container types nested inside
 /// <c>SystemServicesBuilder</c>, so a test hand-rolling <c>class Fake : ISystemServices</c> (or <c>: IFileSystem</c> /
 /// <c>: IPlatformServices</c>) and building a container directly — sidestepping the builder — is caught here. That
-/// bypass is uncaught by anything else: AG0025 covers only the leaf services and exempts test assemblies, and AG0017
+/// bypass is uncaught by anything else: DN0025 covers only the leaf services and exempts test assemblies, and DN0017
 /// pins only the static factory, not a direct interface implementation. The container-interface set comes from the ONE
 /// container walk <see cref="BoundaryServices.ResolveTree"/> performs (via
-/// <see cref="BoundaryServices.ContainerInterfaces"/>), the same shared walk AG0019 and AG0034 read, so a future nested
+/// <see cref="BoundaryServices.ContainerInterfaces"/>), the same shared walk DN0019 and DN0034 read, so a future nested
 /// container is guarded automatically with no edit here. The accumulate-and-report-second-implementer algorithm is the
-/// one shared with AG0025 through <see cref="SecondImplementerGuard"/>. Every named-type kind counts (class, struct,
+/// one shared with DN0025 through <see cref="SecondImplementerGuard"/>. Every named-type kind counts (class, struct,
 /// record, record struct), because the container implementer could be any of them; only source types in the compilation
 /// are considered (<see cref="SymbolKind.NamedType"/> excludes referenced-assembly types), so a referenced assembly's
 /// own single implementer never counts against a second one here. It passes on the current well-formed tree (one
@@ -32,7 +32,7 @@ public sealed class ContainerInterfaceSingleOwnerAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0022";
+    public const string DiagnosticId = "DN0022";
 
     private const string Category = "Denice.Architecture";
 
@@ -43,7 +43,7 @@ public sealed class ContainerInterfaceSingleOwnerAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "At most one type per compilation may implement a container interface (ISystemServices, IFileSystem, IPlatformServices, and any future nested container, derived from the container tree). A second implementer of any named-type kind is a build error, with NO test-system exemption: in a test compilation the only legal container implementers are the fake container types nested inside SystemServicesBuilder, so a test hand-rolling a container implementation to sidestep the builder is caught here — the one bypass AG0025 (leaf services, test-exempt) and AG0017 (static factory) do not cover.",
+        description: "At most one type per compilation may implement a container interface (ISystemServices, IFileSystem, IPlatformServices, and any future nested container, derived from the container tree). A second implementer of any named-type kind is a build error, with NO test-system exemption: in a test compilation the only legal container implementers are the fake container types nested inside SystemServicesBuilder, so a test hand-rolling a container implementation to sidestep the builder is caught here — the one bypass DN0025 (leaf services, test-exempt) and DN0017 (static factory) do not cover.",
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
@@ -67,8 +67,8 @@ public sealed class ContainerInterfaceSingleOwnerAnalyzer : DiagnosticAnalyzer
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
         // Derive the container-interface set from the ONE container walk (BoundaryServices.ResolveTree), then delegate
-        // to the shared second-implementer accumulation — the identical algorithm AG0025 uses, but with NO test
-        // exemption (AG0025 returns early in a test compilation; this rule never does). When the container is not in
+        // to the shared second-implementer accumulation — the identical algorithm DN0025 uses, but with NO test
+        // exemption (DN0025 returns early in a test compilation; this rule never does). When the container is not in
         // scope the derived set is empty, so the shared guard is inert.
         ContainerNode? root = BoundaryServices.ResolveTree(context.Compilation);
         ImmutableArray<(string Namespace, string Name)> containers = root is null

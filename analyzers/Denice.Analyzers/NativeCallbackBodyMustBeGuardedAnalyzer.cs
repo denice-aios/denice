@@ -21,7 +21,7 @@ namespace Denice.Analyzers;
 /// or completes fail-closed instead of propagating. C# permits <c>[UnmanagedCallersOnly]</c> on exactly two declaration
 /// forms (CS8896: a static ordinary member method or a static local function), so this rule inspects both; the COM-visible
 /// interface implementation is an ordinary instance method, so it is inspected on the method path only (a local function
-/// cannot implement an interface). The static-and-<c>[UnmanagedCallersOnly]</c> shape is AG0104's / the compiler's; this
+/// cannot implement an interface). The static-and-<c>[UnmanagedCallersOnly]</c> shape is DN0104's / the compiler's; this
 /// rule governs the body. The existing macOS reply block and Windows completed handler already comply, so this is
 /// preventive; a non-guarded native callback of either shape is reported.
 /// </summary>
@@ -31,7 +31,7 @@ public sealed class NativeCallbackBodyMustBeGuardedAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0105";
+    public const string DiagnosticId = "DN0105";
 
     private const string Category = "Denice.Architecture";
 
@@ -60,7 +60,7 @@ public sealed class NativeCallbackBodyMustBeGuardedAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A method carrying [UnmanagedCallersOnly] is invoked directly by native code; an exception that unwinds out of it corrupts the runtime. Its whole body must be a single try statement whose catch handles every managed exception (a bare catch or catch (Exception)) and returns a native error code instead of propagating. AG0104 and the compiler enforce the static-and-[UnmanagedCallersOnly] shape; this rule governs the body.");
+        description: "A method carrying [UnmanagedCallersOnly] is invoked directly by native code; an exception that unwinds out of it corrupts the runtime. Its whole body must be a single try statement whose catch handles every managed exception (a bare catch or catch (Exception)) and returns a native error code instead of propagating. DN0104 and the compiler enforce the static-and-[UnmanagedCallersOnly] shape; this rule governs the body.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

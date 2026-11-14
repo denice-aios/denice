@@ -5,9 +5,9 @@ namespace Denice.Analyzers;
 /// <summary>
 /// Identifies the one application assembly — <c>Denice.Engine</c> — that holds the <c>SystemServices</c>
 /// container and its <c>Create()</c> composition factory. Engine is the only assembly permitted to reach into
-/// <c>Denice.Boundaries</c> (AG0040), into the core <c>Denice.CrossPlatform</c> assembly (AG0023), and into a
-/// per-OS implementation assembly (AG0029), and then only from <c>SystemServices.Create()</c>; it is also the assembly
-/// whose internals the CLI and the test helpers may reach only through that one factory call (AG0041). This is the
+/// <c>Denice.Boundaries</c> (DN0040), into the core <c>Denice.CrossPlatform</c> assembly (DN0023), and into a
+/// per-OS implementation assembly (DN0029), and then only from <c>SystemServices.Create()</c>; it is also the assembly
+/// whose internals the CLI and the test helpers may reach only through that one factory call (DN0041). This is the
 /// single owner of the name, mirroring <see cref="BoundaryAssembly"/>, <see cref="CliAssembly"/>, and
 /// <see cref="TestAssembly"/>, so a rename touches one place.
 /// </summary>

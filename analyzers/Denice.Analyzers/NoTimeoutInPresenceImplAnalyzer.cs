@@ -25,7 +25,7 @@ public sealed class NoTimeoutInPresenceImplAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0107";
+    public const string DiagnosticId = "DN0107";
 
     private const string Category = "Denice.Architecture";
 
@@ -62,7 +62,7 @@ public sealed class NoTimeoutInPresenceImplAnalyzer : DiagnosticAnalyzer
         // one level below it (ILocalAuthentication/IWindowsUserPresence/IPolkitAuthority), OR one of the native-OPS
         // owners one layer below THAT (IObjCRuntime/IWindowsHelloNativeOps/ICredentialPromptNativeOps). A port or
         // native-ops implementer that wraps its own timeout around the native/D-Bus call must be caught too — the gate
-        // owns the one bound at every layer. Elsewhere, AG0038 governs bounded waits.
+        // owns the one bound at every layer. Elsewhere, DN0038 governs bounded waits.
         if (!OwnerClass.Implements(OwnerClass.EnclosingType(context), PresenceContracts.PresenceCheck)
             && !PresenceContracts.IsInAnyPresencePortOwner(context)
             && !PresenceContracts.IsInNativeOpsOwner(context))
@@ -81,9 +81,9 @@ public sealed class NoTimeoutInPresenceImplAnalyzer : DiagnosticAnalyzer
     {
         // The bounded-timeout members recognized through the shared TimeoutMembers detector: any
         // CancellationTokenSource construction (even the TimeProvider overload) or its CancelAfter — the impl may not
-        // mint or arm its own cancellation timeout — a Task.Delay or Task.WaitAsync wait (both shared with AG0038), and
-        // a TimeProvider.CreateTimer. CreateTimer IS the injected-clock path AG0038 mandates as correct, so AG0038 never
-        // flags it; but a presence impl must create no timeout at all, even off the injected clock, so AG0107 does.
+        // mint or arm its own cancellation timeout — a Task.Delay or Task.WaitAsync wait (both shared with DN0038), and
+        // a TimeProvider.CreateTimer. CreateTimer IS the injected-clock path DN0038 mandates as correct, so DN0038 never
+        // flags it; but a presence impl must create no timeout at all, even off the injected clock, so DN0107 does.
         if (TimeoutMembers.IsCancellationTokenSourceConstructor(member, type)
             || TimeoutMembers.IsCancelAfter(member, type)
             || TimeoutMembers.IsTaskDelay(member, type)
@@ -93,7 +93,7 @@ public sealed class NoTimeoutInPresenceImplAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        // A timer-driven bound — this rule's own, not a member AG0038 shares.
+        // A timer-driven bound — this rule's own, not a member DN0038 shares.
         return WellKnownType.Is(type, KnownNamespaces.SystemThreading, "Timer")
             || WellKnownType.Is(type, KnownNamespaces.SystemThreading, "PeriodicTimer");
     }

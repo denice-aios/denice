@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0107: a presence implementation (a class implementing IPresenceCheck) must not mint its own timeout — no
+/// DN0107: a presence implementation (a class implementing IPresenceCheck) must not mint its own timeout — no
 /// CancellationTokenSource, CancelAfter, Task.Delay, or Timer. The approval gate owns the one 60-second bound.
 /// </summary>
 public class NoTimeoutInPresenceImplAnalyzerTests
@@ -48,7 +48,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoTimeoutInPresenceImplAnalyzer>(source, "Denice.CrossPlatform.Linux"));
-        Assert.Equal("AG0107", diagnostic.Id);
+        Assert.Equal("DN0107", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -72,7 +72,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoTimeoutInPresenceImplAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0107", diagnostic.Id);
+        Assert.Equal("DN0107", diagnostic.Id);
     }
 
     [Fact]
@@ -96,15 +96,15 @@ public class NoTimeoutInPresenceImplAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoTimeoutInPresenceImplAnalyzer>(source, "Denice.CrossPlatform.Windows"));
-        Assert.Equal("AG0107", diagnostic.Id);
+        Assert.Equal("DN0107", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
     [Fact]
     public async Task TimeProviderCreateTimerInPresenceImpl_IsReportedByAg0107ButNotAg0038()
     {
-        // TimeProvider.CreateTimer off the injected clock is exactly the path AG0038 mandates as correct, so AG0038 must
-        // NOT flag it; but a presence impl must create no timeout at all, so AG0107 must. The same source proves both.
+        // TimeProvider.CreateTimer off the injected clock is exactly the path DN0038 mandates as correct, so DN0038 must
+        // NOT flag it; but a presence impl must create no timeout at all, so DN0107 must. The same source proves both.
         string source = PresenceContract + $$"""
 
             namespace Denice.CrossPlatform.MacOS
@@ -123,9 +123,9 @@ public class NoTimeoutInPresenceImplAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoTimeoutInPresenceImplAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0107", diagnostic.Id);
+        Assert.Equal("DN0107", diagnostic.Id);
 
-        // AG0038 (timeout-must-use-TimeProvider) leaves CreateTimer alone — it IS the injected-clock timer path.
+        // DN0038 (timeout-must-use-TimeProvider) leaves CreateTimer alone — it IS the injected-clock timer path.
         Assert.Empty(await AnalyzerRunner.RunAsync<TimeoutMustUseTimeProviderAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
     }
 
@@ -150,7 +150,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoTimeoutInPresenceImplAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0107", diagnostic.Id);
+        Assert.Equal("DN0107", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -174,13 +174,13 @@ public class NoTimeoutInPresenceImplAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoTimeoutInPresenceImplAnalyzer>(source, "Denice.CrossPlatform.Linux"));
-        Assert.Equal("AG0107", diagnostic.Id);
+        Assert.Equal("DN0107", diagnostic.Id);
     }
 
     [Fact]
     public async Task TimeoutOutsidePresenceImpl_IsNotReported()
     {
-        // A class that does NOT implement IPresenceCheck is not this rule's concern (AG0038 governs its waits).
+        // A class that does NOT implement IPresenceCheck is not this rule's concern (DN0038 governs its waits).
         string source = PresenceContract + """
 
             namespace App
@@ -220,7 +220,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
     [Fact]
     public async Task TimeoutInMacOsNativeOpsOwner_IsReported()
     {
-        // The coverage refactor extends AG0107 DOWN to the native-ops layer: a class owning the macOS native-ops
+        // The coverage refactor extends DN0107 DOWN to the native-ops layer: a class owning the macOS native-ops
         // interface (IObjCRuntime) that wraps its own CancellationTokenSource timeout around the raw call is caught too —
         // the gate owns the one bound at every layer, native-ops included. The native-ops stub is the shared owner
         // SharedAnalyzerSources.ObjCRuntimeNativeOps; the implementer sits in a second MacOS namespace block.
@@ -238,7 +238,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoTimeoutInPresenceImplAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0107", diagnostic.Id);
+        Assert.Equal("DN0107", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 }

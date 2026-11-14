@@ -15,7 +15,7 @@ namespace Denice.Analyzers;
 /// reach the factory, so this rule pins both consumers to that single entry point. The factory type name is
 /// established by this rule (Rule-Driven Development): the <c>CrossPlatformAdapters</c> type in the
 /// <c>Denice.CrossPlatform</c> namespace. The per-OS <c>.MacOS</c>/<c>.Linux</c>/<c>.Windows</c> assemblies are
-/// AG0029's door, not this one; <c>IPlatformFileSystem</c>/<c>IPlatformServices</c> live in
+/// DN0029's door, not this one; <c>IPlatformFileSystem</c>/<c>IPlatformServices</c> live in
 /// <c>Denice.Abstractions</c>, a different assembly, so they are never caught here.
 /// <para>
 /// The two gates are deliberately different. The <c>Denice.Boundaries</c> gate is UNCHANGED: member access only,
@@ -30,7 +30,7 @@ namespace Denice.Analyzers;
 /// The Engine gate also widens the target filter to the shared <c>Denice.CrossPlatform</c> NAMESPACE, so a
 /// same-named decoy squatting it from a foreign assembly is reported rather than silently accepted. That namespace is
 /// shared with the three per-OS implementation assemblies, which the widening excludes so the legitimate
-/// <c>PlatformServices.Create()</c> call stays AG0029's business. AG0029 admits the same foreign squatters beside its
+/// <c>PlatformServices.Create()</c> call stays DN0029's business. DN0029 admits the same foreign squatters beside its
 /// own per-OS types, because neither rule may be silent about an imitation of its own door; both rules reporting one
 /// imitation is the intended overlap, not a defect.
 /// </para>
@@ -41,7 +41,7 @@ public sealed class OneDoorIntoCrossPlatformAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0023";
+    public const string DiagnosticId = "DN0023";
 
     private const string Category = "Denice.Architecture";
 
@@ -74,7 +74,7 @@ public sealed class OneDoorIntoCrossPlatformAnalyzer : DiagnosticAnalyzer
     // spoofing hole — a decoy that squats the guarded namespace from a foreign assembly lands in scope and then FAILS
     // the door's namespace-plus-name-plus-assembly conjunction, rather than falling out of scope and being silently
     // accepted, in a call, a written name, or a carried type alike. The per-OS assemblies are excluded there, so the
-    // legitimate PlatformServices.Create() call inside SystemServices.Create() stays AG0029's business and is not
+    // legitimate PlatformServices.Create() call inside SystemServices.Create() stays DN0029's business and is not
     // reported here.
     private static readonly Func<INamedTypeSymbol, bool> IsCrossPlatformCoreTypeFromEngine =
         type => IsCrossPlatformCoreType(type) || CrossPlatformBoundary.IsSharedNamespaceDecoy(type);

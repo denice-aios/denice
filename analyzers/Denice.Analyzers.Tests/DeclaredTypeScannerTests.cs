@@ -10,10 +10,10 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// The carried-type lens has TWO entry points and they register different sets. AG0006 keeps exactly the four
+/// The carried-type lens has TWO entry points and they register different sets. DN0006 keeps exactly the four
 /// DECLARATION positions it always had; the access rules' gated entry point adds the return type of an INVOKED
-/// member. AG0006's own seven tests remain the proof of the four declaration positions, unmodified, so the only
-/// behaviour proved here is the position that is new and the split that keeps AG0006's diagnostics unchanged.
+/// member. DN0006's own seven tests remain the proof of the four declaration positions, unmodified, so the only
+/// behaviour proved here is the position that is new and the split that keeps DN0006's diagnostics unchanged.
 /// </summary>
 public class DeclaredTypeScannerTests
 {
@@ -27,8 +27,8 @@ public class DeclaredTypeScannerTests
         "        internal static object Made() => " + DeclaringMethod + "();\n\n"
         + "        private static EngineInternal " + DeclaringMethod + "() => null!;";
 
-    // The AG0006 fixture, in the same shape: a contract implementation is the DECLARED return type of one method and
-    // the INVOKED return type at the call to it. AG0006 must see the first and not the second.
+    // The DN0006 fixture, in the same shape: a contract implementation is the DECLARED return type of one method and
+    // the INVOKED return type at the call to it. DN0006 must see the first and not the second.
     private const string ContractImplementationType = "Sample.Impl.Widget";
 
     private const string ContractImplementationSource = """
@@ -83,7 +83,7 @@ public class DeclaredTypeScannerTests
     {
         // The other half of the split, proved against the one rule that drives the declaration entry point alone.
         // The fixture really does invoke a member whose return type is the contract implementation — asserted from
-        // the semantic model, so "AG0006 does not report there" cannot pass by the call being absent — and AG0006
+        // the semantic model, so "DN0006 does not report there" cannot pass by the call being absent — and DN0006
         // still reports exactly once, at the DECLARATION.
         SemanticModel model = await SharedAnalyzerSources.SemanticModelAsync(ContractImplementationSource);
         var invoked = Assert.IsAssignableFrom<IMethodSymbol>(

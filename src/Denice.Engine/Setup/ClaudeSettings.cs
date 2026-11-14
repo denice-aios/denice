@@ -2,7 +2,7 @@
 
 using System.IO;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Reads the project's <c>.claude/settings.json</c> for the callers that then merge or inspect it. It is the one

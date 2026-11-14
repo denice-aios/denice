@@ -21,7 +21,7 @@ namespace Denice.CrossPlatform.Tests;
 ///
 /// It drives real Win32 (credui.dll / advapi32.dll), so it PASSES only on the <c>windows-latest</c> CI leg; on a
 /// non-Windows host the win-x64 cross-sim throws <c>DllNotFoundException</c> at the first native call, exactly like the
-/// other real-boundary Windows presence tests. It is deliberately NOT OS-skipped (AG0026): the Windows leg is where it
+/// other real-boundary Windows presence tests. It is deliberately NOT OS-skipped (DN0026): the Windows leg is where it
 /// runs. Compiled only on the Windows CI leg (it constructs the internal Windows
 /// <see cref="CredentialPromptNativeOps"/> through the per-OS <c>InternalsVisibleTo</c> grant), and — like the macOS
 /// <c>MacOsObjCRuntimeSpecTests</c> — it is NOT behind the interactive native-smoke opt-in because it shows no prompt.

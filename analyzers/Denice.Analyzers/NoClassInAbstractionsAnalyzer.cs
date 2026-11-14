@@ -17,7 +17,7 @@ public sealed class NoClassInAbstractionsAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0001";
+    public const string DiagnosticId = "DN0001";
 
     private const string Category = "Denice.Architecture";
     private const string AbstractionsSegment = "Abstractions";

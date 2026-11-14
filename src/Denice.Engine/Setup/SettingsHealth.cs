@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The health of the guard's hook entries in <c>.claude/settings.json</c>, as detected by <c>doctor</c>.

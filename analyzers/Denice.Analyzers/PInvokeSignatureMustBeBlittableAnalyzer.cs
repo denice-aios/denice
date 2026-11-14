@@ -21,7 +21,7 @@ public sealed class PInvokeSignatureMustBeBlittableAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0102";
+    public const string DiagnosticId = "DN0102";
 
     private const string Category = "Denice.Architecture";
 
@@ -32,7 +32,7 @@ public sealed class PInvokeSignatureMustBeBlittableAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A method carrying [DllImport] or [LibraryImport] must not use object, dynamic, an unconstrained generic type parameter, or a C-style variadic (__arglist) parameter list in its signature: each leaves the marshaller without a fixed native layout. Every return and parameter must be an explicit blittable, marshallable type. AG0008 confines the P/Invoke declaration to the per-OS libraries; this rule constrains its signature.");
+        description: "A method carrying [DllImport] or [LibraryImport] must not use object, dynamic, an unconstrained generic type parameter, or a C-style variadic (__arglist) parameter list in its signature: each leaves the marshaller without a fixed native layout. Every return and parameter must be an explicit blittable, marshallable type. DN0008 confines the P/Invoke declaration to the per-OS libraries; this rule constrains its signature.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

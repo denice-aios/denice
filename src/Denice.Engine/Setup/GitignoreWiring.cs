@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using Denice.Engine;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Adds the two runtime-store directories to a repository's <c>.gitignore</c>, idempotently. The lines are the

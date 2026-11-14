@@ -14,7 +14,7 @@ namespace Denice.Analyzers;
 /// virtualized. A <c>Task.Delay</c>, <c>Task.WaitAsync</c>, or <c>CancellationTokenSource</c> that carries a timeout
 /// must take the overload with a <c>System.TimeProvider</c> parameter (for example
 /// <c>Task.Delay(delay, services.Clock, ct)</c> and <c>new CancellationTokenSource(delay, services.Clock)</c>); the
-/// no-<c>TimeProvider</c> overloads bind the real system clock and make the wait un-fakeable. This complements AG0015,
+/// no-<c>TimeProvider</c> overloads bind the real system clock and make the wait un-fakeable. This complements DN0015,
 /// which bans raw wall-clock READS; this rule governs bounded WAITS. Reading a delay off an already-injected clock is
 /// never caught. This rule is preventive against the presence gate's timeout; the codebase has no bounded wait today.
 /// </summary>
@@ -24,7 +24,7 @@ public sealed class TimeoutMustUseTimeProviderAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0038";
+    public const string DiagnosticId = "DN0038";
 
     private const string Category = "Denice.Architecture";
     private const string TimeProviderName = "TimeProvider";
@@ -36,7 +36,7 @@ public sealed class TimeoutMustUseTimeProviderAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A bounded wait or timeout must be virtualizable through the injected clock so the 60-second presence timeout is proven by advancing a fake TimeProvider with no real wait. Thread.Sleep is banned everywhere (it has no TimeProvider form); Task.Delay, Task.WaitAsync, and a CancellationTokenSource carrying a timeout must take the overload with a System.TimeProvider parameter and be passed ISystemServices.Clock. This complements AG0015, which bans raw wall-clock reads; this rule governs bounded waits.");
+        description: "A bounded wait or timeout must be virtualizable through the injected clock so the 60-second presence timeout is proven by advancing a fake TimeProvider with no real wait. Thread.Sleep is banned everywhere (it has no TimeProvider form); Task.Delay, Task.WaitAsync, and a CancellationTokenSource carrying a timeout must take the overload with a System.TimeProvider parameter and be passed ISystemServices.Clock. This complements DN0015, which bans raw wall-clock reads; this rule governs bounded waits.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -73,7 +73,7 @@ public sealed class TimeoutMustUseTimeProviderAnalyzer : DiagnosticAnalyzer
     private static bool IsBanned(IMethodSymbol method, INamedTypeSymbol type)
     {
         // Thread.Sleep — a blocking sleep with no TimeProvider form, banned everywhere. This rule's own; not a
-        // bounded-timeout member AG0107 shares.
+        // bounded-timeout member DN0107 shares.
         if (WellKnownType.Is(type, KnownNamespaces.SystemThreading, "Thread")
             && string.Equals(method.Name, "Sleep", StringComparison.Ordinal))
         {

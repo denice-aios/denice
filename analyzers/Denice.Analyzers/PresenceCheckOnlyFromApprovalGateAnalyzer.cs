@@ -9,7 +9,7 @@ namespace Denice.Analyzers;
 
 /// <summary>
 /// Reports a production invocation of <c>IPresenceCheck.Check</c> made anywhere but the approval gate
-/// (<c>Denice.Setup.ApprovalGate</c>). The gate is the single place a presence check is raced against the 60-second
+/// (<c>Denice.Engine.Setup.ApprovalGate</c>). The gate is the single place a presence check is raced against the 60-second
 /// timeout, its reason mapped to a CLI line, and the fail-closed policy applied; a command, handler, or other type
 /// calling <c>Check</c> directly would bypass the timeout and the reason handling. In a production assembly
 /// (<c>src/**</c>) the only legal caller is the gate. A test assembly (<c>*.Tests</c>) is exempt: the per-OS native
@@ -23,18 +23,18 @@ public sealed class PresenceCheckOnlyFromApprovalGateAnalyzer : DiagnosticAnalyz
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0108";
+    public const string DiagnosticId = "DN0108";
 
     private const string Category = "Denice.Architecture";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
         title: "IPresenceCheck.Check may be invoked only from the approval gate in production",
-        messageFormat: "IPresenceCheck.Check is invoked outside the approval gate; only Denice.Setup.ApprovalGate may call Check in production, so the 60-second timeout and reason handling are never bypassed",
+        messageFormat: "IPresenceCheck.Check is invoked outside the approval gate; only Denice.Engine.Setup.ApprovalGate may call Check in production, so the 60-second timeout and reason handling are never bypassed",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "In a production assembly (src/**) IPresenceCheck.Check may be invoked only from Denice.Setup.ApprovalGate, the single place the check is raced against the 60-second fail-closed timeout and its reason mapped to a CLI line. A test assembly (*.Tests) is exempt so the per-OS native smoke can call the real Check directly with its own prompt.");
+        description: "In a production assembly (src/**) IPresenceCheck.Check may be invoked only from Denice.Engine.Setup.ApprovalGate, the single place the check is raced against the 60-second fail-closed timeout and its reason mapped to a CLI line. A test assembly (*.Tests) is exempt so the per-OS native smoke can call the real Check directly with its own prompt.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

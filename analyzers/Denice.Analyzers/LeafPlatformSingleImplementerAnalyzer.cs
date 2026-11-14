@@ -16,14 +16,14 @@ namespace Denice.Analyzers;
 /// <c>: IPlatformFileSystem</c> (a platform double) is a build error here, so a failure case goes through the shared
 /// overlay's <c>Handle</c>/<c>MarkInaccessible</c> seam instead of a bespoke leaf implementer.
 /// <para>
-/// This is the corrected, <c>.Tests</c>-scoped form of the rejected "remove AG0025's blanket exemption": it gates on
+/// This is the corrected, <c>.Tests</c>-scoped form of the rejected "remove DN0025's blanket exemption": it gates on
 /// <see cref="TestAssembly.IsTestAssembly"/> — which EXCLUDES <c>Denice.TestHelpers</c> — so TestHelpers keeps
-/// AG0025's deliberate fake-plus-<c>Wrap</c>-proxy dual-implementer exemption, and a shipping assembly (where
+/// DN0025's deliberate fake-plus-<c>Wrap</c>-proxy dual-implementer exemption, and a shipping assembly (where
 /// <c>PosixFileSystem</c> legitimately implements <c>IPlatformFileSystem</c>) is never gated because it is not a test
 /// project. The candidate set is the nested-leaf set derived from the ONE container walk
-/// (<see cref="BoundaryServices.NestedLeafInterfaces"/>), the same shared walk AG0022/AG0025 read, so a future
+/// (<see cref="BoundaryServices.NestedLeafInterfaces"/>), the same shared walk DN0022/DN0025 read, so a future
 /// filesystem leaf added under a nested container is guarded automatically with no edit here. The
-/// accumulate-and-report algorithm is the one shared with AG0022/AG0025 through <see cref="SecondImplementerGuard"/>,
+/// accumulate-and-report algorithm is the one shared with DN0022/DN0025 through <see cref="SecondImplementerGuard"/>,
 /// permitting ZERO implementers so it reports the FIRST source implementer (and every later one). Only source types
 /// in the compilation are considered (<see cref="SymbolKind.NamedType"/> excludes referenced-assembly types), so the
 /// sanctioned TestHelpers implementers a test references never count here.
@@ -35,7 +35,7 @@ public sealed class LeafPlatformSingleImplementerAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0030";
+    public const string DiagnosticId = "DN0030";
 
     private const string Category = "Denice.Architecture";
 
@@ -46,7 +46,7 @@ public sealed class LeafPlatformSingleImplementerAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "In a .Tests compilation no source type may implement any of the four filesystem leaf interfaces (IFileReader, IDirectoryEnumerator, IFileWriter, IDirectoryWriter) or IPlatformFileSystem. The only sanctioned implementers are the fakes and Wrap proxies in Denice.TestHelpers, reached through SystemServicesBuilder and referenced by the test project. A test hand-rolling a leaf/platform implementer — a throwing enumerator or a platform double — is a build error; route the fake through the builder and use the shared overlay's Handle/MarkInaccessible seam for a failure case. Denice.TestHelpers keeps AG0025's fake-plus-Wrap-proxy exemption (it is not a .Tests assembly), and a shipping assembly's own single implementer is never gated here.",
+        description: "In a .Tests compilation no source type may implement any of the four filesystem leaf interfaces (IFileReader, IDirectoryEnumerator, IFileWriter, IDirectoryWriter) or IPlatformFileSystem. The only sanctioned implementers are the fakes and Wrap proxies in Denice.TestHelpers, reached through SystemServicesBuilder and referenced by the test project. A test hand-rolling a leaf/platform implementer — a throwing enumerator or a platform double — is a build error; route the fake through the builder and use the shared overlay's Handle/MarkInaccessible seam for a failure case. Denice.TestHelpers keeps DN0025's fake-plus-Wrap-proxy exemption (it is not a .Tests assembly), and a shipping assembly's own single implementer is never gated here.",
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
@@ -70,7 +70,7 @@ public sealed class LeafPlatformSingleImplementerAnalyzer : DiagnosticAnalyzer
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
         // Scoped to .Tests compilations only. IsTestAssembly EXCLUDES Denice.TestHelpers, so the sanctioned
-        // fake-plus-Wrap-proxy implementers there keep AG0025's exemption; a shipping assembly (where the per-OS
+        // fake-plus-Wrap-proxy implementers there keep DN0025's exemption; a shipping assembly (where the per-OS
         // PosixFileSystem/WindowsFileSystem legitimately implement IPlatformFileSystem) is likewise never gated. A
         // non-test compilation registers nothing.
         if (!TestAssembly.IsTestAssembly(context.Compilation))
@@ -89,7 +89,7 @@ public sealed class LeafPlatformSingleImplementerAnalyzer : DiagnosticAnalyzer
 
         // Permit ZERO implementers: the sanctioned implementers live in TestHelpers (referenced, not source), so the
         // FIRST source implementer in a .Tests compilation is reported (and every later one) — the shared guard's
-        // report-first accumulation, a one-argument variation on AG0025's report-second.
+        // report-first accumulation, a one-argument variation on DN0025's report-second.
         SecondImplementerGuard.Register(context, leaves, Rule, permittedImplementers: 0);
     }
 }

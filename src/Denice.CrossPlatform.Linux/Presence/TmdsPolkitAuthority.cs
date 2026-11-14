@@ -10,7 +10,7 @@ namespace Denice.CrossPlatform.Linux;
 
 /// <summary>
 /// The sole implementer of <see cref="IPolkitAuthority"/> and the ONE class allowed to touch the pinned
-/// <c>Tmds.DBus.Protocol</c> package (AG0110/AG0114). It opens the system-bus connection and calls
+/// <c>Tmds.DBus.Protocol</c> package (DN0110/DN0114). It opens the system-bus connection and calls
 /// <c>org.freedesktop.PolicyKit1.Authority.CheckAuthorization</c> at <c>/org/freedesktop/PolicyKit1/Authority</c>,
 /// writing the subject triple into the <c>a{sv}</c> dict with polkit's expected variant types (start-time 64-bit),
 /// action <see cref="PolkitAction.Id"/>, details <c>a{ss}</c> with <c>polkit.message</c>, flags
@@ -56,7 +56,7 @@ internal sealed class TmdsPolkitAuthority : IPolkitAuthority
     public async Task<PolkitResult> CheckAuthorizationAsync(
         PolkitSubject subject, string actionId, string message, string cancellationId, CancellationToken ct)
     {
-        // Don't start a check that is already cancelled. It mints no timeout of its own (AG0107); the flow port owns the
+        // Don't start a check that is already cancelled. It mints no timeout of its own (DN0107); the flow port owns the
         // token registration that cancels an in-flight check and the gate owns the one 60-second bound.
         ct.ThrowIfCancellationRequested();
 
@@ -143,7 +143,7 @@ internal sealed class TmdsPolkitAuthority : IPolkitAuthority
 
     // The shared CheckAuthorization preamble both entry points run: assemble the request, take the system-bus
     // connection (handed back through `connection` for the real send), and serialize the method-call message. Kept
-    // private because it takes/returns Tmds.DBus.Protocol types (AG0110 confines those to this class).
+    // private because it takes/returns Tmds.DBus.Protocol types (DN0110 confines those to this class).
     private static MessageBuffer CreateCheckAuthorizationCall(
         PolkitSubject subject, string actionId, string message, string cancellationId, out DBusConnection connection)
     {
@@ -155,7 +155,7 @@ internal sealed class TmdsPolkitAuthority : IPolkitAuthority
 
     // The CancelCheckAuthorization preamble, parallel to CreateCheckAuthorizationCall: take the system-bus connection
     // (handed back through `connection` for the synchronous send) and serialize the CancelCheckAuthorization(cancellation_id)
-    // method-call message on its writer. Kept private because it takes/returns Tmds.DBus.Protocol types (AG0110). The
+    // method-call message on its writer. Kept private because it takes/returns Tmds.DBus.Protocol types (DN0110). The
     // message carries NoReplyExpected: the caller does not await polkit's acknowledgement — the cancellation is observed
     // on the pending CheckAuthorization call.
     private static MessageBuffer CreateCancelCheckAuthorizationCall(

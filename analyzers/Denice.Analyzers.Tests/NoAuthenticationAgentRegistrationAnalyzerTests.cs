@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0111: a compile-time string constant whose value names a polkit authentication-agent registration or spawn is a
+/// DN0111: a compile-time string constant whose value names a polkit authentication-agent registration or spawn is a
 /// build error in production source; a test assembly may name the value in a fixture.
 /// </summary>
 public class NoAuthenticationAgentRegistrationAnalyzerTests
@@ -26,7 +26,7 @@ public class NoAuthenticationAgentRegistrationAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoAuthenticationAgentRegistrationAnalyzer>(source, "Denice.CrossPlatform.Linux"));
-        Assert.Equal("AG0111", diagnostic.Id);
+        Assert.Equal("DN0111", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -48,7 +48,7 @@ public class NoAuthenticationAgentRegistrationAnalyzerTests
         // so both sites may report; at least the literal must).
         var diagnostics = await AnalyzerRunner.RunAsync<NoAuthenticationAgentRegistrationAnalyzer>(source, "Denice.CrossPlatform.Linux");
         Assert.NotEmpty(diagnostics);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0111", diagnostic.Id));
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0111", diagnostic.Id));
     }
 
     [Fact]

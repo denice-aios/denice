@@ -9,13 +9,13 @@ namespace Denice.Analyzers.Tests;
 
 /// <summary>
 /// Wraps a consumer body in a seed-site preamble and runs the seed-site analyzer over it — spelled once for both
-/// seed-site rule test classes (<c>NoLiteralFakeRootAnalyzerTests</c> for AG0035 and
-/// <c>NoLiteralCaseModeSeedAnalyzerTests</c> for AG0036) instead of the byte-identical wrapper hand-copied into each.
+/// seed-site rule test classes (<c>NoLiteralFakeRootAnalyzerTests</c> for DN0035 and
+/// <c>NoLiteralCaseModeSeedAnalyzerTests</c> for DN0036) instead of the byte-identical wrapper hand-copied into each.
 /// The consumer body is embedded in a <c>Consumer</c> class under an <c>App</c> namespace, appended to the caller's
-/// <paramref name="preamble"/> (which differs per rule — AG0035 adds the <c>FakeEnvironment</c> stand-in), and compiled
+/// <paramref name="preamble"/> (which differs per rule — DN0035 adds the <c>FakeEnvironment</c> stand-in), and compiled
 /// into an assembly named <c>Denice.TestHelpers</c> so the stand-in seed types carry the declaring-assembly
 /// identity the analyzers pin on (<c>WellKnownType.IsInAssembly</c>), exactly as GuardedConstructionAnalyzerTests does
-/// for AG0027.
+/// for DN0027.
 /// </summary>
 internal static class SeedSiteAnalyzerRunner
 {

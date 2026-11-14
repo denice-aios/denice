@@ -2,8 +2,8 @@
 
 using System.IO;
 using System.Text.Json.Nodes;
-using Denice.Setup;
-using Denice.TestSupport;
+using Denice.Engine.Setup;
+using Denice.Tests.Shared;
 using FluentAssertions;
 using Xunit;
 

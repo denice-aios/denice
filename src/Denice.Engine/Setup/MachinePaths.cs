@@ -3,7 +3,7 @@
 using System.IO;
 using Denice.Engine;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the machine-install layout under <c>~/.denice/</c>: the version store

@@ -7,7 +7,7 @@ using Denice.Abstractions;
 using Denice.Abstractions.Contracts;
 using Denice.Engine;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Runs the File Guard pipeline for a hook event: it resolves the host adapter, normalizes the payload, runs the

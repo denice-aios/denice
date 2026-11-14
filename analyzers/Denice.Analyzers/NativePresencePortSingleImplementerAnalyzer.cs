@@ -13,7 +13,7 @@ namespace Denice.Analyzers;
 /// (macOS), <c>IWindowsHelloNativeOps</c>/<c>ICredentialPromptNativeOps</c> (Windows)). Each must have exactly one
 /// implementer: the single class that touches its native library or the pinned D-Bus package
 /// (per-os-native-behind-a-port). These interfaces live OUTSIDE the <c>ISystemServices</c> tree, so the container
-/// single-owner rules (AG0025/AG0030) do not cover them — without this guard "exactly one class owns each native
+/// single-owner rules (DN0025/DN0030) do not cover them — without this guard "exactly one class owns each native
 /// library" would be a convention, not a build invariant, and a second, ungoverned presence path could form. Each is
 /// internal to its own per-OS assembly, so in any one compilation only that assembly's interfaces are in scope; the
 /// shared accumulate-and-report algorithm (<see cref="SecondImplementerGuard"/>) permits ONE implementer and reports the
@@ -25,7 +25,7 @@ public sealed class NativePresencePortSingleImplementerAnalyzer : DiagnosticAnal
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0114";
+    public const string DiagnosticId = "DN0114";
 
     private const string Category = "Denice.Architecture";
 
@@ -36,7 +36,7 @@ public sealed class NativePresencePortSingleImplementerAnalyzer : DiagnosticAnal
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Each internal per-OS native presence port — ILocalAuthentication (macOS), IWindowsUserPresence (Windows), IPolkitAuthority (Linux) — must have exactly one implementer, the single class that touches its native library or the pinned Tmds.DBus.Protocol package. These ports live outside the ISystemServices tree, so AG0025/AG0030 do not cover them; without this guard the one-owner-per-native-library invariant would be a convention, not a build error. The second and later implementer of any port is reported.",
+        description: "Each internal per-OS native presence port — ILocalAuthentication (macOS), IWindowsUserPresence (Windows), IPolkitAuthority (Linux) — must have exactly one implementer, the single class that touches its native library or the pinned Tmds.DBus.Protocol package. These ports live outside the ISystemServices tree, so DN0025/DN0030 do not cover them; without this guard the one-owner-per-native-library invariant would be a convention, not a build error. The second and later implementer of any port is reported.",
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);

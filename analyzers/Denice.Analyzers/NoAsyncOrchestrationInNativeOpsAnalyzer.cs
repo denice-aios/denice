@@ -17,7 +17,7 @@ namespace Denice.Analyzers;
 /// <c>await using</c> (which produces no <c>IAwaitOperation</c> node — the await folds into the using operation as
 /// <c>IsAsynchronous</c> — so the bare <c>await</c> check alone would miss it); an asynchronous <c>await foreach</c>
 /// (which likewise carries no <c>IAwaitOperation</c> node — it is an <c>IForEachLoopOperation</c> with
-/// <c>IsAsynchronous</c> set, and AG0106's loop ban catches it only incidentally, so this rule catches it independently);
+/// <c>IsAsynchronous</c> set, and DN0106's loop ban catches it only incidentally, so this rule catches it independently);
 /// ANY call whose resolved return type is a <c>System.Threading.Tasks.Task</c>/<c>Task&lt;T&gt;</c>/<c>ValueTask</c>/
 /// <c>ValueTask&lt;T&gt;</c> (a Task materializing in a pure-synchronous native-ops body means async work was spawned —
 /// the return-type CATEGORY, which subsumes <c>Task.Run</c>, <c>Task.Factory.StartNew</c>, <c>Task.ContinueWith</c>,
@@ -36,7 +36,7 @@ public sealed class NoAsyncOrchestrationInNativeOpsAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0115";
+    public const string DiagnosticId = "DN0115";
 
     private const string Category = "Denice.Architecture";
 
@@ -138,8 +138,8 @@ public sealed class NoAsyncOrchestrationInNativeOpsAnalyzer : DiagnosticAnalyzer
     {
         // OperationKind.Loop covers for/foreach/while/do; only an asynchronous foreach is async orchestration. An
         // `await foreach` produces an IForEachLoopOperation with IsAsynchronous set and no IAwaitOperation node, so the
-        // bare await check misses it and AG0106's loop ban catches it only incidentally. A plain synchronous foreach —
-        // and every non-foreach loop — is AG0106's concern, not this rule's, so it is left alone; this mirrors
+        // bare await check misses it and DN0106's loop ban catches it only incidentally. A plain synchronous foreach —
+        // and every non-foreach loop — is DN0106's concern, not this rule's, so it is left alone; this mirrors
         // InspectAwaitUsing's IsAsynchronous filter.
         if (context.Operation is not IForEachLoopOperation forEach || !forEach.IsAsynchronous)
         {
@@ -153,7 +153,7 @@ public sealed class NoAsyncOrchestrationInNativeOpsAnalyzer : DiagnosticAnalyzer
     {
         // `await using` (both the statement form `await using (...) { }` and the declaration form `await using var x =`)
         // produces no IAwaitOperation node — the await is folded into the using operation as IsAsynchronous — and it is
-        // not a loop, so neither InspectAwait nor AG0106 would catch it. Only an asynchronous using is the orchestrator's
+        // not a loop, so neither InspectAwait nor DN0106 would catch it. Only an asynchronous using is the orchestrator's
         // async-disposal state; a synchronous `using` is ordinary scoped cleanup and is left alone.
         if (!IsAsynchronousUsing(context.Operation))
         {

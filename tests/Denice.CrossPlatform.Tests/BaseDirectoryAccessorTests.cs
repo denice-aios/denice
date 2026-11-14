@@ -12,7 +12,7 @@ namespace Denice.CrossPlatform.Tests;
 /// three CI legs. This test lives directly under the OS-agnostic test project (not under <c>Presence/</c>, so it is
 /// not per-OS gated) and asserts, through the real container, that the accessor returns a non-empty path to a directory
 /// that actually exists. Existence is checked through the owned <see cref="IDirectoryEnumerator"/> — never against raw
-/// <c>AppContext.BaseDirectory</c>, which AG0011 blocks in this project.
+/// <c>AppContext.BaseDirectory</c>, which DN0011 blocks in this project.
 /// </summary>
 public sealed class BaseDirectoryAccessorTests
 {

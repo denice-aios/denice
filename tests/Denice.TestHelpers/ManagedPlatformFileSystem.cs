@@ -18,7 +18,7 @@ namespace Denice.TestHelpers;
 /// case-sensitivity behavior are builder-controlled options that read from the shared overlay
 /// (copy-on-write-simulator-design), so a unit test can simulate POSIX or Windows and a case-(in)sensitive filesystem. It
 /// does not own the overlay — the temp-path uniqueness counter, the executable-flag mode, and the case mode all live on
-/// the shared overlay, never here. Its constructor is private (AG0003) and it is handed out only as its interface.
+/// the shared overlay, never here. Its constructor is private (DN0003) and it is handed out only as its interface.
 /// </summary>
 internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
 {

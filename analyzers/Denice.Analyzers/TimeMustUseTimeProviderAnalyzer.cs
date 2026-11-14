@@ -23,7 +23,7 @@ public sealed class TimeMustUseTimeProviderAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0015";
+    public const string DiagnosticId = "DN0015";
 
     private const string Category = "Denice.Architecture";
 

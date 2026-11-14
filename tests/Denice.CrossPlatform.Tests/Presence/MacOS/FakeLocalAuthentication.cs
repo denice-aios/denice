@@ -11,7 +11,7 @@ namespace Denice.CrossPlatform.Tests;
 /// test: it records how many times <see cref="EvaluateAsync"/> was called and the reason it was given, and returns a
 /// configured <see cref="LaResult"/>. It touches no native library, so it stands in for the boundary while the real
 /// mapping-and-single-call behavior of <c>MacOsPresenceCheck</c> is exercised. It is the single source implementer of
-/// the port in this test compilation (AG0114 permits one). The call-count/last-argument capture is not hand-built here —
+/// the port in this test compilation (DN0114 permits one). The call-count/last-argument capture is not hand-built here —
 /// it composes the shared <see cref="SingleCallRecorder{TArg,TResult}"/>.
 /// </summary>
 internal sealed class FakeLocalAuthentication : ILocalAuthentication, IRecordingPresencePortFake

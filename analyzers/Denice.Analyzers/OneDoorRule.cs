@@ -8,8 +8,8 @@ namespace Denice.Analyzers;
 /// <summary>
 /// The shared body of a one-door rule: gate to the calling assembly, filter the use down to the guarded target, test
 /// it against that rule's single permitted door, test the site where the gate requires it, and report naming EVERY
-/// condition that failed. The three one-door rules — AG0040 (Engine into <c>Denice.Boundaries</c>), AG0023 (into
-/// the core <c>Denice.CrossPlatform</c> assembly), and AG0029 (into a per-OS implementation assembly) — were the
+/// condition that failed. The three one-door rules — DN0040 (Engine into <c>Denice.Boundaries</c>), DN0023 (into
+/// the core <c>Denice.CrossPlatform</c> assembly), and DN0029 (into a per-OS implementation assembly) — were the
 /// same target-filter, door-test, report sequence spelled once each; that sequence lives here, and each rule supplies
 /// only its descriptor and its own scope and door tests.
 /// <para>
@@ -41,7 +41,7 @@ internal static class OneDoorRule
     /// <summary>
     /// Registers the single <c>Denice.Engine</c> CALL gate: a member use that reaches the guarded assembly is
     /// reported unless it is the door AND the call site is <c>Denice.Engine.SystemServices.Create()</c>. This is
-    /// AG0040's whole shape — it guards calls into <c>Denice.Boundaries</c> and adds no type-reference coverage,
+    /// DN0040's whole shape — it guards calls into <c>Denice.Boundaries</c> and adds no type-reference coverage,
     /// because Engine legitimately names Boundaries nowhere at all.
     /// </summary>
     /// <param name="context">The analysis context to register on.</param>
@@ -64,7 +64,7 @@ internal static class OneDoorRule
     /// <summary>
     /// Registers BOTH gates of a rule that guards one target assembly from two consumers: the unchanged
     /// <c>Denice.Boundaries</c> call gate, and the <c>Denice.Engine</c> gate with its caller constraint and its
-    /// two type-reference lenses. This is the shape AG0023 and AG0029 share; they differ only in which assembly is the
+    /// two type-reference lenses. This is the shape DN0023 and DN0029 share; they differ only in which assembly is the
     /// target and which type is the door.
     /// <para>
     /// The two gates take SEPARATE target filters, deliberately. The Boundaries gate keeps each rule's pre-existing

@@ -65,8 +65,8 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     // The shared helper class Denice.CrossPlatform.PlatformFileSystemShared — NOT an owner under
     // ag0101-one-owner-per-os. Its static OS-divergent call (File.SetUnixFileMode) is RED everywhere, including inside a
     // CrossPlatform.* platform library: the shared-helper carve-out is gone, so its divergent logic must move into the
-    // one per-OS class. Uses a static member AG0101 still owns after the shrink (the *Info instance members and
-    // construction moved to AG0011, fileinfo-abstraction-stays-in-ag0011).
+    // one per-OS class. Uses a static member DN0101 still owns after the shrink (the *Info instance members and
+    // construction moved to DN0011, fileinfo-abstraction-stays-in-ag0011).
     private const string SharedHelperOnlySource = """
         using System.IO;
 
@@ -101,7 +101,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         """;
 
     // FIX 1 (presence-native-owner-rule, family-scoped; fence-relocation): the macOS native-ops owner and flow port and
-    // their interfaces, a native binding, and the filesystem owner interface. Proves AG0101's narrow edit — its P/Invoke
+    // their interfaces, a native binding, and the filesystem owner interface. Proves DN0101's narrow edit — its P/Invoke
     // and Marshal branches ALSO exempt the native-OPS owners (native branches only), while its File/Directory-divergent
     // ban stays filesystem-owner-only. The coverage refactor relocated the native exemption off the flow port onto the
     // native-ops owner. The IObjCRuntime native-ops owner, the ILocalAuthentication flow port, and the LocalAuthNative
@@ -122,25 +122,25 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(SetUnixFileModeSource, "Denice.Engine"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
     [Fact]
-    public async Task LinkTargetRead_IsNotReported_ItBelongsToAG0011()
+    public async Task LinkTargetRead_IsNotReported_ItBelongsToDN0011()
     {
         // After the shrink, the *Info instance member LinkTarget is owned wholesale by the wrapper interfaces under
-        // AG0011 (fileinfo-abstraction-stays-in-ag0011), not by AG0101 — so AG0101 no longer reports it.
+        // DN0011 (fileinfo-abstraction-stays-in-ag0011), not by DN0101 — so DN0101 no longer reports it.
         Assert.Empty(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(
                 SharedAnalyzerSources.LinkTargetSource, "Denice.Engine"));
     }
 
     [Fact]
-    public async Task InfoConstruction_IsNotReported_ItBelongsToAG0011()
+    public async Task InfoConstruction_IsNotReported_ItBelongsToDN0011()
     {
         // After the shrink, a raw new FileInfo / new DirectoryInfo is owned wholesale by IFileInfo/IDirectoryInfo under
-        // AG0011, not AG0101 — so AG0101 no longer reports the construction.
+        // DN0011, not DN0101 — so DN0101 no longer reports the construction.
         const string source = """
             using System.IO;
 
@@ -160,7 +160,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(CreateSymbolicLinkSource, "Denice.Engine"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(MarshalSource, "Denice.Engine"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(
                 OwnerAndSiblingSource, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
         Assert.Contains(
             "CreateSymbolicLink", AnalyzerRunner.SpanText(OwnerAndSiblingSource, diagnostic), System.StringComparison.Ordinal);
     }
@@ -189,14 +189,14 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     [Fact]
     public async Task PlatformFileSystemOwner_InNonCrossPlatformAssembly_IsReported_SelfGrantBlocked()
     {
-        // FIX 1 (AG0101 interface self-grant): implementing IPlatformFileSystem is not enough — the class must also
+        // FIX 1 (DN0101 interface self-grant): implementing IPlatformFileSystem is not enough — the class must also
         // compile into one of the three per-OS implementation libraries (.MacOS/.Linux/.Windows). Declared in
         // Denice.Engine, the owner's own File.SetUnixFileMode is RED, closing the round-2 hole where the interface
         // implementer self-granted in any assembly.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(
                 PlatformFileSystemOwnerOnlySource, "Denice.Engine"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
         Assert.Contains(
             "SetUnixFileMode", AnalyzerRunner.SpanText(PlatformFileSystemOwnerOnlySource, diagnostic), System.StringComparison.Ordinal);
     }
@@ -224,7 +224,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(
                 PlatformFileSystemOwnerOnlySource, "Denice.CrossPlatform"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
         Assert.Contains(
             "SetUnixFileMode", AnalyzerRunner.SpanText(PlatformFileSystemOwnerOnlySource, diagnostic), System.StringComparison.Ordinal);
     }
@@ -239,7 +239,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(
                 SharedHelperOnlySource, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
         Assert.Contains(
             "SetUnixFileMode", AnalyzerRunner.SpanText(SharedHelperOnlySource, diagnostic), System.StringComparison.Ordinal);
     }
@@ -251,7 +251,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(
                 SharedHelperOnlySource, "Denice.Engine"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
     }
 
     [Fact]
@@ -271,7 +271,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     }
 
     [Fact]
-    public async Task OsUniformFileCall_IsNotReported_ItBelongsToAG0011()
+    public async Task OsUniformFileCall_IsNotReported_ItBelongsToDN0011()
     {
         const string source = """
             using System.IO;
@@ -286,10 +286,10 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     }
 
     [Fact]
-    public async Task NativeOpsOwnerNativeInterop_IsExempt_UnderBothAG0101AndAG0113()
+    public async Task NativeOpsOwnerNativeInterop_IsExempt_UnderBothDN0101AndDN0113()
     {
-        // FIX 1 + fence-relocation: a native-OPS owner's raw P/Invoke AND Marshal are clean under BOTH AG0101 (its native
-        // branches now exempt the native-ops owners, reusing the same owner check) and AG0113 (which confines that native
+        // FIX 1 + fence-relocation: a native-OPS owner's raw P/Invoke AND Marshal are clean under BOTH DN0101 (its native
+        // branches now exempt the native-ops owners, reusing the same owner check) and DN0113 (which confines that native
         // family there). The exemption relocated off the flow port onto this native-ops layer.
         string source = PresencePortFixtures + """
 
@@ -312,10 +312,10 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     }
 
     [Fact]
-    public async Task FlowPortNativeInterop_IsReported_AfterRelocation_UnderAG0101()
+    public async Task FlowPortNativeInterop_IsReported_AfterRelocation_UnderDN0101()
     {
         // fence-relocation: the flow port (ILocalAuthentication) lost its native exemption — its raw P/Invoke is now RED
-        // under AG0101's native branch too. This is the RED-first forcing function against the pre-refactor orchestrator.
+        // under DN0101's native branch too. This is the RED-first forcing function against the pre-refactor orchestrator.
         string source = PresencePortFixtures + """
 
             namespace Denice.CrossPlatform.MacOS
@@ -330,14 +330,14 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
     }
 
     [Fact]
-    public async Task NativeOpsOwner_FileDivergentCall_IsStillReported_UnderAG0101()
+    public async Task NativeOpsOwner_FileDivergentCall_IsStillReported_UnderDN0101()
     {
         // FIX 1: the presence exemption is on the NATIVE branches ONLY. A native-ops owner is NOT the filesystem owner,
-        // so its File.SetUnixFileMode stays RED under AG0101 — no cross-family over-grant, even though its native interop
+        // so its File.SetUnixFileMode stays RED under DN0101 — no cross-family over-grant, even though its native interop
         // is exempt.
         string source = PresencePortFixtures + """
 
@@ -353,13 +353,13 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Equal("DN0101", diagnostic.Id);
         Assert.Contains(
             "SetUnixFileMode", AnalyzerRunner.SpanText(source, diagnostic), System.StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task FilesystemOwner_NativeAndFileDivergent_AreBothExempt_UnderAG0101()
+    public async Task FilesystemOwner_NativeAndFileDivergent_AreBothExempt_UnderDN0101()
     {
         // FIX 1 keeps the filesystem owner exempt for EVERY OS-divergent call — both its native P/Invoke and its
         // File/Directory-divergent members — unchanged by the narrow presence edit.

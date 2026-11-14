@@ -143,7 +143,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
 
         ImmutableArray<Diagnostic> diagnostics = await RunAsync(source);
 
-        // AG0040 registers the call lens alone, so the one prohibited call is reported once, at the call itself.
+        // DN0040 registers the call lens alone, so the one prohibited call is reported once, at the call itself.
         diagnostics.AssertSpans(source, PermittedFactoryCall);
         diagnostics.AssertNamesExactly(
             RuleId,

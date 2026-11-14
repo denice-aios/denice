@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Denice.Abstractions.Contracts;
 using NuGet.Versioning;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The setup commands behind thin CLI handlers. Each mutating command routes its work through the shared

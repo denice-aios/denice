@@ -2,7 +2,7 @@
 
 using System.IO;
 
-namespace Denice.TestSupport;
+namespace Denice.Tests.Shared;
 
 /// <summary>
 /// The machine-and-project on-disk layout the guard writes, derived here — independently of the production path

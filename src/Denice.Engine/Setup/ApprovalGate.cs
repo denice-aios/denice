@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Denice.Abstractions;
 using Denice.Abstractions.Contracts;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single asynchronous approval gate <c>install</c>, <c>init</c>, and <c>remove</c> call before they mutate
@@ -15,7 +15,7 @@ namespace Denice.Setup;
 /// dialog text from the owned <see cref="PresenceDialogText"/> resource keyed by <see cref="SetupVerb"/>, and races the
 /// presence check against a clock-driven <see cref="PresencePolicy.Timeout"/> — expiry denies with
 /// <see cref="Denice.Abstractions.ApprovalReason.TimedOut"/> (fail-closed). It is the ONE production caller of
-/// <c>IPresenceCheck.Check</c> (AG0108), so the timeout and the reason-to-CLI-line mapping live in exactly one place.
+/// <c>IPresenceCheck.Check</c> (DN0108), so the timeout and the reason-to-CLI-line mapping live in exactly one place.
 /// </summary>
 internal static class ApprovalGate
 {

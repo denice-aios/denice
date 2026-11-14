@@ -20,7 +20,7 @@ internal static class MemberUseScanner
 {
     /// <summary>
     /// The operation kinds that can reference an OS primitive: a call, a <c>new</c>, a property access, a field read,
-    /// or a method-group reference. Field references are included so the Path rule (AG0020) can see the raw separator
+    /// or a method-group reference. Field references are included so the Path rule (DN0020) can see the raw separator
     /// FIELDS <c>Path.DirectorySeparatorChar</c>/<c>AltDirectorySeparatorChar</c> (scanner-sees-field-reads); the
     /// type-gated rules are unaffected because they filter by banned TYPE, and an enum value read as data
     /// (<c>UnixFileMode.UserRead</c>, <c>FileAttributes.Hidden</c>) is a field on a type no rule bans, so it stays
@@ -51,7 +51,7 @@ internal static class MemberUseScanner
     /// Registers the member-use scan for <paramref name="inspect"/> only when the compilation being analyzed is the
     /// assembly named <paramref name="assemblyName"/>; a compilation that is any other assembly registers nothing.
     /// The "gate to one assembly, then scan" setup is owned once here rather than re-spelled per rule: the two
-    /// one-door-out-of-Boundaries rules (AG0023 into CrossPlatform-core, AG0029 into a per-OS assembly) both gate on
+    /// one-door-out-of-Boundaries rules (DN0023 into CrossPlatform-core, DN0029 into a per-OS assembly) both gate on
     /// <see cref="BoundaryAssembly.Name"/> and differ only in the door their own inspector allows.
     /// </summary>
     /// <param name="context">The compilation-start context to gate and register on.</param>

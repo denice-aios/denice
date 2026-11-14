@@ -9,13 +9,13 @@ namespace Denice.Analyzers;
 /// <summary>
 /// Reports a reach from <c>Denice.Boundaries</c> or <c>Denice.Engine</c> into a per-OS implementation assembly
 /// (<c>.MacOS</c>/<c>.Linux</c>/<c>.Windows</c>) that is not <c>PlatformServices.Create()</c>. The per-OS
-/// <c>InternalsVisibleTo</c> grants otherwise expose every internal member to the consumer; AG0023 pins only the core
+/// <c>InternalsVisibleTo</c> grants otherwise expose every internal member to the consumer; DN0023 pins only the core
 /// CrossPlatform assembly, so this rule pins the per-OS door. The one legal call is the static
 /// <c>PlatformServices.Create()</c> that <c>SystemServices.Create()</c> uses to obtain the OS-divergent platform
 /// container — the self-building factory the <c>container-is-one-class-with-its-own-create</c> mandate makes the one
 /// door, whose identity lives once in <see cref="PlatformFactory"/>.
 /// <para>
-/// The two gates are deliberately different, on the same terms as AG0023. The <c>Denice.Boundaries</c> gate is
+/// The two gates are deliberately different, on the same terms as DN0023. The <c>Denice.Boundaries</c> gate is
 /// UNCHANGED: member access only, door only, no caller constraint, so nothing outside Engine is loosened. The
 /// <c>Denice.Engine</c> gate adds the caller constraint — the door may be reached only from
 /// <c>Denice.Engine.SystemServices.Create()</c> — and adds TYPE-reference coverage through the two shared lenses,
@@ -27,7 +27,7 @@ namespace Denice.Analyzers;
 /// widening is paired with the door test below: because <see cref="PlatformFactory"/> matches
 /// <c>PlatformServices</c> on namespace plus name alone — the type is declared in all three per-OS assemblies under
 /// the same namespace — this rule's door test conjoins that identity with the per-OS assembly set, so an admitted
-/// decoy FAILS the door instead of passing it. AG0023 admits the same decoy beside its own core-assembly types; both
+/// decoy FAILS the door instead of passing it. DN0023 admits the same decoy beside its own core-assembly types; both
 /// rules reporting one imitation is the intended overlap, not a defect.
 /// </para>
 /// </summary>
@@ -37,7 +37,7 @@ public sealed class OneDoorIntoPerOsAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0029";
+    public const string DiagnosticId = "DN0029";
 
     private const string Category = "Denice.Architecture";
 
@@ -54,7 +54,7 @@ public sealed class OneDoorIntoPerOsAnalyzer : DiagnosticAnalyzer
 
     // Cached so no delegate is allocated per analyzed operation, node, or symbol. The BOUNDARIES gate's filter,
     // unchanged: the per-OS assembly set, owned once by CrossPlatformBoundary; a reach into the core CrossPlatform
-    // assembly is AG0023's.
+    // assembly is DN0023's.
     private static readonly Func<INamedTypeSymbol, bool> IsPerOsType =
         type => CrossPlatformBoundary.IsPerOsImplementationAssembly(type.ContainingAssembly?.Name);
 
@@ -63,7 +63,7 @@ public sealed class OneDoorIntoPerOsAnalyzer : DiagnosticAnalyzer
     // THIS rule reject a wrong-assembly imitation of its OWN door: the decoy lands in scope and then fails the
     // assembly-pinned door test below, rather than falling out of scope and being silently accepted at the one site
     // that may call the real door. The core assembly is excluded there, so the legitimate CrossPlatformAdapters call
-    // inside SystemServices.Create() stays AG0023's business and is not reported here.
+    // inside SystemServices.Create() stays DN0023's business and is not reported here.
     private static readonly Func<INamedTypeSymbol, bool> IsPerOsTypeFromEngine =
         type => IsPerOsType(type) || CrossPlatformBoundary.IsSharedNamespaceDecoy(type);
 

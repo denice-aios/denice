@@ -16,7 +16,7 @@ namespace Denice.CrossPlatform.Tests;
 /// status and reports the scripted availability code; its <see cref="BeginVerification"/> likewise completes
 /// synchronously UNLESS the fake is in pending mode, in which case the verification stays pending until
 /// <see cref="CancelOperation"/> completes it with a cancelled status. It is stateful, which is legal in
-/// <c>Denice.CrossPlatform.Tests</c> because AG0116/AG0106/AG0115 register only in the Windows and macOS PRODUCTION
+/// <c>Denice.CrossPlatform.Tests</c> because DN0116/DN0106/DN0115 register only in the Windows and macOS PRODUCTION
 /// assemblies; per-method call counts compose the shared <see cref="SingleCallRecorder{TArg,TResult}"/> (reuse-ledger).
 /// </summary>
 internal sealed class FakeWindowsHelloNativeOps : IWindowsHelloNativeOps

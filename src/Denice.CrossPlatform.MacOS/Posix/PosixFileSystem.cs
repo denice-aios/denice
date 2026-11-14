@@ -10,7 +10,7 @@ namespace Denice.CrossPlatform.Posix;
 
 /// <summary>
 /// The POSIX implementation of <see cref="IPlatformFileSystem"/>: the one per-OS owner of the OS-divergent
-/// primitives (AG0101, ag0101-one-owner-per-os) — the symlink reads, the libc <c>rename</c> atomic re-point, the POSIX
+/// primitives (DN0101, ag0101-one-owner-per-os) — the symlink reads, the libc <c>rename</c> atomic re-point, the POSIX
 /// executable bit, the raw directory separator, and the native case-sensitivity query. This is the shared POSIX source —
 /// authored here for macOS and linked into the Linux impl unchanged (ONE source, not duplicated, not collapsed to a
 /// shared base class). Only the Windows impl, which needs an in-place reparse re-point, is written separately. Its
@@ -32,7 +32,7 @@ internal sealed partial class PosixFileSystem : PlatformFileSystemBase, IPlatfor
     private readonly PlatformFileSystemShared _shared;
     private readonly IFileInfoFactory _factory;
 
-    // Private constructor (AG0003): the per-OS PlatformServices.Create() is the only thing that builds it, through
+    // Private constructor (DN0003): the per-OS PlatformServices.Create() is the only thing that builds it, through
     // Create().
     private PosixFileSystem(PlatformFileSystemShared shared, IFileInfoFactory factory)
     {
@@ -42,7 +42,7 @@ internal sealed partial class PosixFileSystem : PlatformFileSystemBase, IPlatfor
 
     /// <inheritdoc/>
     // The BCL already gives the answer; this is now an owned read of the raw Path.DirectorySeparatorChar field
-    // (AG0020 owner: the IPlatformFileSystem implementers), not a hardcode.
+    // (DN0020 owner: the IPlatformFileSystem implementers), not a hardcode.
     public char DirectorySeparator => Path.DirectorySeparatorChar;
 
     /// <inheritdoc />
@@ -127,7 +127,7 @@ internal sealed partial class PosixFileSystem : PlatformFileSystemBase, IPlatfor
         // OS has a native query — on macOS through pathconf(path, _PC_CASE_SENSITIVE) — and reports failure otherwise.
         // The native query is OS-divergent, so it lives in an OS-specific file (PosixFileSystem.MacOS.cs /
         // PosixFileSystem.Linux.cs) that only its own OS's project compiles, keeping this link-shared source free of any
-        // single-OS branch (AG0037). Whenever no native query answers — Linux always, and macOS when pathconf cannot
+        // single-OS branch (DN0037). Whenever no native query answers — Linux always, and macOS when pathconf cannot
         // answer — the shared read-only probe is the fallback, and the probe's own documented case-sensitive default is
         // the last resort.
         if (TryQueryNativeCaseSensitivity(path, out bool caseSensitive))

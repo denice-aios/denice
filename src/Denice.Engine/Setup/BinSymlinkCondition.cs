@@ -3,7 +3,7 @@
 using System;
 using System.IO;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The machine condition that the stable launcher <c>bin/guard</c> resolves to <c>current/guard</c>.

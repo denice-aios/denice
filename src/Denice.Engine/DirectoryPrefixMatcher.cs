@@ -33,7 +33,7 @@ internal sealed class DirectoryPrefixMatcher : IPathMatcher
     /// <param name="canonicalizer">The canonicalizer used to resolve the directory.</param>
     /// <param name="rawDirectory">The raw directory whose subtree is matched.</param>
     /// <param name="directorySeparator">The OS directory separator, owned by <c>IPlatformFileSystem</c> and threaded
-    /// in from the composition (the raw <c>Path.DirectorySeparatorChar</c> is not input-deterministic, AG0020).</param>
+    /// in from the composition (the raw <c>Path.DirectorySeparatorChar</c> is not input-deterministic, DN0020).</param>
     /// <returns>The matcher, as its interface.</returns>
     internal static IPathMatcher Create(IPathCanonicalizer canonicalizer, string rawDirectory, char directorySeparator)
     {

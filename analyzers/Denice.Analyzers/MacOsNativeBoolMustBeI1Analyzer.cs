@@ -24,7 +24,7 @@ public sealed class MacOsNativeBoolMustBeI1Analyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0103";
+    public const string DiagnosticId = "DN0103";
 
     private const string Category = "Denice.Architecture";
     private const string MarshalAsAttributeName = "MarshalAsAttribute";

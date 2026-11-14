@@ -40,7 +40,7 @@ public class ContractConcreteTypeMustNotBeCastToAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeCastToAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0007", diagnostic.Id);
+        Assert.Equal("DN0007", diagnostic.Id);
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class ContractConcreteTypeMustNotBeCastToAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeCastToAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0007", diagnostic.Id);
+        Assert.Equal("DN0007", diagnostic.Id);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public class ContractConcreteTypeMustNotBeCastToAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<ContractConcreteTypeMustNotBeCastToAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0007", diagnostic.Id);
+        Assert.Equal("DN0007", diagnostic.Id);
     }
 
     [Fact]

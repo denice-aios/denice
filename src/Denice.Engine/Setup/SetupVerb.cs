@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single owner of the three mutating setup-command verb tokens — <c>install</c>, <c>init</c>, and <c>remove</c>

@@ -17,7 +17,7 @@ namespace Denice.CrossPlatform;
 /// the <c>ILocalAuthentication</c> / <c>IWindowsUserPresence</c> flow ports (fake-tested) — simply does not carry it.
 /// Internal to this contract assembly and applied inside the per-OS libraries over their existing
 /// <c>InternalsVisibleTo</c> grants from here. This attribute is NOT (yet) read by the presence analyzers
-/// (AG0106/AG0113/AG0114/AG0115/AG0116); making it their single owner source too is tracked as issue #50.
+/// (DN0106/DN0113/DN0114/DN0115/DN0116); making it their single owner source too is tracked as issue #50.
 /// </summary>
 [AttributeUsage(AttributeTargets.Interface, AllowMultiple = false, Inherited = false)]
 internal sealed class RequiresNativeSpecTestAttribute : Attribute

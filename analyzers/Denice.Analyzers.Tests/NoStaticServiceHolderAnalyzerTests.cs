@@ -10,7 +10,7 @@ namespace Denice.Analyzers.Tests;
 
 public class NoStaticServiceHolderAnalyzerTests
 {
-    // AG0024's service-type set is now DERIVED from ISystemServices (derive-service-set-from-isystemservices), so the
+    // DN0024's service-type set is now DERIVED from ISystemServices (derive-service-set-from-isystemservices), so the
     // fixture's container must actually expose the service through an accessor — an empty ISystemServices would derive
     // an empty set. The container fixture is SharedAnalyzerSources.AbstractionsPrefix. The assertions below are
     // unchanged from the hand-list era.
@@ -30,7 +30,7 @@ public class NoStaticServiceHolderAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoStaticServiceHolderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0024", diagnostic.Id);
+        Assert.Equal("DN0024", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("Field", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -51,7 +51,7 @@ public class NoStaticServiceHolderAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoStaticServiceHolderAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0024", diagnostic.Id);
+        Assert.Equal("DN0024", diagnostic.Id);
         Assert.Contains("Services", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 

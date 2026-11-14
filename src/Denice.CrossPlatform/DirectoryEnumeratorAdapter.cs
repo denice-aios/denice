@@ -10,7 +10,7 @@ namespace Denice.CrossPlatform;
 
 /// <summary>
 /// The owned <see cref="IDirectoryEnumerator"/> adapter. It is the single class that implements read-only directory
-/// access, so it is the ONE place the raw <c>Directory</c> enumeration members are allowed (AG0011 exempts exactly this
+/// access, so it is the ONE place the raw <c>Directory</c> enumeration members are allowed (DN0011 exempts exactly this
 /// owner class in this assembly). Its <see cref="EnumerateChildren"/> is the SINGLE directory walk: one pass over the
 /// injected <see cref="IFileInfoFactory"/>'s <see cref="IDirectoryInfo.EnumerateFileSystemInfos"/>, reading each
 /// child's kind and reparse flag from the entry that one pass already materialized — never a second walk and never a
@@ -24,7 +24,7 @@ internal sealed class DirectoryEnumeratorAdapter : IDirectoryEnumerator
 {
     private readonly IFileInfoFactory _factory;
 
-    // Private constructor (AG0003, Wall 1). It receives the wrapper factory directly — one of the two seams that
+    // Private constructor (DN0003, Wall 1). It receives the wrapper factory directly — one of the two seams that
     // cannot route back through IFileSystem (which itself holds this enumerator), so the factory is injected here
     // (fileinfo-factory-breaks-the-cycle) — and uses it for the single directory walk.
     private DirectoryEnumeratorAdapter(IFileInfoFactory factory) => _factory = factory;

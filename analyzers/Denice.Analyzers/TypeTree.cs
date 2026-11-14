@@ -18,8 +18,8 @@ namespace Denice.Analyzers;
 /// that tree in a diagnostic message, and they name it the same way — fully qualified, so a guarded type nested
 /// inside a generic argument, an array element, or a pointer target is visible in the message rather than hidden
 /// behind the outer type's name, with one spelling for the type that could not be resolved. Both access rules that
-/// report a carried or written type — AG0041 and the shared <see cref="OneDoorRule"/> body behind AG0040, AG0023 and
-/// AG0029 — call it, so the text is not spelled per rule. <see cref="MemberUseScanner.Describe"/> is the parallel
+/// report a carried or written type — DN0041 and the shared <see cref="OneDoorRule"/> body behind DN0040, DN0023 and
+/// DN0029 — call it, so the text is not spelled per rule. <see cref="MemberUseScanner.Describe"/> is the parallel
 /// reader for a member USE, which is a different subject and keeps its own owner.
 /// </para>
 /// </summary>

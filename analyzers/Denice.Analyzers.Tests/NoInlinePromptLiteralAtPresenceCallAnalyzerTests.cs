@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0109: at a production presence call site (a PresenceRequest construction or an IPresenceCheck.Check invocation)
+/// DN0109: at a production presence call site (a PresenceRequest construction or an IPresenceCheck.Check invocation)
 /// the prompt must be resolved through the owned PresenceDialogText accessor keyed by SetupVerb — never baked in at the
 /// call as a bare string literal OR as a const/static-readonly string field. A read through the owned accessor, or a
 /// runtime value (a parameter/local), is left alone. A test assembly is exempt.
@@ -18,11 +18,11 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
     // the three presence-rule test classes).
     private const string PresenceContract = SharedAnalyzerSources.PresenceContract;
 
-    // The owned dialog-text resource in the gate's Denice.Setup namespace — the single owner PresenceContracts
+    // The owned dialog-text resource in the gate's Denice.Engine.Setup namespace — the single owner PresenceContracts
     // pins on. A prompt read through its keyed accessor (here the For(verb) method) is the ONE sanctioned source, so
     // the analyzer leaves it alone.
     private const string PresenceDialogTextResource = """
-        namespace Denice.Setup
+        namespace Denice.Engine.Setup
         {
             internal static class PresenceDialogText
             {
@@ -36,7 +36,7 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
     {
         string source = PresenceContract + """
 
-            namespace Denice.Setup
+            namespace Denice.Engine.Setup
             {
                 using Denice.Abstractions.Contracts;
                 internal static class Gate
@@ -47,7 +47,7 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoInlinePromptLiteralAtPresenceCallAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0109", diagnostic.Id);
+        Assert.Equal("DN0109", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -57,7 +57,7 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
         // FIX 2: a const string holding the prompt text dodges the owned resource just as a bare literal does.
         string source = PresenceContract + """
 
-            namespace Denice.Setup
+            namespace Denice.Engine.Setup
             {
                 using Denice.Abstractions.Contracts;
                 internal static class Gate
@@ -69,7 +69,7 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoInlinePromptLiteralAtPresenceCallAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0109", diagnostic.Id);
+        Assert.Equal("DN0109", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -79,7 +79,7 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
         // FIX 2: a static-readonly string field baked with the prompt text is a dodge too.
         string source = PresenceContract + """
 
-            namespace Denice.Setup
+            namespace Denice.Engine.Setup
             {
                 using Denice.Abstractions.Contracts;
                 internal static class Gate
@@ -91,7 +91,7 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoInlinePromptLiteralAtPresenceCallAnalyzer>(source, "Denice.Engine"));
-        Assert.Equal("AG0109", diagnostic.Id);
+        Assert.Equal("DN0109", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -102,7 +102,7 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
         // the ONE sanctioned source.
         string source = PresenceContract + PresenceDialogTextResource + """
 
-            namespace Denice.Setup
+            namespace Denice.Engine.Setup
             {
                 using Denice.Abstractions.Contracts;
                 internal static class Gate
@@ -121,7 +121,7 @@ public class NoInlinePromptLiteralAtPresenceCallAnalyzerTests
         // A runtime value (a parameter that may carry the resolved text) is not a baked-in dodge, so it is left alone.
         string source = PresenceContract + """
 
-            namespace Denice.Setup
+            namespace Denice.Engine.Setup
             {
                 using Denice.Abstractions.Contracts;
                 internal static class Gate

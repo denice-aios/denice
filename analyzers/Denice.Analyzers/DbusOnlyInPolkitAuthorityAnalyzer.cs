@@ -11,7 +11,7 @@ namespace Denice.Analyzers;
 /// low-level <c>Tmds.DBus.Protocol</c> package (the pinned polkit transport) may be used only in the class implementing
 /// <c>Denice.CrossPlatform.Linux.IPolkitAuthority</c>, in the Linux implementation assembly — the one owner of the
 /// polkit <c>CheckAuthorization</c> call — so a second, ungoverned presence path cannot form through the same boundary
-/// primitive that AG0008/AG0011/AG0101 (native/filesystem) all miss. The high-level <c>Tmds.DBus</c> namespace (the
+/// primitive that DN0008/DN0011/DN0101 (native/filesystem) all miss. The high-level <c>Tmds.DBus</c> namespace (the
 /// reflection-based proxy API) is banned everywhere: it is not single-file/AOT-clean and must never be used. This
 /// reuses the single-owner conjunction <see cref="OwnerClass.IsOwner"/> (owning interface <c>IPolkitAuthority</c> +
 /// the Linux assembly gate), as its own rule separate from the BCL-primitive table. Preventive; nothing references
@@ -23,7 +23,7 @@ public sealed class DbusOnlyInPolkitAuthorityAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0110";
+    public const string DiagnosticId = "DN0110";
 
     private const string Category = "Denice.Architecture";
 

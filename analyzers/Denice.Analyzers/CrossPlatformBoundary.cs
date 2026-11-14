@@ -34,8 +34,8 @@ internal static class CrossPlatformBoundary
     /// The cached <c>Compilation</c>-level gate for the three per-OS implementation libraries — the single adapter
     /// that pulls a compilation's assembly name and calls <see cref="IsPerOsImplementationAssembly"/>. Owned here,
     /// next to the string check it wraps, so the two per-OS-owner rules that use it as an
-    /// <see cref="OwnerClass.IsOwner"/> assembly gate — AG0101 (OsDivergentFilesystemOnlyInCrossPlatformAnalyzer, the
-    /// OS-divergent filesystem owner) and AG0113 (PresenceNativeInteropOwnerAnalyzer, the presence native-interop
+    /// <see cref="OwnerClass.IsOwner"/> assembly gate — DN0101 (OsDivergentFilesystemOnlyInCrossPlatformAnalyzer, the
+    /// OS-divergent filesystem owner) and DN0113 (PresenceNativeInteropOwnerAnalyzer, the presence native-interop
     /// owner) — share this one adapter instead of each re-wrapping the call, mirroring the caching pattern
     /// <see cref="OwnerClass.InAssembly"/> establishes. Cached in a static field so no delegate is allocated per
     /// analyzed operation.
@@ -58,9 +58,9 @@ internal static class CrossPlatformBoundary
 
     /// <summary>
     /// The exact assembly names of the three per-OS implementation libraries — <c>.MacOS</c>, <c>.Linux</c>, and
-    /// <c>.Windows</c> — WITHOUT the core <c>Denice.CrossPlatform</c> contract assembly. AG0029 uses this to gate
+    /// <c>.Windows</c> — WITHOUT the core <c>Denice.CrossPlatform</c> contract assembly. DN0029 uses this to gate
     /// a call from <c>Denice.Boundaries</c> into a per-OS assembly (allowed only as <c>PlatformServices.Create()</c>),
-    /// which is a different door from AG0023's call into the core assembly. Derived from
+    /// which is a different door from DN0023's call into the core assembly. Derived from
     /// <see cref="PlatformAssemblyNames"/> by removing the core assembly, so the per-OS suffixes are spelled once.
     /// </summary>
     private static readonly ImmutableHashSet<string> PerOsImplementationAssemblyNames =
@@ -84,7 +84,7 @@ internal static class CrossPlatformBoundary
     /// <summary>
     /// Gets a value indicating whether <paramref name="assemblyName"/> is one of the three per-OS implementation
     /// libraries (<c>.MacOS</c>/<c>.Linux</c>/<c>.Windows</c>), excluding the core <c>Denice.CrossPlatform</c>
-    /// contract assembly. AG0029 uses this to identify a call from Boundaries into a per-OS assembly.
+    /// contract assembly. DN0029 uses this to identify a call from Boundaries into a per-OS assembly.
     /// </summary>
     /// <param name="assemblyName">The assembly name to test.</param>
     /// <returns><see langword="true"/> when the assembly is a per-OS implementation library.</returns>
@@ -96,7 +96,7 @@ internal static class CrossPlatformBoundary
     /// <summary>
     /// Gets a value indicating whether <paramref name="assemblyName"/> is the CORE
     /// <c>Denice.CrossPlatform</c> contract assembly, excluding its three per-OS siblings — the exact complement
-    /// of <see cref="IsPerOsImplementationAssembly"/> within the platform set. AG0023 gates its scope on it, and
+    /// of <see cref="IsPerOsImplementationAssembly"/> within the platform set. DN0023 gates its scope on it, and
     /// <see cref="IsSharedNamespaceDecoy"/> excludes it, so the one comparison against
     /// <see cref="RootName"/> as an ASSEMBLY name lives here once.
     /// </summary>
@@ -115,15 +115,15 @@ internal static class CrossPlatformBoundary
     /// The <c>Denice.CrossPlatform</c> NAMESPACE is shared: the core assembly and all three per-OS
     /// implementations declare into it, and <c>PlatformServices</c> exists in each of the three. A type from any
     /// OTHER assembly that squats that namespace is a same-named decoy as far as BOTH rules are concerned, so each
-    /// admits it into its own Engine-facing scope — AG0023 beside its core-assembly types and AG0029 beside its
+    /// admits it into its own Engine-facing scope — DN0023 beside its core-assembly types and DN0029 beside its
     /// per-OS ones — and lets its own assembly-pinned door test reject it, rather than letting it fall out of scope
     /// and be silently accepted at the one site that may call the real door. Both rules reporting the same decoy is
     /// the intended overlap, not a partition: neither rule may be silent about an imitation of its own door.
     /// </para>
     /// <para>
     /// The exclusions are what keep each rule off the other's real territory. Excluding the per-OS assemblies keeps
-    /// AG0023 silent about the legitimate <c>PlatformServices.Create()</c> call, and excluding the core assembly
-    /// keeps AG0029 silent about the legitimate <c>CrossPlatformAdapters.Create()</c> call, both of which
+    /// DN0023 silent about the legitimate <c>PlatformServices.Create()</c> call, and excluding the core assembly
+    /// keeps DN0029 silent about the legitimate <c>CrossPlatformAdapters.Create()</c> call, both of which
     /// <c>SystemServices.Create()</c> makes.
     /// </para>
     /// </summary>

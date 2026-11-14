@@ -11,7 +11,7 @@ namespace Denice.Tests;
 /// Exercises the real <c>ConsoleAdapter</c> in <c>Denice.Boundaries</c> — where the four adapters stay — through
 /// the owned <see cref="IConsole"/> off a real container, now built by <c>SystemServices.Create()</c> in
 /// <c>Denice.Engine</c> (<see cref="SystemServicesBuilder.Real"/>). <c>System.Console</c> is owned to this adapter and
-/// AG0016 forbids <c>Console.SetOut</c> in a test, so the real console cannot be captured in-process; the observable
+/// DN0016 forbids <c>Console.SetOut</c> in a test, so the real console cannot be captured in-process; the observable
 /// outcome asserted on the REAL adapter is therefore that each forward to
 /// <c>System.Console.{Write,WriteLine,Error.Write,Error.WriteLine}</c> completes without throwing.
 /// </summary>

@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The result of <c>doctor</c>: whether every in-scope condition is healthy, and a per-condition report. The exit

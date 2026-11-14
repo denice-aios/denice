@@ -25,7 +25,7 @@ public class NoCoverageOptOutAnalyzerTests
     {
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoCoverageOptOutAnalyzer>(ExcludeOnTypeSource, "Denice.Engine"));
-        Assert.Equal("AG0032", diagnostic.Id);
+        Assert.Equal("DN0032", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("Untested", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -48,7 +48,7 @@ public class NoCoverageOptOutAnalyzerTests
 
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<NoCoverageOptOutAnalyzer>(source, "Denice.Cli"));
-        Assert.Equal("AG0032", diagnostic.Id);
+        Assert.Equal("DN0032", diagnostic.Id);
         Assert.Contains("Work", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 

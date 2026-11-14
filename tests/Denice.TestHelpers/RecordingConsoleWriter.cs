@@ -9,7 +9,7 @@ namespace Denice.TestHelpers;
 
 /// <summary>
 /// The <see cref="IConsole"/> a <see cref="RecordingConsole"/> hands out: a contract implementation with a private
-/// constructor (AG0003), handed out only as its interface, whose writes land in the recorder's shared buffers and whose
+/// constructor (DN0003), handed out only as its interface, whose writes land in the recorder's shared buffers and whose
 /// read returns the recorder's supplied standard input.
 /// </summary>
 internal sealed class RecordingConsoleWriter : IConsole

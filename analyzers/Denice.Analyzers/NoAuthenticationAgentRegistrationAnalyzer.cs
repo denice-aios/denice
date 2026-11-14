@@ -13,7 +13,7 @@ namespace Denice.Analyzers;
 /// <c>"RegisterAuthenticationAgentWithOptions"</c>, or <c>"pkttyagent"</c> — anywhere in production source
 /// (<c>src/**</c>). The guard uses only an authentication agent already registered by the trusted login session; it
 /// must never create, spawn, or register one (no-self-answerable-agent), because a self-registered agent could answer
-/// its own presence prompt. This matches by the literal or <c>const</c> VALUE — a genuinely new shape: AG0035 matches
+/// its own presence prompt. This matches by the literal or <c>const</c> VALUE — a genuinely new shape: DN0035 matches
 /// by PARAMETER name and never inspects a value, and no existing rule compares a constant's value against a banned set.
 /// It scopes to exact literal/const values, not a substring in unrelated text. The process-spawn half is also covered
 /// by the live <c>Process</c> ban; acceptance's <c>grep</c> is the independent backstop. Preventive; nothing names
@@ -25,7 +25,7 @@ public sealed class NoAuthenticationAgentRegistrationAnalyzer : DiagnosticAnalyz
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0111";
+    public const string DiagnosticId = "DN0111";
 
     private const string Category = "Denice.Architecture";
 

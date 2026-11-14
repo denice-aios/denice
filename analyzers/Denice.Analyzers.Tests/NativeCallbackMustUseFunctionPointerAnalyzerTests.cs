@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0104: a native callback must be a static [UnmanagedCallersOnly] method reached by &amp;Method, never a marshalled
+/// DN0104: a native callback must be a static [UnmanagedCallersOnly] method reached by &amp;Method, never a marshalled
 /// delegate pointer (Marshal.GetFunctionPointerForDelegate / GetDelegateForFunctionPointer).
 /// </summary>
 public class NativeCallbackMustUseFunctionPointerAnalyzerTests
@@ -25,7 +25,7 @@ public class NativeCallbackMustUseFunctionPointerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackMustUseFunctionPointerAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0104", diagnostic.Id);
+        Assert.Equal("DN0104", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -42,7 +42,7 @@ public class NativeCallbackMustUseFunctionPointerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NativeCallbackMustUseFunctionPointerAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0104", diagnostic.Id);
+        Assert.Equal("DN0104", diagnostic.Id);
     }
 
     [Fact]

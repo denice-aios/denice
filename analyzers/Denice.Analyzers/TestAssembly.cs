@@ -8,7 +8,7 @@ namespace Denice.Analyzers;
 /// Identifies the test assemblies — those whose name ends in <c>.Tests</c> — and the one test-only assembly whose
 /// types they alone may use, <c>Denice.TestHelpers</c>. The shipped guard must never be built against the fake
 /// container the test helpers construct, so a reference to a <c>Denice.TestHelpers</c> type from any assembly
-/// that is not a test assembly is a build error (AG0018). This is the assembly-name gate for that rule, the same
+/// that is not a test assembly is a build error (DN0018). This is the assembly-name gate for that rule, the same
 /// shape as <see cref="CrossPlatformBoundary.IsCrossPlatformLibrary"/>.
 /// </summary>
 internal static class TestAssembly
@@ -37,8 +37,8 @@ internal static class TestAssembly
     /// <summary>
     /// Gets a value indicating whether <paramref name="compilation"/> is part of the test system — the
     /// <c>Denice.TestHelpers</c> assembly or any test project (name ending in <c>.Tests</c>). The single owner of
-    /// the "TestHelpers OR .Tests" predicate: AG0025 skips these compilations (a fake and a proxy legitimately
-    /// co-implement an owner interface there), AG0018's TestHelpers gate reuses it, and NoCoverageOptOutAnalyzer's
+    /// the "TestHelpers OR .Tests" predicate: DN0025 skips these compilations (a fake and a proxy legitimately
+    /// co-implement an owner interface there), DN0018's TestHelpers gate reuses it, and NoCoverageOptOutAnalyzer's
     /// coverage-scope-out check reuses it, so the disjunction is spelled in exactly one place.
     /// </summary>
     /// <param name="compilation">The compilation under analysis.</param>

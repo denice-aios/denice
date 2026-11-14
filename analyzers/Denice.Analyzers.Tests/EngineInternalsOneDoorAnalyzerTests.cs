@@ -308,7 +308,7 @@ public class EngineInternalsOneDoorAnalyzerTests
             diagnostics.Select(diagnostic => diagnostic.Message()));
     }
 
-    // The message AG0041 has to produce, SPELLED OUT here rather than read from the analyzer: an expectation taken
+    // The message DN0041 has to produce, SPELLED OUT here rather than read from the analyzer: an expectation taken
     // from the thing under test proves only that it equals itself. It names the gated assembly that reached, the
     // Engine internal it reached, and the one reach the grant covers.
     private static string ExpectedMessage(string assemblyName, string subject)

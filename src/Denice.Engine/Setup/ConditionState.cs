@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The outcome of detecting one setup condition: a <see cref="ConditionStatus"/> and, when the condition is not

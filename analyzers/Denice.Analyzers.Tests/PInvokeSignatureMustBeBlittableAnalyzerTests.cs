@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0102: a P/Invoke signature must not use object, dynamic, an unconstrained generic type parameter, or a variadic
+/// DN0102: a P/Invoke signature must not use object, dynamic, an unconstrained generic type parameter, or a variadic
 /// (__arglist) parameter list — each leaves the marshaller without a fixed native layout.
 /// </summary>
 public class PInvokeSignatureMustBeBlittableAnalyzerTests
@@ -25,7 +25,7 @@ public class PInvokeSignatureMustBeBlittableAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PInvokeSignatureMustBeBlittableAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0102", diagnostic.Id);
+        Assert.Equal("DN0102", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -42,7 +42,7 @@ public class PInvokeSignatureMustBeBlittableAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PInvokeSignatureMustBeBlittableAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0102", diagnostic.Id);
+        Assert.Equal("DN0102", diagnostic.Id);
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public class PInvokeSignatureMustBeBlittableAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<PInvokeSignatureMustBeBlittableAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0102", diagnostic.Id);
+        Assert.Equal("DN0102", diagnostic.Id);
     }
 
     [Fact]

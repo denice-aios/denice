@@ -2,7 +2,7 @@
 
 using System.Collections.Generic;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// The single set of setup conditions. <c>install</c> applies the machine-structural conditions, <c>init</c>

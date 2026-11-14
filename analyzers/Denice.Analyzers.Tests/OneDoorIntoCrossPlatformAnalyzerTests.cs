@@ -51,7 +51,7 @@ public class OneDoorIntoCrossPlatformAnalyzerTests
         """;
 
     // A GENUINE per-OS implementation assembly, which shares the Denice.CrossPlatform namespace with the core
-    // assembly. It is AG0029's territory, not this rule's, and the per-OS exclusion in this rule's Engine-facing filter
+    // assembly. It is DN0029's territory, not this rule's, and the per-OS exclusion in this rule's Engine-facing filter
     // is what keeps it so.
     private const string PerOsAssemblySource = """
         namespace Denice.CrossPlatform
@@ -106,7 +106,7 @@ public class OneDoorIntoCrossPlatformAnalyzerTests
         SharedAnalyzerSources.ReferencedTypeAccusation(GuardedTypeQualified);
 
     // Every position in which an Engine member can REACH the guarded FileReader type without calling a member on it,
-    // built by the one owner of that table; AG0029's tests drive the same positions against their own guarded type.
+    // built by the one owner of that table; DN0029's tests drive the same positions against their own guarded type.
     public static TheoryData<string> GuardedTypeReferences =>
         SharedAnalyzerSources.TypeReferencePositions(GuardedType);
 
@@ -322,7 +322,7 @@ public class OneDoorIntoCrossPlatformAnalyzerTests
         // The other side of the widened Engine-facing filter, and the one that keeps the production call legal. The
         // Denice.CrossPlatform namespace is shared with the three genuine per-OS implementations, so the filter
         // admits it only from an assembly that is NOT one of them. PlatformServices.Create() reached from
-        // SystemServices.Create() is AG0029's permitted door, and this rule stays silent about it.
+        // SystemServices.Create() is DN0029's permitted door, and this rule stays silent about it.
         Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<OneDoorIntoCrossPlatformAnalyzer>(
             SharedAnalyzerSources.InsideContainerFactory(
                 SharedAnalyzerSources.CrossPlatformUsing, "PlatformServices.Create()"),

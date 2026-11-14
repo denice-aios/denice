@@ -33,7 +33,7 @@ public sealed class NoLiteralCaseModeSeedAnalyzer : DiagnosticAnalyzer
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0036";
+    public const string DiagnosticId = "DN0036";
 
     private const string Category = "Denice.Architecture";
     private const string CaseSensitiveParameterName = "caseSensitive";
@@ -73,7 +73,7 @@ public sealed class NoLiteralCaseModeSeedAnalyzer : DiagnosticAnalyzer
         // call, NOT the InMemoryFileSystemStore constructor: the constructor is only ever reached through NewOverlay,
         // which forwards its own parameter, so the constructor call never carries a literal and a check there could
         // never fire. Inspect that call's caseSensitive argument. The overlay-factory predicate lives once on
-        // TestHelperTypes (shared with AG0035), so a same-named method elsewhere never fires here either. The deliberate
+        // TestHelperTypes (shared with DN0035), so a same-named method elsewhere never fires here either. The deliberate
         // post-construction switches SetCaseSensitive/SimulateCaseSensitivity are ordinary methods — neither the
         // constructor nor NewOverlay — so they are never inspected and stay free to take a literal, exactly as the
         // contract carves out.

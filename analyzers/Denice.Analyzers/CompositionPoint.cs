@@ -12,19 +12,19 @@ namespace Denice.Analyzers;
 /// <list type="bullet">
 /// <item>the <b>callers</b> — the single <c>Program</c> composition method in <c>Denice.Cli</c> and the test
 /// <c>SystemServicesBuilder</c> in <c>Denice.TestHelpers</c>: the only places <c>SystemServices.Create()</c> may be
-/// <em>called</em> (AG0017), a service type may be held (AG0024), or a service may be a parameter (AG0031);</item>
+/// <em>called</em> (DN0017), a service type may be held (DN0024), or a service may be a parameter (DN0031);</item>
 /// <item>the <b>construction site</b> — <c>SystemServices</c> in <c>Denice.Engine</c> (whose <c>Create()</c>
 /// wires the container) and the test <c>SystemServicesBuilder</c>: the only places a direct <c>TimeProvider.System</c>
-/// acquisition is legal (AG0015, clock-legal-in-create-and-builder). This is a TYPE-level test: anywhere inside the
+/// acquisition is legal (DN0015, clock-legal-in-create-and-builder). This is a TYPE-level test: anywhere inside the
 /// container class qualifies;</item>
 /// <item>the <b>container factory method</b> — the static <c>Create()</c> on <c>SystemServices</c> in
 /// <c>Denice.Engine</c> and nothing else: the one method from which Engine may reach into
-/// <c>Denice.Boundaries</c> (AG0040), the core <c>Denice.CrossPlatform</c> assembly (AG0023), or a per-OS
-/// implementation assembly (AG0029), and the one Engine internal the CLI and the test helpers may reach (AG0041).
+/// <c>Denice.Boundaries</c> (DN0040), the core <c>Denice.CrossPlatform</c> assembly (DN0023), or a per-OS
+/// implementation assembly (DN0029), and the one Engine internal the CLI and the test helpers may reach (DN0041).
 /// This is a METHOD-level test and is deliberately narrower than the type-level construction site above: another
 /// method on the same class does NOT qualify;</item>
 /// <item>the <b>wrapper factory</b> — <c>FileInfoFactory</c> in <c>Denice.CrossPlatform</c>: the only place an
-/// <c>AbstractedFileInfo</c>/<c>AbstractedDirectoryInfo</c> wrapper may be constructed (AG0033).</item>
+/// <c>AbstractedFileInfo</c>/<c>AbstractedDirectoryInfo</c> wrapper may be constructed (DN0033).</item>
 /// </list>
 /// </summary>
 internal static class CompositionPoint
@@ -33,7 +33,7 @@ internal static class CompositionPoint
     /// The human-readable name of the one container factory method — <c>Denice.Engine.SystemServices.Create()</c>
     /// — as it is spelled in a diagnostic message. Held next to <see cref="IsContainerFactoryMethod"/>, the predicate
     /// that decides it, so the required site is described in exactly the terms the rules test for and the text is
-    /// spelled once for AG0040, AG0023, AG0029, and AG0041.
+    /// spelled once for DN0040, DN0023, DN0029, and DN0041.
     /// </summary>
     internal const string ContainerFactoryDescription =
         EngineAssembly.Name + "." + ContainerFactoryTypeName + "." + ContainerFactoryMethodName + "()";
@@ -91,7 +91,7 @@ internal static class CompositionPoint
     /// Gets a value indicating whether the clock construction site — <c>SystemServices</c> in
     /// <c>Denice.Engine</c> (whose <c>Create()</c> wires the container) or the test
     /// <c>SystemServicesBuilder</c> — encloses <paramref name="containingSymbol"/>. This is where a direct
-    /// <c>TimeProvider.System</c> acquisition is legal (AG0015): the clock is wired into the container there, unlike
+    /// <c>TimeProvider.System</c> acquisition is legal (DN0015): the clock is wired into the container there, unlike
     /// the composition CALLERS above, which only call the already-built factory.
     /// </summary>
     /// <param name="containingSymbol">The symbol whose enclosing types are walked.</param>
@@ -104,7 +104,7 @@ internal static class CompositionPoint
     /// <summary>
     /// Gets a value indicating whether the wrapper factory — <c>FileInfoFactory</c> in
     /// <c>Denice.CrossPlatform</c> — encloses <paramref name="containingSymbol"/>. This is the only place an
-    /// <c>AbstractedFileInfo</c>/<c>AbstractedDirectoryInfo</c> wrapper may be constructed (AG0033), so every caller
+    /// <c>AbstractedFileInfo</c>/<c>AbstractedDirectoryInfo</c> wrapper may be constructed (DN0033), so every caller
     /// stays on the mockable factory seam.
     /// </summary>
     /// <param name="containingSymbol">The symbol whose enclosing types are walked.</param>
@@ -136,7 +136,7 @@ internal static class CompositionPoint
     /// <summary>
     /// Gets a value indicating whether <paramref name="type"/> is the container type <c>SystemServices</c> in
     /// namespace AND assembly <c>Denice.Engine</c>. Exposed so a rule can test a WRITTEN reference to the
-    /// container type (AG0041's written-name lens) against the same identity the method-level caller test uses.
+    /// container type (DN0041's written-name lens) against the same identity the method-level caller test uses.
     /// </summary>
     /// <param name="type">The type to test.</param>
     /// <returns><see langword="true"/> when the type is the relocated container.</returns>

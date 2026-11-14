@@ -7,7 +7,7 @@ using Xunit;
 namespace Denice.Analyzers.Tests;
 
 /// <summary>
-/// AG0116 (no-state-in-native-ops): a class implementing a per-OS native-ops interface (IObjCRuntime and the two Windows
+/// DN0116 (no-state-in-native-ops): a class implementing a per-OS native-ops interface (IObjCRuntime and the two Windows
 /// native-ops interfaces) must be fully stateless — no instance or static field of any type, no auto-property of any
 /// accessor shape (get-only OR settable, with or without an initializer — each has a compiler-synthesized backing field
 /// that can cache construction-time state), and no field-like event; a const is exempt. Those three — non-const field,
@@ -15,10 +15,10 @@ namespace Denice.Analyzers.Tests;
 /// closed. A fourth check on the implementer TYPE closes the base-class loophole: the member scans see only the
 /// implementer's OWN members, so state on a BASE CLASS is invisible to them; a native-ops implementer must derive
 /// directly from System.Object, and a non-object base is reported on the implementer class. This is the broader superset
-/// of AG0112
+/// of DN0112
 /// (cached native handle) scoped to the native-ops layer. The native-ops owner interface stub is the shared owner
 /// SharedAnalyzerSources.ObjCRuntimeNativeOps; the implementer sits in a second MacOS namespace block. The analyzer
-/// registers its symbol actions through the shared RegisterInMacOsOrWindows gate (mirroring AG0106/AG0113/AG0115), so it
+/// registers its symbol actions through the shared RegisterInMacOsOrWindows gate (mirroring DN0106/DN0113/DN0115), so it
 /// fires ONLY inside the macOS/Windows PRODUCTION assemblies: the RED fixtures compile the stateful implementer into
 /// Denice.CrossPlatform.MacOS, and the GUARD fixture proves the same stateful shape compiled into a non-production
 /// (test) assembly is NOT reported — pinning that the production-only gate lets the stateful native-ops test fakes hold
@@ -43,14 +43,14 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
     [Fact]
     public async Task StaticFieldInNativeOps_IsReported()
     {
-        // A field of ANY type is state — not merely a native handle (that narrower shape is AG0112). A static reference
+        // A field of ANY type is state — not merely a native handle (that narrower shape is DN0112). A static reference
         // field is reported here.
         string source = NativeOps + """
 
@@ -64,7 +64,7 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
@@ -95,7 +95,7 @@ public class NoStateInNativeOpsAnalyzerTests
         // A field-like event (`event EventHandler Changed;`) holds a subscribable delegate list in a compiler-synthesized
         // backing field that is implicitly declared, so — like a settable auto-property — it never surfaces to the field
         // symbol action; a field-only scan would miss it. Stored state is a violation regardless of spelling, so the event
-        // symbol action reports it. This is the third and last implicitly-backed spelling, closing AG0116's stored-state
+        // symbol action reports it. This is the third and last implicitly-backed spelling, closing DN0116's stored-state
         // set (non-const field, settable auto-property, field-like event).
         string source = NativeOps + """
 
@@ -110,7 +110,7 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal("Changed", AnalyzerRunner.SpanText(source, diagnostic));
     }
@@ -135,7 +135,7 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
         Assert.Equal("_changed", AnalyzerRunner.SpanText(source, diagnostic));
     }
 
@@ -147,9 +147,9 @@ public class NoStateInNativeOpsAnalyzerTests
         // when it is compiled into a non-production (test) assembly. Denice.CrossPlatform.Tests is where the stateful
         // native-ops fakes (composing SingleCallRecorder for per-method call counts) legitimately live through the
         // verified InternalsVisibleTo grants; a test fake CAN implement the internal native-ops interface, so the
-        // internal-interface visibility alone would not keep AG0116 off it — the RegisterInMacOsOrWindows gate does. This
-        // pins that the analyzer fires only inside the macOS/Windows production assemblies (mirroring AG0106/AG0113/
-        // AG0115), letting the test fakes hold state.
+        // internal-interface visibility alone would not keep DN0116 off it — the RegisterInMacOsOrWindows gate does. This
+        // pins that the analyzer fires only inside the macOS/Windows production assemblies (mirroring DN0106/DN0113/
+        // DN0115), letting the test fakes hold state.
         string source = NativeOps + """
 
             namespace Denice.CrossPlatform.MacOS
@@ -185,7 +185,7 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal("Library", AnalyzerRunner.SpanText(source, diagnostic));
     }
@@ -194,7 +194,7 @@ public class NoStateInNativeOpsAnalyzerTests
     public async Task GetOnlyAutoPropertyWithInitializerInNativeOps_IsReported()
     {
         // The concrete leak the get-only exemption let hide: `internal IntPtr Handle { get; } = ...;` caches a native
-        // handle in the synthesized backing field at construction — exactly the stored state AG0116 and AG0112 exist to
+        // handle in the synthesized backing field at construction — exactly the stored state DN0116 and DN0112 exist to
         // prevent. A get-only auto-property WITH an initializer is a backing field holding live construction-time state, so
         // it is reported just like the no-initializer form above.
         string source = NativeOps + """
@@ -210,7 +210,7 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal("Handle", AnalyzerRunner.SpanText(source, diagnostic));
     }
@@ -235,7 +235,7 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
         Assert.Equal("_handle", AnalyzerRunner.SpanText(source, diagnostic));
     }
 
@@ -300,7 +300,7 @@ public class NoStateInNativeOpsAnalyzerTests
     [Fact]
     public async Task NativeOpsWithNonObjectBaseClass_IsReported()
     {
-        // The base-class loophole the structural close shuts: AG0116's field/property/event scans see only the
+        // The base-class loophole the structural close shuts: DN0116's field/property/event scans see only the
         // implementer's OWN members, so a field declared on a BASE CLASS (`_count` on NativeOpsBase) is invisible to them
         // and would pass clean. A native-ops implementer must derive directly from System.Object; any base class is a
         // place upstream state can hide, so a non-object base is reported on the implementer class itself — no hierarchy
@@ -320,7 +320,7 @@ public class NoStateInNativeOpsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<NoStateInNativeOpsAnalyzer>(source, "Denice.CrossPlatform.MacOS"));
-        Assert.Equal("AG0116", diagnostic.Id);
+        Assert.Equal("DN0116", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal("ObjCRuntime", AnalyzerRunner.SpanText(source, diagnostic));
     }

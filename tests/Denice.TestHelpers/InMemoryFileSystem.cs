@@ -15,7 +15,7 @@ namespace Denice.TestHelpers;
 /// <see cref="IFileWriter"/>, and <see cref="IDirectoryWriter"/> — by delegating every read and write to the one overlay,
 /// so a symlink created through the platform fake resolves here and a write here never touches the real base. It holds no
 /// state of its own; the overlay is the single source of truth, and the platform fake views the SAME overlay for link
-/// operations. Its constructor is private (AG0003); it is handed out only as each leaf interface through the four static
+/// operations. Its constructor is private (DN0003); it is handed out only as each leaf interface through the four static
 /// factories, each of which returns a fresh view over the SAME shared overlay, so all four leaves observe one another's
 /// writes.
 /// </summary>

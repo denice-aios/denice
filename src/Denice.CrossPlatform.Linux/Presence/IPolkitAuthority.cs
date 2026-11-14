@@ -9,7 +9,7 @@ namespace Denice.CrossPlatform.Linux;
 /// The internal Linux presence port — the one seam through which the Linux presence check reaches polkit. Its sole
 /// implementer (<see cref="TmdsPolkitAuthority"/>) is the only class that touches the pinned
 /// <c>Tmds.DBus.Protocol</c> package and makes the <c>org.freedesktop.PolicyKit1.Authority.CheckAuthorization</c> call
-/// (per-os-native-behind-a-port; enforced by AG0110/AG0114). It is native-call-free (managed D-Bus), so it is NOT a
+/// (per-os-native-behind-a-port; enforced by DN0110/DN0114). It is native-call-free (managed D-Bus), so it is NOT a
 /// native-interop owner. It never creates, spawns, or registers an authentication agent (no-self-answerable-agent).
 ///
 /// It is marked <see cref="RequiresNativeSpecTestAttribute"/> — the production-side, single source of the guardrail-1

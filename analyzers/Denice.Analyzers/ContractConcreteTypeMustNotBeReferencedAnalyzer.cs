@@ -16,7 +16,7 @@ public sealed class ContractConcreteTypeMustNotBeReferencedAnalyzer : Diagnostic
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0006";
+    public const string DiagnosticId = "DN0006";
 
     private const string Category = "Denice.Architecture";
 
@@ -47,7 +47,7 @@ public sealed class ContractConcreteTypeMustNotBeReferencedAnalyzer : Diagnostic
 
         // The four declaration positions — field, property, method (return and parameters), and local — are the shared
         // DeclaredTypeScanner lens, which was extracted from this rule and is now also driven by the access rules
-        // (AG0041 and the Engine gates of AG0023/AG0029). This rule keeps exactly the positions it always had: the
+        // (DN0041 and the Engine gates of DN0023/DN0029). This rule keeps exactly the positions it always had: the
         // invoked-return position the access rules need is registered only by the gated entry point.
         context.RegisterCompilationStartAction(startContext => DeclaredTypeScanner.RegisterDeclarations(
             startContext,

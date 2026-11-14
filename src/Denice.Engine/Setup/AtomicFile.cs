@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Denice.Abstractions.Contracts;
 
-namespace Denice.Setup;
+namespace Denice.Engine.Setup;
 
 /// <summary>
 /// Writes a regular file atomically by writing a temporary sibling and renaming it over the destination, so a

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Denice.Abstractions;
 using Denice.Abstractions.Contracts;
 using Denice.Engine;
-using Denice.Setup;
+using Denice.Engine.Setup;
 
 namespace Denice.Cli;
 
@@ -16,7 +16,7 @@ namespace Denice.Cli;
 /// Hosts the entry point for the Denice command-line interface. It is the single composition point: it builds the
 /// one <see cref="ISystemServices"/> container with <see cref="SystemServices.Create"/> — the internal container
 /// factory in <c>Denice.Engine</c>, reached through Engine's <c>InternalsVisibleTo</c> grant to <c>guard</c> and
-/// the only Engine internal this assembly may reach (AG0041) — and threads it into every
+/// the only Engine internal this assembly may reach (DN0041) — and threads it into every
 /// handler, so console, environment, version, and clock access all run through the owned services. It exposes the
 /// whole surface — <c>hook</c>, <c>install</c>, <c>init</c>, <c>remove</c>, <c>doctor</c> — through System.CommandLine,
 /// with the setup logic living in the Engine behind these thin handlers. The <c>hook</c> handler fails closed: every

@@ -4,7 +4,7 @@ namespace Denice.Abstractions;
 
 /// <summary>
 /// What a Postcheck returns: a <see cref="Verdict"/> plus the ordered <see cref="Effect"/>s the Engine must
-/// execute. This is a named type rather than a tuple because tuple return types are disallowed (AG0002).
+/// execute. This is a named type rather than a tuple because tuple return types are disallowed (DN0002).
 /// </summary>
 /// <param name="Verdict">The aggregate judgment for the call.</param>
 /// <param name="Effects">The side effects, in order, for the Engine to carry out.</param>

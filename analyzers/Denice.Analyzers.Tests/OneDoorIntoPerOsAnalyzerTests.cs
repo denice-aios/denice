@@ -90,7 +90,7 @@ public class OneDoorIntoPerOsAnalyzerTests
         SharedAnalyzerSources.ReferencedTypeAccusation(GuardedTypeQualified);
 
     // Every position in which an Engine member can REACH the guarded PosixFileSystem type without calling a member on
-    // it, built by the one owner of that table; AG0023's tests drive the same positions against their own guarded type.
+    // it, built by the one owner of that table; DN0023's tests drive the same positions against their own guarded type.
     public static TheoryData<string> GuardedTypeReferences =>
         SharedAnalyzerSources.TypeReferencePositions(GuardedType);
 
@@ -313,7 +313,7 @@ public class OneDoorIntoPerOsAnalyzerTests
         // foreign-assembly squatter of the shared Denice.CrossPlatform namespace, so the decoy lands in this
         // rule's own scope and then FAILS this rule's own door test — whose identity conjoins the PlatformServices
         // name with the three genuine per-OS assemblies — instead of falling out of scope and being silently accepted
-        // at the one site that may call the real door. AG0023 reports the same decoy from its own side; overlapping
+        // at the one site that may call the real door. DN0023 reports the same decoy from its own side; overlapping
         // there is expected, and neither rule may be silent about an imitation of its own door.
         ImmutableArray<Diagnostic> diagnostics = await RunFromEngineAgainstDecoyAsync(
             SharedAnalyzerSources.InsideContainerFactory(SharedAnalyzerSources.CrossPlatformUsing, DoorCall));

@@ -25,7 +25,7 @@ public class NoClassInAbstractionsAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<NoClassInAbstractionsAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0001", diagnostic.Id);
+        Assert.Equal("DN0001", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal("Widget", AnalyzerRunner.SpanText(source, diagnostic));
     }
@@ -45,7 +45,7 @@ public class NoClassInAbstractionsAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<NoClassInAbstractionsAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0001", diagnostic.Id);
+        Assert.Equal("DN0001", diagnostic.Id);
         Assert.Equal("Widget", AnalyzerRunner.SpanText(source, diagnostic));
     }
 
@@ -64,7 +64,7 @@ public class NoClassInAbstractionsAnalyzerPositiveTests
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunAsync<NoClassInAbstractionsAnalyzer>(source);
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
-        Assert.Equal("AG0001", diagnostic.Id);
+        Assert.Equal("DN0001", diagnostic.Id);
         Assert.Equal("Widget", AnalyzerRunner.SpanText(source, diagnostic));
     }
 }

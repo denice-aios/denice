@@ -16,7 +16,7 @@ public sealed class ContractMustNotExposeConcreteTypeAnalyzer : DiagnosticAnalyz
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
     /// </summary>
-    public const string DiagnosticId = "AG0004";
+    public const string DiagnosticId = "DN0004";
 
     private const string Category = "Denice.Architecture";
 
