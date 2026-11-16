@@ -59,8 +59,11 @@ ENTRY="$VERSION_DIR/denice-v$VERSION-$RID$EXE"
 mkdir -p "$VERSION_DIR"
 
 # 1. Denice Runtime: self-contained .NET, no apphost (Denice.Runtime.csproj removes it and fails if it remains).
+#    -m:1: a self-contained RID publish builds some projects twice into the same output, and parallel nodes race on
+#    deps.json ("GenerateDepsFile ... used by another process"); the same workaround as eng/check-single-platform-lib.sh
+#    (agent-guard issue #56).
 # shellcheck disable=SC2086
-"$DOTNET" publish "$REPO_ROOT/src/Denice.Runtime/Denice.Runtime.csproj" -c Release -r "$RID" --self-contained \
+"$DOTNET" publish "$REPO_ROOT/src/Denice.Runtime/Denice.Runtime.csproj" -c Release -r "$RID" --self-contained -m:1 \
   -o "$VERSION_DIR" $VERSION_ARGS ${DENICE_DOTNET_ARGS:-}
 
 # 2. The versioned entry: the build itself writes the versioned file name (tested 15 November 2026; one program per

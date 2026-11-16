@@ -1,0 +1,4 @@
+# The rule fixtures and their expected outputs are compared byte for byte; keep LF on every platform.
+*.rs text eol=lf
+*.stderr text eol=lf
+*.toml text eol=lf
