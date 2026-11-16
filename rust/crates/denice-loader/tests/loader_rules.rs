@@ -6,7 +6,7 @@
 #![allow(clippy::unwrap_used, missing_docs)]
 
 use denice_core::layout::InstallLayout;
-use denice_core::platform::{entry_file_name, loader_file_name};
+use denice_core::platform::{entry_file_name, loader_artifact_name};
 use denice_core::protocol::{
     BAD_MARKER, ENV_INSTALL_ROOT, ENV_LOADER_PATH, ENV_LOADER_VERSION, ENV_VERSION_DIR, EXIT_LOADER_REPLACED,
     EXIT_RESTART_INTO_NEWER_VERSION, STARTED_MARKER, VERSIONS_DIR,
@@ -126,7 +126,7 @@ fn case(installed: &[&'static str], script: &[(&'static str, Behaves)]) -> Case 
 fn run(case: &Case) -> i32 {
     let loader = Loader {
         layout: InstallLayout::new(&case.launcher.root),
-        loader_path: case.launcher.root.join(loader_file_name()),
+        loader_path: InstallLayout::new(&case.launcher.root).loader_program_path(),
         loader_version: "0.1.100-pre-release+aaaaaaa".parse().unwrap(),
         launcher: &case.launcher,
     };
@@ -150,7 +150,7 @@ fn passes_the_protocol_environment_to_the_version() {
     let env = &c.launcher.envs.borrow()[0];
     let get = |key: &str| env.iter().find(|(k, _)| *k == key).map(|(_, v)| v.clone()).unwrap();
     assert_eq!(get(ENV_INSTALL_ROOT), c.launcher.root.as_os_str());
-    assert_eq!(get(ENV_LOADER_PATH), c.launcher.root.join(loader_file_name()).as_os_str());
+    assert_eq!(get(ENV_LOADER_PATH), InstallLayout::new(&c.launcher.root).loader_program_path().as_os_str());
     assert_eq!(get(ENV_LOADER_VERSION), "0.1.100-pre-release+aaaaaaa");
     assert_eq!(get(ENV_VERSION_DIR), c.launcher.root.join(VERSIONS_DIR).join(A).as_os_str());
 }
@@ -228,13 +228,13 @@ fn with_nothing_installed_it_says_so() {
 fn hands_over_to_the_installed_loader_right_after_a_swap() {
     let c = case(&[B], &[(B, Behaves::ReplacesLoader)]);
     assert_eq!(run(&c), 42);
-    assert_eq!(*c.launcher.handed_over.borrow(), Some(c.launcher.root.join(loader_file_name())));
+    assert_eq!(*c.launcher.handed_over.borrow(), Some(InstallLayout::new(&c.launcher.root).loader_program_path()));
 }
 
 #[test]
 fn the_previous_loader_is_deleted_on_start() {
     let c = case(&[A], &[(A, Behaves::Runs(0))]);
-    let old = c.launcher.root.join(format!("{}.old", loader_file_name()));
+    let old = c.launcher.root.join(format!("{}.old", loader_artifact_name()));
     std::fs::write(&old, b"old loader").unwrap();
     let _ = run(&c);
     assert!(!old.exists());

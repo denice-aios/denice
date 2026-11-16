@@ -193,13 +193,14 @@ jobs:
           # (the verify step) is a structural seal check and likewise needs no trust.
           IDENTITY="$(security find-identity -p codesigning "$KC" | grep -oE '[0-9A-F]{40}' | head -1)"
           if [ -z "$IDENTITY" ]; then echo "::error::No code-signing identity found in the build keychain after import."; exit 1; fi
-          # Denice's own executables in each layout: the loader (root + the copy the version carries) and the versioned
-          # entry, which hosts .NET and so carries the JIT entitlements (decision mac-hardened-runtime). The .NET runtime's
-          # own .dylib files keep Microsoft's signatures.
+          # Denice's own executables in each layout: the loader app Denice.app (root + the copy the version carries;
+          # signing the app seals its program and Info.plist) and the versioned entry, which hosts .NET and so carries
+          # the JIT entitlements (decision mac-hardened-runtime). The .NET runtime's own .dylib files keep Microsoft's
+          # signatures.
           for rid in osx-arm64 osx-x64; do
             L="layouts/$rid"; V="$L/versions/$DENICE_ASSET_VERSION"
-            for loader in "$L/denice" "$V/denice"; do
-              codesign --force --options runtime --keychain "$KC" --sign "$IDENTITY" "$loader"
+            for app in "$L/Denice.app" "$V/Denice.app"; do
+              codesign --force --options runtime --keychain "$KC" --sign "$IDENTITY" "$app"
             done
             codesign --force --options runtime --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$V/denice-v$DENICE_ASSET_VERSION-$rid"
           done
@@ -210,7 +211,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          layouts/osx-arm64/denice version
+          layouts/osx-arm64/Denice.app/Contents/MacOS/denice version
           rm -f "layouts/osx-arm64/versions/$DENICE_ASSET_VERSION/.started"
       - name: Stage, checksum, and cosign the mac layouts
         if: github.event_name == 'push'

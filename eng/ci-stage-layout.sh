@@ -22,7 +22,8 @@ case "$RID" in win-*) EXE=".exe" ;; *) EXE="" ;; esac
 if command -v sha256sum >/dev/null 2>&1; then SUM=(sha256sum); else SUM=(shasum -a 256); fi
 
 [ -d "$VERSION_DIR" ] || { echo "ci-stage-layout: no version folder $VERSION_DIR" >&2; exit 1; }
-cmp -s "$LAYOUT/denice$EXE" "$VERSION_DIR/denice$EXE" \
+case "$RID" in osx-*) LOADER="Denice.app" ;; *) LOADER="denice$EXE" ;; esac
+diff -rq "$LAYOUT/$LOADER" "$VERSION_DIR/$LOADER" > /dev/null \
   || { echo "ci-stage-layout: the root loader differs from the loader the version carries" >&2; exit 1; }
 
 ( cd "$VERSION_DIR"
@@ -34,6 +35,6 @@ cmp -s "$LAYOUT/denice$EXE" "$VERSION_DIR/denice$EXE" \
 
 name="denice-v${DENICE_ASSET_VERSION}-$RID"
 rm -f "$DIST/$name.zip"
-( cd "$LAYOUT" && zip -q -r -X -y "$DIST/$name.zip" "denice$EXE" versions )
+( cd "$LAYOUT" && zip -q -r -X -y "$DIST/$name.zip" "$LOADER" versions )
 ( cd "$DIST" && "${SUM[@]}" "$name.zip" > "$name.zip.sha256" && "${SUM[@]}" -c "$name.zip.sha256" )
 echo "ci-stage-layout: staged $DIST/$name.zip ($(wc -l < "$VERSION_DIR/SHA256SUMS" | tr -d ' ') files checksummed and cosigned)"

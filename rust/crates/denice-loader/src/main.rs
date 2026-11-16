@@ -11,7 +11,7 @@ use std::ffi::OsString;
 
 fn main() {
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
-    std::process::exit(run(&args));
+    denice_core::platform::exit_process(run(&args));
 }
 
 fn run(args: &[OsString]) -> i32 {
@@ -23,8 +23,8 @@ fn run(args: &[OsString]) -> i32 {
             return denice_loader::EXIT_NO_USABLE_VERSION;
         }
     };
-    let Some(root) = loader_path.parent().map(std::path::Path::to_path_buf) else {
-        eprintln!("denice: this program has no containing folder");
+    let Some(root) = denice_core::platform::install_root_of(&loader_path) else {
+        eprintln!("denice: this program is not inside a Denice install");
         return denice_loader::EXIT_NO_USABLE_VERSION;
     };
     let loader_version = match Version::of_this_build() {

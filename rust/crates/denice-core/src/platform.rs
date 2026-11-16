@@ -3,6 +3,8 @@
 //! Platform facts. This is the only module in the Rust code that branches on the target OS or architecture
 //! (the Rust counterpart of the C# rule that OS branching lives only in the cross-platform layer).
 
+use std::path::{Path, PathBuf};
+
 /// The .NET runtime identifier of this build's target (the same names the release files use).
 #[must_use]
 pub const fn rid() -> &'static str {
@@ -46,16 +48,68 @@ const HOSTFXR: &str = "libhostfxr.dylib";
 #[cfg(target_os = "linux")]
 const HOSTFXR: &str = "libhostfxr.so";
 
-/// The loader's file name: `denice`, or `denice.exe` on Windows (Tim, 16 November 2026).
+/// The loader program's file name: `denice`, or `denice.exe` on Windows (Tim, 16 November 2026).
 #[must_use]
-pub fn loader_file_name() -> String {
+pub fn loader_program_name() -> String {
     format!("denice{}", exe_suffix())
 }
+
+/// What the install holds as "the loader" and what a newer version replaces as a whole: on macOS the app
+/// `Denice.app` (pkg-697310396f74, "App beside versions"), elsewhere the loader program itself.
+#[must_use]
+pub fn loader_artifact_name() -> String {
+    LOADER_ARTIFACT.map_or_else(loader_program_name, str::to_owned)
+}
+
+/// The loader program inside the loader artifact (`Denice.app/Contents/MacOS/denice` on macOS).
+#[must_use]
+pub fn loader_program_in(artifact: &Path) -> PathBuf {
+    LOADER_ARTIFACT
+        .map_or_else(|| artifact.to_path_buf(), |_| artifact.join(BUNDLE_PROGRAM_DIR).join(loader_program_name()))
+}
+
+/// The install root that holds the loader artifact the running loader program belongs to.
+#[must_use]
+pub fn install_root_of(loader_program: &Path) -> Option<PathBuf> {
+    let levels = if LOADER_ARTIFACT.is_some() { 4 } else { 1 };
+    loader_program.ancestors().nth(levels).map(Path::to_path_buf)
+}
+
+#[cfg(target_os = "macos")]
+const LOADER_ARTIFACT: Option<&str> = Some("Denice.app");
+#[cfg(not(target_os = "macos"))]
+const LOADER_ARTIFACT: Option<&str> = None;
+
+/// Where a macOS app keeps its program.
+const BUNDLE_PROGRAM_DIR: &str = "Contents/MacOS";
 
 /// The versioned entry's file name: `denice-v<version>-<rid>`, `.exe` on Windows.
 #[must_use]
 pub fn entry_file_name(version: &str) -> String {
     format!("denice-v{version}-{}{}", rid(), exe_suffix())
+}
+
+/// Ends this process with `code`, keeping the full exit code (32-bit on Windows, so a version's crash code reaches the
+/// shell unchanged), and running the C runtime's exit handlers first. On Windows `std::process::exit` ends the process
+/// without them, which loses whatever they flush (for example coverage data); the C runtime's own `exit` runs them.
+pub fn exit_process(code: i32) -> ! {
+    exit_through_c_runtime(code)
+}
+
+#[cfg(not(windows))]
+fn exit_through_c_runtime(code: i32) -> ! {
+    // On Unix the standard library already exits through the C runtime's `exit`.
+    std::process::exit(code)
+}
+
+#[cfg(windows)]
+#[allow(unsafe_code)]
+fn exit_through_c_runtime(code: i32) -> ! {
+    unsafe extern "C" {
+        fn exit(code: std::ffi::c_int) -> !;
+    }
+    // SAFETY: the C runtime's exit runs the registered exit handlers and never returns.
+    unsafe { exit(code) }
 }
 
 #[cfg(test)]

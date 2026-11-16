@@ -11,8 +11,8 @@ use std::ffi::OsString;
 
 fn main() {
     let args: Vec<OsString> = std::env::args_os().skip(1).collect();
-    // process::exit keeps the full exit code (Windows codes are 32-bit); nothing here needs destructors.
-    std::process::exit(run(&args));
+    // Keeps the full exit code (Windows codes are 32-bit) and runs the C runtime's exit handlers.
+    denice_core::platform::exit_process(run(&args));
 }
 
 fn run(args: &[OsString]) -> i32 {

@@ -99,7 +99,7 @@ fn older_versions_stay_until_the_new_one_has_started() {
 #[test]
 fn loader_swap_paths_follow_tims_names() {
     let layout = InstallLayout::new("/install");
-    let loader = platform::loader_file_name();
+    let loader = platform::loader_artifact_name();
     assert_eq!(layout.loader_path(), Path::new("/install").join(&loader));
     assert_eq!(layout.loader_staging_path(), Path::new("/install").join(format!("{loader}.ver")));
     assert_eq!(layout.loader_backup_path(), Path::new("/install").join(format!("{loader}.old")));

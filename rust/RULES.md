@@ -13,7 +13,7 @@ errors, no `unwrap`/`expect`/`panic` in product code, rustfmt (eng/rust-checks.s
 
 | C# rule | What it enforces | Rust counterpart | Status |
 |---|---|---|---|
-| DN0008 | Native interop only in the CrossPlatform libraries | R1: `#[allow(unsafe_code)]` only in the allow-listed native modules (`denice-entry/src/hosting.rs`, `denice-loader/src/launcher.rs`) | to build |
+| DN0008 | Native interop only in the CrossPlatform libraries | R1: `#[allow(unsafe_code)]` only in the allow-listed native modules (`denice-entry/src/hosting.rs`, `denice-loader/src/launcher.rs`, `denice-core/src/platform.rs` for the C runtime exit) | to build |
 | DN0102 | P/Invoke signatures must be blittable | R2: `extern "C"` fn types and `extern` blocks use only primitive, raw-pointer and `#[repr(C)]` types | to build |
 | DN0103 | macOS native bool marshalled as I1 | R2 covers it: no `bool` in an `extern "C"` signature | to build |
 | DN0009 | No OS branching outside CrossPlatform | R3: `cfg(target_os/unix/windows/target_arch)` only in allow-listed platform modules (`platform.rs`, `launcher.rs`, `hosting.rs` native strings) | to build |

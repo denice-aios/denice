@@ -105,7 +105,7 @@ impl<L: Launcher> Loader<'_, L> {
                     last_failure = None;
                 }
                 EXIT_LOADER_REPLACED => {
-                    return match self.launcher.hand_over(&self.layout.loader_path(), args) {
+                    return match self.launcher.hand_over(&self.layout.loader_program_path(), args) {
                         Ok(code) => code,
                         Err(e) => {
                             self.launcher.report(&format!("cannot start the new loader: {e}"));

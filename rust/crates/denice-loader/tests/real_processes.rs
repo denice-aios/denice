@@ -7,7 +7,8 @@
 
 #![allow(clippy::unwrap_used, clippy::panic, clippy::print_stdout, missing_docs)]
 
-use denice_core::platform::{entry_file_name, loader_file_name};
+use denice_core::layout::InstallLayout;
+use denice_core::platform::{entry_file_name, loader_artifact_name};
 use denice_core::protocol::{
     BAD_MARKER, ENV_INSTALL_ROOT, ENV_LOADER_VERSION, ENV_VERSION_DIR, EXIT_LOADER_REPLACED,
     EXIT_RESTART_INTO_NEWER_VERSION, STARTED_MARKER, VERSIONS_DIR,
@@ -69,10 +70,12 @@ fn act_as_version() -> i32 {
             started(dir);
             // Swap in a loader that is this same test program acting as a version marker writer.
             let root = PathBuf::from(std::env::var_os(ENV_INSTALL_ROOT).unwrap());
-            let replaced = root.join(loader_file_name());
-            std::fs::rename(&replaced, root.join(format!("{}.old", loader_file_name()))).unwrap();
-            let _ = std::fs::copy(&me, &replaced).unwrap();
-            std::fs::write(root.join(BEHAVIOUR_FILE), "run 33").unwrap();
+            let layout = InstallLayout::new(&root);
+            std::fs::rename(layout.loader_path(), root.join(format!("{}.old", loader_artifact_name()))).unwrap();
+            let program = layout.loader_program_path();
+            std::fs::create_dir_all(program.parent().unwrap()).unwrap();
+            let _ = std::fs::copy(&me, &program).unwrap();
+            std::fs::write(program.parent().unwrap().join(BEHAVIOUR_FILE), "run 33").unwrap();
             EXIT_LOADER_REPLACED
         }
         other => panic!("unknown behaviour {other:?}"),
@@ -92,12 +95,14 @@ fn fresh_install() -> (tempfile::TempDir, PathBuf) {
     let dir = tempfile::tempdir().unwrap();
     let root = dir.path().join("Denice");
     std::fs::create_dir_all(&root).unwrap();
-    let _ = std::fs::copy(env!("CARGO_BIN_EXE_denice"), root.join(loader_file_name())).unwrap();
+    let program = InstallLayout::new(&root).loader_program_path();
+    std::fs::create_dir_all(program.parent().unwrap()).unwrap();
+    let _ = std::fs::copy(env!("CARGO_BIN_EXE_denice"), &program).unwrap();
     (dir, root)
 }
 
 fn run_loader(root: &Path, args: &[&str]) -> std::process::Output {
-    Command::new(root.join(loader_file_name())).args(args).env(ROLE, "1").output().unwrap()
+    Command::new(InstallLayout::new(root).loader_program_path()).args(args).env(ROLE, "1").output().unwrap()
 }
 
 fn runs_highest_with_arguments() {
@@ -144,8 +149,7 @@ fn falls_back_from_failed_start() {
 fn hands_over_to_replaced_loader() {
     let (_d, root) = fresh_install();
     let _ = install(&root, A, "replace-loader");
-    // After the swap the "new loader" is this test program; it reads `behaviour` at the install root and exits 33.
-    std::fs::create_dir_all(&root).unwrap();
+    // After the swap the "new loader" is this test program; it reads `behaviour` beside itself and exits 33.
     let out = run_loader(&root, &[]);
     assert_eq!(out.status.code(), Some(33), "the old loader handed over to the new one at once: {out:?}");
 }

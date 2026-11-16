@@ -40,7 +40,8 @@ ok=1
     ( cd "$vdir" && "${SUM[@]}" -c --quiet SHA256SUMS ) 2>&1 && echo "SHA256SUMS PASS: $rid" || { echo "SHA256SUMS FAIL: $rid"; ok=0; }
     if cosign verify-blob --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" \
          --bundle "$vdir/SHA256SUMS.cosign.bundle" "$vdir/SHA256SUMS" 2>&1; then echo "cosign PASS: $rid"; else echo "cosign FAIL: $rid"; ok=0; fi
-    cmp -s "$work/denice$EXE" "$vdir/denice$EXE" && echo "loader copy PASS: $rid" || { echo "loader copy FAIL: $rid"; ok=0; }
+    case "$rid" in osx-*) LOADER="Denice.app" ;; *) LOADER="denice$EXE" ;; esac
+    diff -rq "$work/$LOADER" "$vdir/$LOADER" > /dev/null && echo "loader copy PASS: $rid" || { echo "loader copy FAIL: $rid"; ok=0; }
     case "$NATIVE" in
       codesign)
         while IFS= read -r -d '' f; do
@@ -48,6 +49,9 @@ ok=1
             codesign --verify --strict "$f" 2>&1 || { echo "codesign FAIL: ${f#$work/}"; ok=0; }
           fi
         done < <(find "$work" -type f -print0)
+        for app in "$work/Denice.app" "$vdir/Denice.app"; do
+          codesign --verify --deep --strict "$app" 2>&1 || { echo "codesign FAIL: ${app#$work/}"; ok=0; }
+        done
         echo "codesign checked: $rid"
         ;;
       signtool)

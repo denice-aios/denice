@@ -30,10 +30,10 @@ impl InstalledVersion {
         self.dir.join(platform::entry_file_name(&self.version.to_string()))
     }
 
-    /// The loader copy this version carries (used to replace an older installed loader).
+    /// The loader this version carries (used to replace an older installed loader): `denice`, or `Denice.app` on macOS.
     #[must_use]
     pub fn carried_loader_path(&self) -> PathBuf {
-        self.dir.join(platform::loader_file_name())
+        self.dir.join(platform::loader_artifact_name())
     }
 
     /// Whether Denice Runtime of this version has started successfully at least once.
@@ -76,10 +76,16 @@ impl InstallLayout {
         &self.root
     }
 
-    /// The installed loader (`denice` / `denice.exe`).
+    /// The installed loader as a whole, the thing a swap replaces: `denice` / `denice.exe`, or `Denice.app` on macOS.
     #[must_use]
     pub fn loader_path(&self) -> PathBuf {
-        self.root.join(platform::loader_file_name())
+        self.root.join(platform::loader_artifact_name())
+    }
+
+    /// The installed loader program, the thing that is run (inside `Denice.app` on macOS).
+    #[must_use]
+    pub fn loader_program_path(&self) -> PathBuf {
+        platform::loader_program_in(&self.loader_path())
     }
 
     /// Where a new loader is unpacked first: `denice.ver`.
