@@ -43,6 +43,7 @@ Sources:
 | D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
 | D3 | Before use, Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | open |
 | D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | open |
+| S1 | Denice has Settings that the update channel, check interval and off switch live in (none exist today) | R7, P-build update-policy; Settings package | blocked pending package |
 | D5 | What a ready newer version does to a one-shot command versus a long-running session (restart code 75) | P-store "reloads it"; follow-up package decision 2 | blocked pending package |
 
 ## Loader replacement
