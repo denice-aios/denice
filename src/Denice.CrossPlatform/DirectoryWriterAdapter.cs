@@ -26,6 +26,9 @@ internal sealed class DirectoryWriterAdapter : IDirectoryWriter
     public void DeleteDirectory(string path, bool recursive) => Directory.Delete(path, recursive);
 
     /// <inheritdoc />
+    public void MoveDirectory(string source, string destination) => Directory.Move(source, destination);
+
+    /// <inheritdoc />
     public void SetLastWriteTimeUtc(string path, DateTimeOffset time) =>
         Directory.SetLastWriteTimeUtc(path, time.UtcDateTime);
 

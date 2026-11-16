@@ -317,6 +317,30 @@ internal sealed class InMemoryFileSystemStore
     internal void DeleteDirectory(string path, bool recursive) =>
         DispatchVoid(path, FileSystemOperation.DeleteDirectory, resolved => DeleteDirectoryCore(resolved, recursive));
 
+    /// <summary>
+    /// Moves a directory and everything under it; the destination must not exist. The overlay has no single-node rename,
+    /// so it recreates the tree at the destination and deletes the source, which a caller observes as one move.
+    /// </summary>
+    /// <param name="source">The absolute path of the existing directory.</param>
+    /// <param name="destination">The absolute path it moves to.</param>
+    internal void MoveDirectory(string source, string destination) =>
+        DispatchVoid(source, FileSystemOperation.MoveDirectory, resolved =>
+        {
+            if (!DirectoryExistsCore(resolved))
+            {
+                throw new DirectoryNotFoundException($"The source directory '{source}' does not exist.");
+            }
+
+            string resolvedDestination = Resolve(destination, followFinal: false);
+            if (DirectoryExistsCore(resolvedDestination) || FileExistsCore(resolvedDestination))
+            {
+                throw new IOException($"The destination '{destination}' already exists.");
+            }
+
+            CopyTreeCore(resolved, resolvedDestination);
+            DeleteDirectoryCore(resolved, recursive: true);
+        });
+
     /// <summary>Sets a directory's last-write time in UTC.</summary>
     /// <param name="path">The absolute directory path whose last-write time is set.</param>
     /// <param name="time">The last-write time to set.</param>
@@ -790,6 +814,23 @@ internal sealed class InMemoryFileSystemStore
             && ((_baseReader?.Exists(entry) ?? false) || (_baseEnumerator?.DirectoryExists(entry) ?? false)))
         {
             throw new IOException($"Cannot {action} '{entry}': a real file or directory exists there.");
+        }
+    }
+
+    private void CopyTreeCore(string source, string destination)
+    {
+        CreateDirectoryCore(destination);
+        foreach (DirectoryChild child in EnumerateChildrenCore(source))
+        {
+            string target = Path.Combine(destination, Path.GetFileName(child.FullPath));
+            if (child.IsDirectory)
+            {
+                CopyTreeCore(child.FullPath, target);
+            }
+            else
+            {
+                WriteFileCore(target, ReadAllBytesCore(child.FullPath));
+            }
         }
     }
 }
