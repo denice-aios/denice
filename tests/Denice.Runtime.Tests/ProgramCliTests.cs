@@ -3,7 +3,7 @@
 using FluentAssertions;
 using Xunit;
 
-namespace Denice.Cli.Tests;
+namespace Denice.Runtime.Tests;
 
 /// <summary>
 /// Drives the CLI through every command handler in <c>Program.cs</c> by way of the internal <c>Program.Run</c>

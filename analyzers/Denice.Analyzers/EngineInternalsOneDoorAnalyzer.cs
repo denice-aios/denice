@@ -60,7 +60,7 @@ public sealed class EngineInternalsOneDoorAnalyzer : DiagnosticAnalyzer
     /// <c>Denice.Tests</c> compilation is deliberately absent — its grant predates this rule and is untouched.
     /// </summary>
     private static readonly ImmutableArray<string> GatedAssemblies = ImmutableArray.Create(
-        CliAssembly.CompiledName,
+        RuntimeAssembly.CompiledName,
         TestAssembly.TestHelpersName);
 
     // Cached so no delegate is allocated per analyzed node or symbol.

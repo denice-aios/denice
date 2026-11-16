@@ -109,7 +109,7 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<ContainerInterfaceSingleOwnerAnalyzer>(source, "Denice.Cli.Tests"));
+            await AnalyzerRunner.RunAsync<ContainerInterfaceSingleOwnerAnalyzer>(source, "Denice.Runtime.Tests"));
         Assert.Equal("DN0022", diagnostic.Id);
         Assert.Contains("ISystemServices", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }

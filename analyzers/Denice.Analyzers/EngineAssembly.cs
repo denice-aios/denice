@@ -8,7 +8,7 @@ namespace Denice.Analyzers;
 /// <c>Denice.Boundaries</c> (DN0040), into the core <c>Denice.CrossPlatform</c> assembly (DN0023), and into a
 /// per-OS implementation assembly (DN0029), and then only from <c>SystemServices.Create()</c>; it is also the assembly
 /// whose internals the CLI and the test helpers may reach only through that one factory call (DN0041). This is the
-/// single owner of the name, mirroring <see cref="BoundaryAssembly"/>, <see cref="CliAssembly"/>, and
+/// single owner of the name, mirroring <see cref="BoundaryAssembly"/>, <see cref="RuntimeAssembly"/>, and
 /// <see cref="TestAssembly"/>, so a rename touches one place.
 /// </summary>
 internal static class EngineAssembly

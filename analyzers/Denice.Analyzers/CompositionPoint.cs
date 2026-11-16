@@ -10,7 +10,7 @@ namespace Denice.Analyzers;
 /// <see cref="WellKnownType"/>) AND the assembly — a conjunction, so a type merely NAMED the same in another namespace
 /// or assembly cannot self-grant the exemption:
 /// <list type="bullet">
-/// <item>the <b>callers</b> — the single <c>Program</c> composition method in <c>Denice.Cli</c> and the test
+/// <item>the <b>callers</b> — the single <c>Program</c> composition method in <c>Denice.Runtime</c> and the test
 /// <c>SystemServicesBuilder</c> in <c>Denice.TestHelpers</c>: the only places <c>SystemServices.Create()</c> may be
 /// <em>called</em> (DN0017), a service type may be held (DN0024), or a service may be a parameter (DN0031);</item>
 /// <item>the <b>construction site</b> — <c>SystemServices</c> in <c>Denice.Engine</c> (whose <c>Create()</c>
@@ -52,7 +52,7 @@ internal static class CompositionPoint
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="type"/> is one of the two composition callers — the
-    /// <c>Program</c> type in <c>Denice.Cli</c> or the <c>SystemServicesBuilder</c> type in
+    /// <c>Program</c> type in <c>Denice.Runtime</c> or the <c>SystemServicesBuilder</c> type in
     /// <c>Denice.TestHelpers</c>.
     /// </summary>
     /// <param name="type">The type to test.</param>
@@ -181,12 +181,12 @@ internal static class CompositionPoint
     private static bool IsProgramInCli(INamedTypeSymbol? enclosing)
     {
         // The two identity signals are DISTINCT and matched separately by the shared WellKnownType.IsInAssembly
-        // conjunction: the Program TYPE by its namespace (Denice.Cli) + name, and the ASSEMBLY by the CLI's real
-        // compiled name ("denice", set by <AssemblyName>denice</AssemblyName>). Using the root namespace for the assembly
+        // conjunction: the Program TYPE by its namespace (Denice.Runtime) + name, and the ASSEMBLY by the CLI's real
+        // compiled name ("Denice.Runtime", set by <AssemblyName>Denice.Runtime</AssemblyName>). Using the root namespace for the assembly
         // check would never match the real Program and would permanently, falsely flag the one legitimate composition
         // point (LESSON 1).
         return WellKnownType.IsInAssembly(
-            enclosing, CliAssembly.RootNamespace, CompositionTypeName, CliAssembly.CompiledName);
+            enclosing, RuntimeAssembly.RootNamespace, CompositionTypeName, RuntimeAssembly.CompiledName);
     }
 
     private static bool IsBuilderInTestHelpers(INamedTypeSymbol? enclosing)

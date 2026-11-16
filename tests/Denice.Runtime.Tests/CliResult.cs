@@ -1,6 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
-namespace Denice.Cli.Tests;
+namespace Denice.Runtime.Tests;
 
 /// <summary>
 /// The captured result of a CLI invocation: the process exit code and the text written to standard output and

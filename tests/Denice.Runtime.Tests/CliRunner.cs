@@ -3,7 +3,7 @@
 using Denice.Abstractions.Contracts;
 using Denice.TestHelpers;
 
-namespace Denice.Cli.Tests;
+namespace Denice.Runtime.Tests;
 
 /// <summary>
 /// Runs the CLI through the internal <c>Program.Run(ISystemServices)</c> seam with the real production services except

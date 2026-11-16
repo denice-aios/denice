@@ -58,12 +58,12 @@ public class NoServiceAsParameterAnalyzerTests
     [Fact]
     public async Task MethodTakingService_AtCompositionPoint_IsNotReported()
     {
-        // The composition method (the Program type in namespace Denice.Cli) legitimately takes a service. It is
-        // compiled into the CLI's REAL assembly name "denice" (<AssemblyName>denice</AssemblyName>), the name the
+        // The composition method (the Program type in namespace Denice.Runtime) legitimately takes a service. It is
+        // compiled into the CLI's REAL assembly name "Denice.Runtime" (<AssemblyName>Denice.Runtime</AssemblyName>), the name the
         // composition-point exemption matches on — not the root namespace.
         string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
-            namespace Denice.Cli
+            namespace Denice.Runtime
             {
                 internal static class Program
                 {
@@ -72,7 +72,7 @@ public class NoServiceAsParameterAnalyzerTests
             }
             """;
 
-        Assert.Empty(await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "denice"));
+        Assert.Empty(await AnalyzerRunner.RunAsync<NoServiceAsParameterAnalyzer>(source, "Denice.Runtime"));
     }
 
     [Fact]

@@ -84,8 +84,8 @@ jobs:
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/macos-build.binlog
-          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r osx-arm64 --self-contained $AG
-          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r osx-x64 --self-contained $AG
+          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r osx-arm64 --self-contained $AG
+          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r osx-x64 --self-contained $AG
       - name: Cross-RID selects exactly one platform library (host != target)
         # Regression guard for scan-resolutions #1: a self-contained cross-RID publish must reference and bundle
         # exactly ONE Denice.CrossPlatform.<OS> library. The per-OS legs can never catch a mis-selection
@@ -165,7 +165,7 @@ jobs:
           IDENTITY="$(security find-identity -p codesigning "$KC" | grep -oE '[0-9A-F]{40}' | head -1)"
           if [ -z "$IDENTITY" ]; then echo "::error::No code-signing identity found in the build keychain after import."; exit 1; fi
           for rid in osx-arm64 osx-x64; do
-            BIN="src/Denice.Cli/bin/Release/net10.0/$rid/publish/denice"
+            BIN="src/Denice.Runtime/bin/Release/net10.0/$rid/publish/denice"
             codesign --force --options runtime --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$BIN"
           done
       - name: Launch the codesigned mac binary (proves hardened runtime lets it run)
@@ -175,7 +175,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          src/Denice.Cli/bin/Release/net10.0/osx-arm64/publish/denice version
+          src/Denice.Runtime/bin/Release/net10.0/osx-arm64/publish/denice version
       - name: Stage, checksum, and cosign mac binaries
         if: github.event_name == 'push'
         run: eng/ci-stage-and-cosign.sh dist "" osx-arm64 osx-x64
@@ -235,8 +235,8 @@ jobs:
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/windows-build.binlog
-          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r win-x64 --self-contained $AG
-          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r win-arm64 --self-contained $AG
+          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r win-x64 --self-contained $AG
+          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r win-arm64 --self-contained $AG
       - name: Test win-x64 (win-arm64 is build-only, accepted risk)
         shell: bash
         run: dotnet test -c Release $AG --logger "trx;LogFileName=windows.trx"
@@ -292,7 +292,7 @@ jobs:
             Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
           if (-not $signtool) { Write-Error 'signtool.exe not found on the runner.' }
           foreach ($rid in 'win-x64','win-arm64') {
-            $bin = "src\Denice.Cli\bin\Release\net10.0\$rid\publish\denice.exe"
+            $bin = "src\Denice.Runtime\bin\Release\net10.0\$rid\publish\denice.exe"
             # Timestamp against DigiCert; on failure fall back to Sectigo (decision digicert-timestamp-sectigo-fallback).
             & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $bin
             if ($LASTEXITCODE -ne 0) {
@@ -359,8 +359,8 @@ jobs:
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/linux-build.binlog
-          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r linux-arm64 --self-contained $AG
-          dotnet publish src/Denice.Cli/Denice.Cli.csproj -c Release -r linux-x64 --self-contained $AG
+          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r linux-arm64 --self-contained $AG
+          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r linux-x64 --self-contained $AG
       - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
         run: dotnet test -c Release $AG --logger "trx;LogFileName=linux.trx"
       - name: Coverage gate — aggregate + Linux implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)

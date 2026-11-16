@@ -16,7 +16,7 @@
     TargetFramework;RuntimeIdentifier;SelfContained), so keying straight on $(RuntimeIdentifier) makes restore (RID
     present -> Windows) and the stripped library build (RID absent -> host = macOS) select DIFFERENT per-OS projects,
     and the publish bundles BOTH (or fails NETSDK1004 on a cold tree). The consuming app therefore threads the RID
-    down as the DenicePlatformRid global property (see Denice.Cli.csproj's ProjectReference
+    down as the DenicePlatformRid global property (see Denice.Runtime.csproj's ProjectReference
     AdditionalProperties); that property is NOT in the SDK's strip list, so it survives into the library build and
     restore and every build pass agree on exactly ONE per-OS project. It falls back to $(RuntimeIdentifier) (so a
     direct `dotnet publish -r <rid>` of an importer still works) and then to the build-host OS when neither is set.

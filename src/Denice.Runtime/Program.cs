@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Denice.Abstractions.Contracts;
 using Denice.Engine;
 
-namespace Denice.Cli;
+namespace Denice.Runtime;
 
 /// <summary>
 /// Hosts the entry point for the Denice command-line interface. It is the single composition point: it builds the
@@ -23,7 +23,7 @@ internal sealed class Program
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Program"/> class holding the command-line arguments. It is
-    /// <c>internal</c> (not private) so <c>Denice.Cli.Tests</c> can construct it through the
+    /// <c>internal</c> (not private) so <c>Denice.Runtime.Tests</c> can construct it through the
     /// <c>InternalsVisibleTo</c> grant and drive <see cref="Run(ISystemServices)"/> with a test-built container
     /// (program-run-seam: an instantiable internal class; cli-tests-reach-run-via-ivt). <see cref="Main"/> is the
     /// only in-assembly caller.

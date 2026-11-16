@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Cli", "src\Denice.Cli\Denice.Cli.csproj", "{B86C1F94-E893-46F8-8E93-CDC767FD4A10}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Runtime", "src\Denice.Runtime\Denice.Runtime.csproj", "{B86C1F94-E893-46F8-8E93-CDC767FD4A10}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Analyzers", "analyzers\Denice.Analyzers\Denice.Analyzers.csproj", "{FBBC6014-85B1-4081-94FC-C724A544BF43}"
 EndProject
@@ -23,7 +23,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.CrossPlatform.Tests", "tests\Denice.CrossPlatform.Tests\Denice.CrossPlatform.Tests.csproj", "{45010A1A-97FF-46AC-959F-65F7B608A164}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Cli.Tests", "tests\Denice.Cli.Tests\Denice.Cli.Tests.csproj", "{F6F10A39-4D64-449C-AB5D-7A79724B381B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Runtime.Tests", "tests\Denice.Runtime.Tests\Denice.Runtime.Tests.csproj", "{F6F10A39-4D64-449C-AB5D-7A79724B381B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Abstractions", "src\Denice.Abstractions\Denice.Abstractions.csproj", "{C15C99CA-E948-426F-A469-1DB25CEAFAE6}"
 EndProject

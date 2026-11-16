@@ -1,0 +1,37 @@
+[workspace]
+resolver = "3"
+members = ["crates/denice-core", "crates/denice-loader", "crates/denice-entry"]
+
+[workspace.package]
+edition = "2024"
+version = "0.0.0" # not the product version: the product version comes from eng/compute-build-id.sh (DENICE_VERSION)
+license = "MIT"
+authors = ["Denice.ai"]
+publish = false
+
+[workspace.dependencies]
+denice-core = { path = "crates/denice-core" }
+semver = "1.0.26"
+libloading = "0.8.8"
+libc = "0.2.175"
+
+# Warnings are errors in CI (RUSTFLAGS=-D warnings), matching TreatWarningsAsErrors on the .NET side.
+[workspace.lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"
+unused_results = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+print_stdout = "warn"
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1

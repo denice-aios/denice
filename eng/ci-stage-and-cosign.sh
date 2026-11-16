@@ -19,7 +19,7 @@ DIST="$1"; EXT="$2"; shift 2
 mkdir -p "$DIST"
 
 for rid in "$@"; do
-  cp "src/Denice.Cli/bin/Release/net10.0/$rid/publish/denice$EXT" "$DIST/denice-v${DENICE_ASSET_VERSION}-$rid$EXT"
+  cp "src/Denice.Runtime/bin/Release/net10.0/$rid/publish/denice$EXT" "$DIST/denice-v${DENICE_ASSET_VERSION}-$rid$EXT"
 done
 
 cd "$DIST"

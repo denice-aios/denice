@@ -1,0 +1,22 @@
+{
+  "comment": "The one definition of the contract between the Rust loader, the Rust entry and Denice Runtime (.NET). Rust (rust/crates/denice-core/src/protocol.rs) and .NET each test that their constants equal these values.",
+  "exitCodes": {
+    "restartIntoNewerVersion": 75,
+    "loaderReplaced": 76
+  },
+  "environment": {
+    "installRoot": "DENICE_INSTALL_ROOT",
+    "loaderPath": "DENICE_LOADER_PATH",
+    "loaderVersion": "DENICE_LOADER_VERSION",
+    "versionDirectory": "DENICE_VERSION_DIR"
+  },
+  "files": {
+    "versionsDirectory": "versions",
+    "partialSuffix": ".partial",
+    "startedMarker": ".started",
+    "badMarker": ".bad",
+    "loaderStagingSuffix": ".ver",
+    "loaderBackupSuffix": ".old",
+    "runtimeAssembly": "Denice.Runtime.dll"
+  }
+}

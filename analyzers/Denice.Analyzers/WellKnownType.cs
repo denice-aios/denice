@@ -55,7 +55,7 @@ internal static class WellKnownType
     /// <paramref name="assemblyName"/>. This is the single home for the "type identity AND declaring-assembly"
     /// conjunction the boundary rules use, so a type merely NAMED the same in another assembly cannot self-grant an
     /// exemption. The namespace and the assembly are matched separately because an assembly name may differ from the
-    /// root namespace (LESSON 1: the CLI's <c>Program</c> is in namespace <c>Denice.Cli</c> but compiles into the
+    /// root namespace (LESSON 1: the CLI's <c>Program</c> is in namespace <c>Denice.Runtime</c> but compiles into the
     /// assembly <c>denice</c>).
     /// </summary>
     /// <param name="type">The type to test.</param>

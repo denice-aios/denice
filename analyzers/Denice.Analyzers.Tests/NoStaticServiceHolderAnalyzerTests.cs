@@ -58,12 +58,12 @@ public class NoStaticServiceHolderAnalyzerTests
     [Fact]
     public async Task StaticServiceField_AtCompositionPoint_IsNotReported()
     {
-        // The composition point (the Program type in namespace Denice.Cli) is the one place a service type may sit
-        // in a static. It is compiled into the CLI's REAL assembly name "denice" (<AssemblyName>denice</AssemblyName>),
+        // The composition point (the Program type in namespace Denice.Runtime) is the one place a service type may sit
+        // in a static. It is compiled into the CLI's REAL assembly name "Denice.Runtime" (<AssemblyName>Denice.Runtime</AssemblyName>),
         // the name the composition-point exemption matches on — not the root namespace.
         string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
-            namespace Denice.Cli
+            namespace Denice.Runtime
             {
                 internal static class Program
                 {
@@ -72,19 +72,19 @@ public class NoStaticServiceHolderAnalyzerTests
             }
             """;
 
-        Assert.Empty(await AnalyzerRunner.RunAsync<NoStaticServiceHolderAnalyzer>(source, "denice"));
+        Assert.Empty(await AnalyzerRunner.RunAsync<NoStaticServiceHolderAnalyzer>(source, "Denice.Runtime"));
     }
 
     [Fact]
     public async Task StaticServiceField_NestedOneLevelInsideCompositionPoint_IsNotReported()
     {
         // A static service field one level nested inside the Program composition point is still at the composition
-        // point. The walking Encloses form recognises the enclosing Program (Denice.Cli, assembly "denice"), exactly
+        // point. The walking Encloses form recognises the enclosing Program (Denice.Runtime, assembly "Denice.Runtime"), exactly
         // as the three sibling composition-point rules do; the single-level containing-type check it replaced would
         // have wrongly flagged the field because its immediate containing type is the nested Holder, not Program.
         string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
-            namespace Denice.Cli
+            namespace Denice.Runtime
             {
                 internal static class Program
                 {
@@ -96,7 +96,7 @@ public class NoStaticServiceHolderAnalyzerTests
             }
             """;
 
-        Assert.Empty(await AnalyzerRunner.RunAsync<NoStaticServiceHolderAnalyzer>(source, "denice"));
+        Assert.Empty(await AnalyzerRunner.RunAsync<NoStaticServiceHolderAnalyzer>(source, "Denice.Runtime"));
     }
 
     [Fact]

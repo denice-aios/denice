@@ -5,12 +5,12 @@
 # set is below 75% — the same standing a failed test would.
 #
 # Checks (each argument after the report directory):
-#   aggregate                          Engine + denice (Denice.Cli) + Denice.CrossPlatform + Denice.Boundaries,
+#   aggregate                          Engine + denice (Denice.Runtime) + Denice.CrossPlatform + Denice.Boundaries,
 #                                      together >= 75%.
 #   <AssemblyName>                     that single assembly (a per-OS implementation) >= 75% on its own OS leg.
 #
 # The Linux leg runs `aggregate Denice.CrossPlatform.Linux`; the macOS and Windows legs run only their own
-# per-OS implementation. Denice.Cli builds as `denice.dll`, so its assembly name is `denice`. The gate FAILS
+# per-OS implementation. Denice.Runtime builds as `denice.dll`, so its assembly name is `denice`. The gate FAILS
 # loudly when a required assembly is absent from the merged report, so an un-instrumented assembly can never be
 # silently dropped from the number.
 #
@@ -37,7 +37,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # The aggregate counted set — the single source of truth, shared by the counted-set self-check below and the gate math
-# at the end. Denice.Cli builds as `denice.dll`, so its assembly name is `denice`.
+# at the end. Denice.Runtime builds as `denice.dll`, so its assembly name is `denice`.
 AGGREGATE=(Denice.Engine denice Denice.CrossPlatform Denice.Boundaries)
 
 # Resolve the Python used for the self-check, report selection, and the gate math below.

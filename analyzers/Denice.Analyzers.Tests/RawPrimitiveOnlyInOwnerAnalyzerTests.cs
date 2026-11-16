@@ -769,7 +769,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Cli"));
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Runtime"));
         Assert.Equal("DN0011", diagnostic.Id);
     }
 
@@ -784,7 +784,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     public async Task ConsoleAdapterOwner_InWrongAssembly_IsReported_SelfGrantBlocked()
     {
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(ConsoleAdapterOwnerSource, "Denice.Cli"));
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(ConsoleAdapterOwnerSource, "Denice.Runtime"));
         Assert.Equal("DN0011", diagnostic.Id);
     }
 
