@@ -6,7 +6,7 @@ LL | #[ignore]
    |
    = note: `#[deny(r8_ignored_test)]` on by default
 
-error: OS or architecture `cfg_attr` in $DIR/r8_r9_r12_attributes.rs, which is not a platform module (rust/dylint.toml os_branching_allowed)
+error: OS or architecture `cfg_attr` outside the platform modules (rust/dylint.toml os_branching_allowed)
   --> $DIR/r8_r9_r12_attributes.rs:8:1
    |
 LL | #[cfg_attr(windows, ignore)]

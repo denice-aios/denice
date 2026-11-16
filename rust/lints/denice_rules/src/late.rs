@@ -102,16 +102,16 @@ impl Rules {
     fn check_call(&self, cx: &LateContext<'_>, callee: &str, span: Span) {
         let Some(file) = Self::product_file(cx, span) else { return };
         if PROCESS.contains(&callee) && !on_list(&file, &self.config.process_allowed) {
-            Self::report(cx, R4_RAW_PRIMITIVE_OUTSIDE_OWNER, span, format!("`{callee}` in {file}: processes start only in rust/dylint.toml process_allowed"));
+            Self::report(cx, R4_RAW_PRIMITIVE_OUTSIDE_OWNER, span, format!("`{callee}`: processes start only in rust/dylint.toml process_allowed"));
         }
         if ENV_READS.contains(&callee) && !on_list(&file, &self.config.env_read_allowed) {
-            Self::report(cx, R4_RAW_PRIMITIVE_OUTSIDE_OWNER, span, format!("`{callee}` in {file}: environment variables are read only in rust/dylint.toml env_read_allowed"));
+            Self::report(cx, R4_RAW_PRIMITIVE_OUTSIDE_OWNER, span, format!("`{callee}`: environment variables are read only in rust/dylint.toml env_read_allowed"));
         }
         if ENV_PATHS.contains(&callee) {
             Self::report(cx, R5_ENVIRONMENT_PATH, span, format!("`{callee}` depends on the environment; product code may not use it"));
         }
         if callee == CURRENT_EXE && !on_list(&file, &self.config.current_exe_allowed) {
-            Self::report(cx, R5_ENVIRONMENT_PATH, span, format!("`{callee}` in {file}: only rust/dylint.toml current_exe_allowed may ask for the program's path"));
+            Self::report(cx, R5_ENVIRONMENT_PATH, span, format!("`{callee}`: only rust/dylint.toml current_exe_allowed may ask for the program's path"));
         }
         if CLOCK.contains(&callee) {
             Self::report(cx, R6_CLOCK_OR_SLEEP, span, format!("`{callee}` reads the clock or sleeps; product code may not"));
@@ -161,7 +161,7 @@ impl<'tcx> LateLintPass<'tcx> for Rules {
         let used = cx.tcx.crate_name(def_id.krate).to_string();
         let Some(file) = file_of(cx, path.span) else { return };
         if TEST_ONLY_CRATES.contains(&used.as_str()) && is_product(&file) {
-            Self::report(cx, R10_TEST_CRATE_IN_PRODUCT, path.span, format!("`{used}` is a test-only crate; {file} is product code"));
+            Self::report(cx, R10_TEST_CRATE_IN_PRODUCT, path.span, format!("`{used}` is a test-only crate, used here in product code"));
         }
         let this = cx.tcx.crate_name(rustc_span::def_id::LOCAL_CRATE).to_string();
         if WORKSPACE_CRATES.contains(&used.as_str()) && WORKSPACE_CRATES.contains(&this.as_str()) {

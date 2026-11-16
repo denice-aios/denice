@@ -1,4 +1,4 @@
-error: `unsafe` in $DIR/r2_native_signature.rs, which is not a native module (rust/dylint.toml unsafe_allowed)
+error: `unsafe` outside the native modules (rust/dylint.toml unsafe_allowed)
   --> $DIR/r2_native_signature.rs:19:1
    |
 LL | / unsafe extern "C" {

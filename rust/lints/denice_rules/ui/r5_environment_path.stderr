@@ -12,7 +12,7 @@ error: `std::env::current_dir` depends on the environment; product code may not 
 LL |     let _ = std::env::current_dir();
    |             ^^^^^^^^^^^^^^^^^^^^^^^
 
-error: `std::env::current_exe` in $DIR/r5_environment_path.rs: only rust/dylint.toml current_exe_allowed may ask for the program's path
+error: `std::env::current_exe`: only rust/dylint.toml current_exe_allowed may ask for the program's path
   --> $DIR/r5_environment_path.rs:5:13
    |
 LL |     let _ = std::env::current_exe();

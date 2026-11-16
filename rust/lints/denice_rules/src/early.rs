@@ -96,7 +96,7 @@ impl Rules {
             && is_product(&file)
             && !on_list(&file, &self.config.unsafe_allowed)
         {
-            Self::report(cx, R1_UNSAFE_OUTSIDE_NATIVE_MODULES, span, format!("`unsafe` in {file}, which is not a native module (rust/dylint.toml unsafe_allowed)"));
+            Self::report(cx, R1_UNSAFE_OUTSIDE_NATIVE_MODULES, span, "`unsafe` outside the native modules (rust/dylint.toml unsafe_allowed)".to_owned());
         }
     }
 }
@@ -119,7 +119,7 @@ impl EarlyLintPass for Rules {
         let Some(file) = file_of(cx, attr.span) else { return };
         match name.as_str() {
             "cfg" | "cfg_attr" if mentions_os(&args) && is_product(&file) && !on_list(&file, &self.config.os_branching_allowed) => {
-                Self::report(cx, R3_OS_BRANCHING_OUTSIDE_PLATFORM_MODULES, attr.span, format!("OS or architecture `{name}` in {file}, which is not a platform module (rust/dylint.toml os_branching_allowed)"));
+                Self::report(cx, R3_OS_BRANCHING_OUTSIDE_PLATFORM_MODULES, attr.span, format!("OS or architecture `{name}` outside the platform modules (rust/dylint.toml os_branching_allowed)"));
             }
             _ => {}
         }
@@ -141,7 +141,7 @@ impl EarlyLintPass for Rules {
             && mentions_os(&rustc_ast_pretty::pprust::tts_to_string(&mac.args.tokens))
             && !on_list(&file, &self.config.os_branching_allowed)
         {
-            Self::report(cx, R3_OS_BRANCHING_OUTSIDE_PLATFORM_MODULES, mac.span(), format!("OS or architecture `cfg!` in {file}, which is not a platform module (rust/dylint.toml os_branching_allowed)"));
+            Self::report(cx, R3_OS_BRANCHING_OUTSIDE_PLATFORM_MODULES, mac.span(), "OS or architecture `cfg!` outside the platform modules (rust/dylint.toml os_branching_allowed)".to_owned());
         }
         if matches!(name.as_str(), "file" | "line" | "column") {
             Self::report(cx, R12_CALLER_LOCATION, mac.span(), format!("`{name}!` records a source location"));

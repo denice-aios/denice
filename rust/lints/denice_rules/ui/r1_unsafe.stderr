@@ -1,4 +1,4 @@
-error: `unsafe` in $DIR/r1_unsafe.rs, which is not a native module (rust/dylint.toml unsafe_allowed)
+error: `unsafe` outside the native modules (rust/dylint.toml unsafe_allowed)
   --> $DIR/r1_unsafe.rs:2:1
    |
 LL | / unsafe extern "C" {
@@ -8,25 +8,25 @@ LL | | }
    |
    = note: `#[deny(r1_unsafe_outside_native_modules)]` on by default
 
-error: `unsafe` in $DIR/r1_unsafe.rs, which is not a native module (rust/dylint.toml unsafe_allowed)
+error: `unsafe` outside the native modules (rust/dylint.toml unsafe_allowed)
   --> $DIR/r1_unsafe.rs:6:1
    |
 LL | unsafe fn raw() {}
    | ^^^^^^^^^^^^^^^^^^
 
-error: `unsafe` in $DIR/r1_unsafe.rs, which is not a native module (rust/dylint.toml unsafe_allowed)
+error: `unsafe` outside the native modules (rust/dylint.toml unsafe_allowed)
   --> $DIR/r1_unsafe.rs:9:1
    |
 LL | unsafe impl Marker for u8 {}
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: `unsafe` in $DIR/r1_unsafe.rs, which is not a native module (rust/dylint.toml unsafe_allowed)
+error: `unsafe` outside the native modules (rust/dylint.toml unsafe_allowed)
   --> $DIR/r1_unsafe.rs:12:13
    |
 LL |     let _ = unsafe { abs(-1) };
    |             ^^^^^^^^^^^^^^^^^^
 
-error: `unsafe` in $DIR/r1_unsafe.rs, which is not a native module (rust/dylint.toml unsafe_allowed)
+error: `unsafe` outside the native modules (rust/dylint.toml unsafe_allowed)
   --> $DIR/r1_unsafe.rs:13:5
    |
 LL |     unsafe { raw() }

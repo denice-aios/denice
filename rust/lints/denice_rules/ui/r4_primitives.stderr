@@ -1,4 +1,4 @@
-error: `std::process::Command::new` in $DIR/r4_primitives.rs: processes start only in rust/dylint.toml process_allowed
+error: `std::process::Command::new`: processes start only in rust/dylint.toml process_allowed
   --> $DIR/r4_primitives.rs:3:13
    |
 LL |     let _ = std::process::Command::new("ls");
@@ -6,13 +6,13 @@ LL |     let _ = std::process::Command::new("ls");
    |
    = note: `#[deny(r4_raw_primitive_outside_owner)]` on by default
 
-error: `std::env::var` in $DIR/r4_primitives.rs: environment variables are read only in rust/dylint.toml env_read_allowed
+error: `std::env::var`: environment variables are read only in rust/dylint.toml env_read_allowed
   --> $DIR/r4_primitives.rs:4:13
    |
 LL |     let _ = std::env::var("HOME");
    |             ^^^^^^^^^^^^^^^^^^^^^
 
-error: `std::env::var_os` in $DIR/r4_primitives.rs: environment variables are read only in rust/dylint.toml env_read_allowed
+error: `std::env::var_os`: environment variables are read only in rust/dylint.toml env_read_allowed
   --> $DIR/r4_primitives.rs:5:13
    |
 LL |     let _ = std::env::var_os("HOME");

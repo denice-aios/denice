@@ -1,4 +1,4 @@
-error: OS or architecture `cfg` in $DIR/r3_os_branching.rs, which is not a platform module (rust/dylint.toml os_branching_allowed)
+error: OS or architecture `cfg` outside the platform modules (rust/dylint.toml os_branching_allowed)
   --> $DIR/r3_os_branching.rs:2:1
    |
 LL | #[cfg(windows)]
@@ -6,13 +6,13 @@ LL | #[cfg(windows)]
    |
    = note: `#[deny(r3_os_branching_outside_platform_modules)]` on by default
 
-error: OS or architecture `cfg` in $DIR/r3_os_branching.rs, which is not a platform module (rust/dylint.toml os_branching_allowed)
+error: OS or architecture `cfg` outside the platform modules (rust/dylint.toml os_branching_allowed)
   --> $DIR/r3_os_branching.rs:7:1
    |
 LL | #[cfg(not(windows))]
    | ^^^^^^^^^^^^^^^^^^^^
 
-error: OS or architecture `cfg!` in $DIR/r3_os_branching.rs, which is not a platform module (rust/dylint.toml os_branching_allowed)
+error: OS or architecture `cfg!` outside the platform modules (rust/dylint.toml os_branching_allowed)
   --> $DIR/r3_os_branching.rs:17:13
    |
 LL |     let _ = cfg!(target_os = "macos");
