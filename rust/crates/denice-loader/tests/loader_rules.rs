@@ -39,6 +39,7 @@ struct Scripted {
     started: RefCell<Vec<String>>,
     envs: RefCell<Vec<Vec<(&'static str, OsString)>>>,
     handed_over: RefCell<Option<PathBuf>>,
+    hand_over_fails: bool,
     reports: RefCell<Vec<String>>,
 }
 
@@ -80,6 +81,9 @@ impl Launcher for Scripted {
 
     fn hand_over(&self, loader: &Path, _args: &[OsString]) -> std::io::Result<i32> {
         *self.handed_over.borrow_mut() = Some(loader.to_path_buf());
+        if self.hand_over_fails {
+            return Err(std::io::Error::other("cannot start the new loader"));
+        }
         Ok(42)
     }
 
@@ -113,6 +117,7 @@ fn case(installed: &[&'static str], script: &[(&'static str, Behaves)]) -> Case 
         started: RefCell::new(Vec::new()),
         envs: RefCell::new(Vec::new()),
         handed_over: RefCell::new(None),
+        hand_over_fails: false,
         reports: RefCell::new(Vec::new()),
     };
     Case { _dir: dir, launcher }
@@ -233,4 +238,20 @@ fn the_previous_loader_is_deleted_on_start() {
     std::fs::write(&old, b"old loader").unwrap();
     let _ = run(&c);
     assert!(!old.exists());
+}
+
+#[test]
+fn a_hand_over_that_cannot_start_the_new_loader_is_reported() {
+    let mut c = case(&[B], &[(B, Behaves::ReplacesLoader)]);
+    c.launcher.hand_over_fails = true;
+    assert_eq!(run(&c), EXIT_NO_USABLE_VERSION);
+    assert!(c.launcher.reports.borrow().iter().any(|r| r.contains("cannot start the new loader")));
+}
+
+#[test]
+fn an_unreadable_versions_folder_is_reported() {
+    let c = case(&[], &[]);
+    std::fs::write(c.launcher.root.join(VERSIONS_DIR), b"not a folder").unwrap();
+    assert_eq!(run(&c), EXIT_NO_USABLE_VERSION);
+    assert!(c.launcher.reports.borrow().iter().any(|r| r.contains("cannot read")));
 }
