@@ -10,8 +10,14 @@ name: CI
 # Signing (push only, decision signing-mechanisms): each OS job strong-name-signs its build (from the
 # DENICE_STRONGNAME_SNK secret; DENICE_REQUIRE_SIGNED makes a missing key a hard fail so CI never ships
 # unsigned — no-committed-keys), then codesign (mac) / signtool+timestamp (Windows) / cosign-keyless (all six)
-# its two binaries, checksum them, and upload them. The release job gathers all six and publishes one release:
-# pre-release from dev, full release from main (channel-by-prerelease-id).
+# its two install layouts, checksum and cosign them, and upload them. The release job gathers all six and publishes one
+# release: pre-release from dev, full release from main (channel-by-prerelease-id).
+#
+# What ships (Tim, 14-16 November 2026; rust/REQUIREMENTS.md): per platform one install layout, built by
+# eng/build-install-layout.sh from ONE build id for both halves: the Rust loader `denice`, and versions/<version>/ with
+# the versioned Rust entry `denice-v<version>-<rid>` (named by the build itself), Denice Runtime (.NET, a DLL) with its
+# self-contained runtime, and the loader that version carries. Each OS job also runs the Rust gate (eng/rust-checks.sh)
+# and the end-to-end loader test (eng/loader-e2e-test.sh) on its native platform.
 #
 # A single runner cannot host both `codesign` (macOS-only) and `signtool` (Windows-only), so each OS job
 # verifies its own native signature right after signing (a hard `needs:` dependency of the release), and the
@@ -61,6 +67,14 @@ jobs:
       AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
       # Release file names carry the full build version (Tim, pkg-fcfb11e1ba8c semver-form b): denice-v<version>-<rid>.
       DENICE_ASSET_VERSION: ${{ needs.version.outputs.version }}
+      # The same build id for eng/build-install-layout.sh, which stamps .NET (-p:Denice*) and Rust (DENICE_VERSION) alike.
+      DENICE_DAY: ${{ needs.version.outputs.day }}
+      DENICE_TIME: ${{ needs.version.outputs.time }}
+      DENICE_COMBINED: ${{ needs.version.outputs.combined }}
+      DENICE_HASH: ${{ needs.version.outputs.hash }}
+      DENICE_CHANNEL: ${{ needs.version.outputs.channel }}
+      DENICE_TAG: ${{ needs.version.outputs.tag }}
+      DENICE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -80,12 +94,24 @@ jobs:
         run: |
           eng/ci-restore-signing-key.sh
           echo "DENICE_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
-      - name: Build + publish both mac RIDs (build = the lint/analyzer gate too)
+      - name: Build (the lint/analyzer gate too)
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/macos-build.binlog
-          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r osx-arm64 --self-contained $AG
-          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r osx-x64 --self-contained $AG
+      - name: Install the pinned Rust toolchain (rust/rust-toolchain.toml) and the coverage tool
+        # The toolchain pin has ONE source, rust/rust-toolchain.toml (as global.json pins the .NET SDK): rustup reads it
+        # and installs that exact version with its components and all six targets. cargo-llvm-cov is pinned here.
+        shell: bash
+        run: |
+          cd rust && rustup toolchain install && rustc --version && cargo --version
+          cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75% (rust/REQUIREMENTS.md F4 F7 F8)
+        shell: bash
+        run: eng/rust-checks.sh evidence/rust-coverage-${{ runner.os }}.lcov
+      - name: Build both mac install layouts (loader + versioned entry + Denice Runtime)
+        run: |
+          eng/build-install-layout.sh osx-arm64 layouts/osx-arm64
+          eng/build-install-layout.sh osx-x64 layouts/osx-x64
       - name: Cross-RID selects exactly one platform library (host != target)
         # Regression guard for scan-resolutions #1: a self-contained cross-RID publish must reference and bundle
         # exactly ONE Denice.CrossPlatform.<OS> library. The per-OS legs can never catch a mis-selection
@@ -115,6 +141,8 @@ jobs:
         # `dotnet test` collected cobertura coverage by default (the shared .runsettings). Gate the per-OS macOS
         # implementation on its own leg; the aggregate is gated once on the Linux leg.
         run: eng/coverage-gate.sh . Denice.CrossPlatform.MacOS
+      - name: End-to-end loader test on osx-arm64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
+        run: eng/loader-e2e-test.sh osx-arm64 "$RUNNER_TEMP/e2e"
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -127,6 +155,7 @@ jobs:
           retention-days: 7
           path: |
             evidence/*.binlog
+            evidence/*.lcov
             **/TestResults/**/coverage.cobertura.xml
             **/TestResults/**/*.trx
       - name: Install cosign (keyless signing)
@@ -164,24 +193,33 @@ jobs:
           # (the verify step) is a structural seal check and likewise needs no trust.
           IDENTITY="$(security find-identity -p codesigning "$KC" | grep -oE '[0-9A-F]{40}' | head -1)"
           if [ -z "$IDENTITY" ]; then echo "::error::No code-signing identity found in the build keychain after import."; exit 1; fi
+          # Denice's own executables in each layout: the loader (root + the copy the version carries) and the versioned
+          # entry, which hosts .NET and so carries the JIT entitlements (decision mac-hardened-runtime). The .NET runtime's
+          # own .dylib files keep Microsoft's signatures.
           for rid in osx-arm64 osx-x64; do
-            BIN="src/Denice.Runtime/bin/Release/net10.0/$rid/publish/denice"
-            codesign --force --options runtime --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$BIN"
+            L="layouts/$rid"; V="$L/versions/$DENICE_ASSET_VERSION"
+            for loader in "$L/denice" "$V/denice"; do
+              codesign --force --options runtime --keychain "$KC" --sign "$IDENTITY" "$loader"
+            done
+            codesign --force --options runtime --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$V/denice-v$DENICE_ASSET_VERSION-$rid"
           done
-      - name: Launch the codesigned mac binary (proves hardened runtime lets it run)
-        # success definition + Acceptance 5: run the codesigned, hardened-runtime osx-arm64 binary on the mac
-        # runner and require exit 0 — the entitlements (allow-jit / allow-unsigned-executable-memory) let a
-        # .NET binary launch under `codesign --options runtime` (decision mac-hardened-runtime).
+      - name: Launch the codesigned mac layout (proves hardened runtime lets the loader, entry and .NET run)
+        # success definition + Acceptance 5: run the codesigned, hardened-runtime osx-arm64 layout through its loader and
+        # require exit 0 — the entry's entitlements (allow-jit / allow-unsigned-executable-memory) let it host .NET under
+        # `codesign --options runtime` (decision mac-hardened-runtime).
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          src/Denice.Runtime/bin/Release/net10.0/osx-arm64/publish/denice version
-      - name: Stage, checksum, and cosign mac binaries
+          layouts/osx-arm64/denice version
+          rm -f "layouts/osx-arm64/versions/$DENICE_ASSET_VERSION/.started"
+      - name: Stage, checksum, and cosign the mac layouts
         if: github.event_name == 'push'
-        run: eng/ci-stage-and-cosign.sh dist "" osx-arm64 osx-x64
+        run: |
+          eng/ci-stage-layout.sh layouts/osx-arm64 dist osx-arm64
+          eng/ci-stage-layout.sh layouts/osx-x64 dist osx-x64
       - name: Verify mac signatures + record result artifact (verify-sigs-before-publish)
         if: github.event_name == 'push'
-        run: eng/ci-verify-signatures.sh verify/verify-macos.txt codesign "" "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" osx-arm64 osx-x64
+        run: eng/ci-verify-layout.sh verify/verify-macos.txt codesign "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" dist osx-arm64 osx-x64
       - name: Upload signed mac binaries
         if: github.event_name == 'push'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -209,6 +247,14 @@ jobs:
       AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
       # Release file names carry the full build version (Tim, pkg-fcfb11e1ba8c semver-form b): denice-v<version>-<rid>.
       DENICE_ASSET_VERSION: ${{ needs.version.outputs.version }}
+      # The same build id for eng/build-install-layout.sh, which stamps .NET (-p:Denice*) and Rust (DENICE_VERSION) alike.
+      DENICE_DAY: ${{ needs.version.outputs.day }}
+      DENICE_TIME: ${{ needs.version.outputs.time }}
+      DENICE_COMBINED: ${{ needs.version.outputs.combined }}
+      DENICE_HASH: ${{ needs.version.outputs.hash }}
+      DENICE_CHANNEL: ${{ needs.version.outputs.channel }}
+      DENICE_TAG: ${{ needs.version.outputs.tag }}
+      DENICE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -228,15 +274,28 @@ jobs:
         run: |
           eng/ci-restore-signing-key.sh
           echo "DENICE_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
-      - name: Build + publish both windows RIDs
+      - name: Build (the lint/analyzer gate too)
         # bash (not the default pwsh) so $AG word-splits into separate -p args, matching the mac/linux jobs;
         # under pwsh "$env:AG" is passed as ONE malformed argument and DeniceStampVersion fails the build.
         shell: bash
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/windows-build.binlog
-          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r win-x64 --self-contained $AG
-          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r win-arm64 --self-contained $AG
+      - name: Install the pinned Rust toolchain (rust/rust-toolchain.toml) and the coverage tool
+        # The toolchain pin has ONE source, rust/rust-toolchain.toml (as global.json pins the .NET SDK): rustup reads it
+        # and installs that exact version with its components and all six targets. cargo-llvm-cov is pinned here.
+        shell: bash
+        run: |
+          cd rust && rustup toolchain install && rustc --version && cargo --version
+          cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75% (rust/REQUIREMENTS.md F4 F7 F8)
+        shell: bash
+        run: eng/rust-checks.sh evidence/rust-coverage-${{ runner.os }}.lcov
+      - name: Build both windows install layouts (loader + versioned entry + Denice Runtime)
+        shell: bash
+        run: |
+          eng/build-install-layout.sh win-x64 layouts/win-x64
+          eng/build-install-layout.sh win-arm64 layouts/win-arm64
       - name: Test win-x64 (win-arm64 is build-only, accepted risk)
         shell: bash
         run: dotnet test -c Release $AG --logger "trx;LogFileName=windows.trx"
@@ -245,6 +304,9 @@ jobs:
         # implementation on its own leg; the aggregate is gated once on the Linux leg.
         shell: bash
         run: eng/coverage-gate.sh . Denice.CrossPlatform.Windows
+      - name: End-to-end loader test on win-x64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
+        shell: bash
+        run: eng/loader-e2e-test.sh win-x64 "$RUNNER_TEMP/e2e"
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -257,6 +319,7 @@ jobs:
           retention-days: 7
           path: |
             evidence/*.binlog
+            evidence/*.lcov
             **/TestResults/**/coverage.cobertura.xml
             **/TestResults/**/*.trx
       - name: Install cosign (keyless signing)
@@ -291,24 +354,33 @@ jobs:
           $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
             Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
           if (-not $signtool) { Write-Error 'signtool.exe not found on the runner.' }
+          # Denice's own files in each layout: the loader (root + carried copy), the versioned entry and the Denice.*.dll
+          # assemblies. The .NET runtime's own files keep Microsoft's signatures.
           foreach ($rid in 'win-x64','win-arm64') {
-            $bin = "src\Denice.Runtime\bin\Release\net10.0\$rid\publish\denice.exe"
-            # Timestamp against DigiCert; on failure fall back to Sectigo (decision digicert-timestamp-sectigo-fallback).
-            & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $bin
-            if ($LASTEXITCODE -ne 0) {
-              Write-Host 'DigiCert timestamp unavailable; falling back to Sectigo.'
-              & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.sectigo.com /td sha256 $bin
-              if ($LASTEXITCODE -ne 0) { Write-Error "signtool sign failed for $rid on both timestamp servers." }
+            $layout = "layouts\$rid"; $version = Join-Path $layout "versions\$env:DENICE_ASSET_VERSION"
+            $files = @((Join-Path $layout 'denice.exe'), (Join-Path $version 'denice.exe'),
+                       (Join-Path $version "denice-v$env:DENICE_ASSET_VERSION-$rid.exe")) +
+                     @(Get-ChildItem -Path $version -Filter 'Denice.*.dll' | ForEach-Object FullName)
+            foreach ($bin in $files) {
+              # Timestamp against DigiCert; on failure fall back to Sectigo (decision digicert-timestamp-sectigo-fallback).
+              & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $bin
+              if ($LASTEXITCODE -ne 0) {
+                Write-Host 'DigiCert timestamp unavailable; falling back to Sectigo.'
+                & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.sectigo.com /td sha256 $bin
+                if ($LASTEXITCODE -ne 0) { Write-Error "signtool sign failed for $bin on both timestamp servers." }
+              }
             }
           }
-      - name: Stage, checksum, and cosign windows binaries
+      - name: Stage, checksum, and cosign the windows layouts
         if: github.event_name == 'push'
         shell: bash
-        run: eng/ci-stage-and-cosign.sh dist ".exe" win-x64 win-arm64
+        run: |
+          eng/ci-stage-layout.sh layouts/win-x64 dist win-x64
+          eng/ci-stage-layout.sh layouts/win-arm64 dist win-arm64
       - name: Verify windows signatures + record result artifact (verify-sigs-before-publish)
         if: github.event_name == 'push'
         shell: bash
-        run: eng/ci-verify-signatures.sh verify/verify-windows.txt signtool ".exe" "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" win-x64 win-arm64
+        run: eng/ci-verify-layout.sh verify/verify-windows.txt signtool "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" dist win-x64 win-arm64
       - name: Upload signed windows binaries
         if: github.event_name == 'push'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -336,6 +408,14 @@ jobs:
       AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
       # Release file names carry the full build version (Tim, pkg-fcfb11e1ba8c semver-form b): denice-v<version>-<rid>.
       DENICE_ASSET_VERSION: ${{ needs.version.outputs.version }}
+      # The same build id for eng/build-install-layout.sh, which stamps .NET (-p:Denice*) and Rust (DENICE_VERSION) alike.
+      DENICE_DAY: ${{ needs.version.outputs.day }}
+      DENICE_TIME: ${{ needs.version.outputs.time }}
+      DENICE_COMBINED: ${{ needs.version.outputs.combined }}
+      DENICE_HASH: ${{ needs.version.outputs.hash }}
+      DENICE_CHANNEL: ${{ needs.version.outputs.channel }}
+      DENICE_TAG: ${{ needs.version.outputs.tag }}
+      DENICE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
@@ -355,18 +435,36 @@ jobs:
         run: |
           eng/ci-restore-signing-key.sh
           echo "DENICE_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
-      - name: Build + publish both linux RIDs
+      - name: Build (the lint/analyzer gate too)
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/linux-build.binlog
-          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r linux-arm64 --self-contained $AG
-          dotnet publish src/Denice.Runtime/Denice.Runtime.csproj -c Release -r linux-x64 --self-contained $AG
+      - name: Install the pinned Rust toolchain (rust/rust-toolchain.toml) and the coverage tool
+        # The toolchain pin has ONE source, rust/rust-toolchain.toml (as global.json pins the .NET SDK): rustup reads it
+        # and installs that exact version with its components and all six targets. cargo-llvm-cov is pinned here.
+        shell: bash
+        run: |
+          cd rust && rustup toolchain install && rustc --version && cargo --version
+          cargo install cargo-llvm-cov --version 0.9.1 --locked
+      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75% (rust/REQUIREMENTS.md F4 F7 F8)
+        shell: bash
+        run: eng/rust-checks.sh evidence/rust-coverage-${{ runner.os }}.lcov
+      - name: Build both linux install layouts (loader + versioned entry + Denice Runtime)
+        # This runner is arm64; the x86_64 Rust programs link with the cross linker.
+        env:
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: x86_64-linux-gnu-gcc
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q gcc-x86-64-linux-gnu
+          eng/build-install-layout.sh linux-arm64 layouts/linux-arm64
+          eng/build-install-layout.sh linux-x64 layouts/linux-x64
       - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
         run: dotnet test -c Release $AG --logger "trx;LogFileName=linux.trx"
       - name: Coverage gate — aggregate + Linux implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
         # The Linux leg is where the aggregate of Engine + Cli (denice) + CrossPlatform is gated (computed once),
         # alongside the per-OS Linux implementation. `dotnet test` collected coverage by default.
         run: eng/coverage-gate.sh . aggregate Denice.CrossPlatform.Linux
+      - name: End-to-end loader test on linux-arm64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
+        run: eng/loader-e2e-test.sh linux-arm64 "$RUNNER_TEMP/e2e"
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -379,6 +477,7 @@ jobs:
           retention-days: 7
           path: |
             evidence/*.binlog
+            evidence/*.lcov
             **/TestResults/**/coverage.cobertura.xml
             **/TestResults/**/*.trx
       - name: Install cosign (keyless signing)
@@ -386,12 +485,14 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
         with:
           cosign-release: 'v3.1.3'
-      - name: Stage, checksum, and cosign linux binaries (no native code-signing on Linux)
+      - name: Stage, checksum, and cosign the linux layouts (no native code-signing on Linux)
         if: github.event_name == 'push'
-        run: eng/ci-stage-and-cosign.sh dist "" linux-arm64 linux-x64
+        run: |
+          eng/ci-stage-layout.sh layouts/linux-arm64 dist linux-arm64
+          eng/ci-stage-layout.sh layouts/linux-x64 dist linux-x64
       - name: Verify linux signatures + record result artifact (verify-sigs-before-publish)
         if: github.event_name == 'push'
-        run: eng/ci-verify-signatures.sh verify/verify-linux.txt none "" "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" linux-arm64 linux-x64
+        run: eng/ci-verify-layout.sh verify/verify-linux.txt none "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" dist linux-arm64 linux-x64
       - name: Upload signed linux binaries
         if: github.event_name == 'push'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -416,6 +517,9 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Every loader requirement is done with evidence (rust/REQUIREMENTS.md E2; nothing is dropped quietly)
+        run: eng/check-requirements.sh
       - name: Assert every OS job succeeded
         run: |
           echo "macos=${{ needs.macos.result }} windows=${{ needs.windows.result }} linux=${{ needs.linux.result }}"
@@ -449,7 +553,7 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
         with:
           cosign-release: 'v3.1.3'
-      - name: Download all six signed binaries
+      - name: Download all six signed install layouts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: signed-*
@@ -486,10 +590,8 @@ jobs:
               exit 1
             fi
           done
-      - name: Make mac/linux binaries executable (chmod +x)
-        run: for rid in osx-arm64 osx-x64 linux-arm64 linux-x64; do chmod +x "dist/denice-v${DENICE_ASSET_VERSION}-$rid"; done
       - name: Re-verify every signature before publishing (single-owner verify script)
-        # verify-sigs-before-publish: re-run the SAME verifier the per-OS jobs used (eng/ci-verify-signatures.sh)
+        # verify-sigs-before-publish: re-run the SAME verifier the per-OS jobs used (eng/ci-verify-layout.sh)
         # so the cosign/codesign commands and the keyless identity have exactly one owner. cosign covers all six;
         # codesign covers the two mac RIDs (this runner is macOS). Windows Authenticode was verified in the
         # windows job, a hard `needs:` dependency of this job — no single runner hosts codesign + signtool. The
@@ -497,9 +599,9 @@ jobs:
         run: |
           set -euo pipefail
           IDENTITY="https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}"
-          eng/ci-verify-signatures.sh verify/release-macos.txt   codesign ""     "$IDENTITY" osx-arm64 osx-x64
-          eng/ci-verify-signatures.sh verify/release-windows.txt none     ".exe" "$IDENTITY" win-x64 win-arm64
-          eng/ci-verify-signatures.sh verify/release-linux.txt   none     ""     "$IDENTITY" linux-arm64 linux-x64
+          eng/ci-verify-layout.sh verify/release-macos.txt   codesign "$IDENTITY" dist osx-arm64 osx-x64
+          eng/ci-verify-layout.sh verify/release-windows.txt none     "$IDENTITY" dist win-x64 win-arm64
+          eng/ci-verify-layout.sh verify/release-linux.txt   none     "$IDENTITY" dist linux-arm64 linux-x64
       - name: Export the two public certs from their secrets (never drift)
         env:
           MAC_P12_B64: ${{ secrets.DENICE_MACOS_CERT_P12 }}
@@ -521,20 +623,12 @@ jobs:
           export_cer "$WIN_PFX_B64" "$WIN_PFX_PW" dist/denice-windows-public.cer
       - name: Stage the tester trust scripts
         run: cp eng/signing/trust-cert.sh eng/signing/trust-cert.ps1 dist/
-      - name: Package binaries and evidence as release zips (release-zip-layout)
-        # release-zip-layout: one denice-v<version>-<rid>.zip per binary (the binary + its .sha256 checksum + its
-        # .cosign.bundle signature), and one evidence.zip organized with one subdirectory per OS/platform build.
-        # Signing already happened in the per-OS jobs, so the embedded native seal and the detached cosign bundle
-        # both travel inside the archive; chmod +x ran above, so the mac/linux executables keep their exec bit.
+      - name: Package the evidence zip (release-zip-layout)
+        # release-zip-layout: the per-OS jobs already produced one denice-v<version>-<rid>.zip per platform (the install
+        # layout, with versions/<version>/SHA256SUMS and its cosign bundle inside, the zip's own .zip.sha256 beside it).
+        # Here: one evidence.zip organized with one subdirectory per OS/platform build.
         run: |
           set -euo pipefail
-          cd dist
-          for rid in osx-arm64 osx-x64 win-x64 win-arm64 linux-arm64 linux-x64; do
-            name="denice-v${DENICE_ASSET_VERSION}-$rid"
-            case "$rid" in win-*) bin="$name.exe" ;; *) bin="$name" ;; esac
-            zip -j "$name.zip" "$bin" "$name.sha256" "$name.cosign.bundle"
-          done
-          cd ..
           rm -rf evidence-zip-root
           for os in macos windows linux; do
             src="evidence-artifacts/evidence-$os"
@@ -577,6 +671,7 @@ jobs:
             --notes-file "$NOTES" \
             $PRERELEASE \
             "denice-v${DENICE_ASSET_VERSION}"-{osx-arm64,osx-x64,win-x64,win-arm64,linux-arm64,linux-x64}.zip \
+            "denice-v${DENICE_ASSET_VERSION}"-{osx-arm64,osx-x64,win-x64,win-arm64,linux-arm64,linux-x64}.zip.sha256 \
             evidence.zip \
             denice-macos-public.cer denice-windows-public.cer \
             trust-cert.sh trust-cert.ps1

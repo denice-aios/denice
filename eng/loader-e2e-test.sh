@@ -24,6 +24,9 @@ build() { # build <out>  -> prints the version it built
 semver_of_run() { sed -n 's/^SemVer: //p' <<< "$1" | tr -d '\r'; }
 hash_of() { sha256sum "$1" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$1" | cut -d' ' -f1; }
 
+# Each build computes its own id, so B is genuinely newer than A even inside a CI job that exports one id.
+unset DENICE_DAY DENICE_TIME DENICE_COMBINED DENICE_HASH DENICE_CHANNEL DENICE_TAG DENICE_VERSION
+
 rm -rf "$WORK"
 mkdir -p "$WORK"
 INSTALL="$WORK/install"
