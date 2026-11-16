@@ -42,6 +42,7 @@ Sources:
 | D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
 | D3 | What proves a download genuine | pkg (decision 2) | blocked pending package |
 | D4 | Update source, channel and check timing, controllable in Settings | pkg (decision 3), R7 | blocked pending package |
+| D5 | What a ready newer version does to a one-shot command versus a long-running session (restart code 75) | P-store "reloads it"; follow-up package decision 2 | blocked pending package |
 
 ## Loader replacement
 | ID | Requirement | Source | Status |
@@ -58,6 +59,7 @@ Sources:
 | I3 | macOS: `~/Applications/Denice/`; app-bundle shape | P-install, pkg (decision 1) | blocked pending package |
 | I4 | Linux: `~/.local/share/denice/` with `~/.local/bin/denice` link | P-install | open |
 | I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | open |
+| I6 | What triggers the first install and creates the Start Menu shortcut / Terminal link / macOS app | P-install, T16; follow-up package decision 1 | blocked pending package |
 
 ## Infrastructure parity (Rust aligned with .NET)
 | ID | Requirement | Source | Status |
