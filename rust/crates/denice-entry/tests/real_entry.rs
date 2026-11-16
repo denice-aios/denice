@@ -12,6 +12,15 @@ use denice_core::protocol::{
 };
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::sync::{Mutex, MutexGuard, PoisonError};
+
+/// Copying an executable on one test thread while another forks makes Linux refuse to run the copy ("Text file busy":
+/// the forked child briefly holds the copy's write handle). Each test holds this lock from its copy to its run.
+static COPY_AND_RUN: Mutex<()> = Mutex::new(());
+
+fn serialized() -> MutexGuard<'static, ()> {
+    COPY_AND_RUN.lock().unwrap_or_else(PoisonError::into_inner)
+}
 
 const THIS_BUILD: &str = denice_core::version::BUILD_VERSION;
 /// Lower than every build: a numeric pre-release identifier sorts below any alphanumeric one (`local`, `pre-release`).
@@ -55,6 +64,7 @@ fn read(path: &Path) -> String {
 
 #[test]
 fn an_older_loader_is_replaced_and_the_entry_asks_for_the_hand_over() {
+    let _serial = serialized();
     let i = install();
     let out = run(&i, Some(OLDER));
     assert_eq!(out.status.code(), Some(EXIT_LOADER_REPLACED), "{out:?}");
@@ -64,6 +74,7 @@ fn an_older_loader_is_replaced_and_the_entry_asks_for_the_hand_over() {
 
 #[test]
 fn a_loader_that_is_not_older_is_kept_and_a_missing_runtime_is_a_start_failure() {
+    let _serial = serialized();
     let i = install();
     let out = run(&i, Some(THIS_BUILD));
     assert_eq!(out.status.code(), Some(1), "{out:?}");
@@ -73,6 +84,7 @@ fn a_loader_that_is_not_older_is_kept_and_a_missing_runtime_is_a_start_failure()
 
 #[test]
 fn started_directly_without_a_loader_it_only_runs_the_runtime() {
+    let _serial = serialized();
     let i = install();
     let out = run(&i, None);
     assert_eq!(out.status.code(), Some(1), "{out:?}");
@@ -81,6 +93,7 @@ fn started_directly_without_a_loader_it_only_runs_the_runtime() {
 
 #[test]
 fn a_version_without_a_carried_loader_keeps_the_old_one_and_still_runs() {
+    let _serial = serialized();
     let i = install();
     std::fs::remove_file(i.version_dir.join(loader_file_name())).unwrap();
     let out = run(&i, Some(OLDER));
@@ -92,6 +105,7 @@ fn a_version_without_a_carried_loader_keeps_the_old_one_and_still_runs() {
 
 #[test]
 fn an_unreadable_loader_version_is_reported_and_the_loader_kept() {
+    let _serial = serialized();
     let i = install();
     let out = run(&i, Some("not-a-version"));
     assert_eq!(out.status.code(), Some(1), "{out:?}");

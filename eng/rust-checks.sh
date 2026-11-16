@@ -13,6 +13,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CARGO="${CARGO:-cargo}"
 LCOV="${1:-$REPO_ROOT/evidence/rust-coverage.lcov}"
+case "$LCOV" in /*) ;; *) LCOV="$PWD/$LCOV" ;; esac   # absolute: the checks run from rust/
 mkdir -p "$(dirname "$LCOV")"
 cd "$REPO_ROOT/rust"
 
