@@ -26,7 +26,7 @@ namespace Denice.CrossPlatform.Windows;
 /// OS-uniform filesystem call. Windows has no executable bit, so <see cref="NeedsExecutableFlag"/> is
 /// <see langword="false"/> and the executable-flag methods throw.
 /// </summary>
-internal sealed class WindowsFileSystem : PlatformFileSystemBase, IPlatformFileSystem
+internal sealed partial class WindowsFileSystem : PlatformFileSystemBase, IPlatformFileSystem
 {
     // ERROR_PRIVILEGE_NOT_HELD (1314): the failure Windows raises for a symlink operation when the user is neither
     // an administrator nor has Developer Mode enabled — the only case this message advises on. It surfaces as a raw

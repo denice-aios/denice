@@ -1,6 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Denice.Abstractions.Contracts;
 
@@ -30,6 +31,11 @@ internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
     public char DirectorySeparator => Path.DirectorySeparatorChar;
 
     /// <inheritdoc />
+    // The in-memory overlay holds bytes, not operating-system code signatures, so it reports no signature format — the
+    // same answer Linux gives — and a test that needs a scripted signature result wraps the platform instead.
+    public CodeSignatureFormat CodeSignatureFormat => CodeSignatureFormat.None;
+
+    /// <inheritdoc />
     public bool IsLinkTarget(string linkPath) => _store.IsLinkTarget(linkPath);
 
     /// <inheritdoc />
@@ -56,6 +62,10 @@ internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
 
     /// <inheritdoc />
     public bool IsCaseSensitive(string path) => _store.CaseSensitive;
+
+    /// <inheritdoc />
+    public CodeSignatureCheck CheckCodeSignature(string path, IReadOnlyCollection<string> pinnedSignerSha256) =>
+        new(CodeSignatureStatus.NotApplicable, null, $"The simulated file system has no code signatures; '{path}' was not checked.");
 
     /// <summary>Creates the platform view over the given shared overlay.</summary>
     /// <param name="store">The shared copy-on-write overlay the link operations read and write.</param>

@@ -24,6 +24,12 @@
     <ProjectReference Include="..\Denice.TestHelpers\Denice.TestHelpers.csproj" />
   </ItemGroup>
 
+  <!-- The real code-signature fixtures (signed with throwaway self-signed certificates by Fixtures/CodeSignature/
+       make-fixtures.sh), copied beside the test assembly so CodeSignatureSpecTests reads them from the base directory. -->
+  <ItemGroup>
+    <None Include="Fixtures/CodeSignature/**" Exclude="Fixtures/CodeSignature/make-fixtures.sh" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- The target RID, threaded to the per-OS implementation selection below (RID first, build-host OS fallback). -->
   <PropertyGroup>
     <DenicePlatformRid Condition="'$(DenicePlatformRid)' == ''">$(RuntimeIdentifier)</DenicePlatformRid>
