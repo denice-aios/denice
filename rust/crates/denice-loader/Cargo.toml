@@ -25,3 +25,7 @@ tempfile = "3.23.0"
 
 [lints]
 workspace = true
+
+[[test]]
+name = "real_processes"
+harness = false
