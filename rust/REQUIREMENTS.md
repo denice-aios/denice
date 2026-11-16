@@ -77,7 +77,7 @@ Sources:
 | F9 | Platform signing of the Rust executables (codesign hardened runtime / Authenticode) | T14 | open |
 | F10 | sha256 + cosign for release files, verified before publishing | T14 | open |
 | F11 | Release contains the new layout for all six platforms | T14 | open |
-| F12 | The Linux Rust executables run on every Linux distribution Denice Runtime's .NET supports (linked against a glibc no newer than .NET's minimum) | T14 "align it with the existing .NET infrastructure" | open |
+| F12 | The Linux Rust executables run on every Linux distribution Denice Runtime's .NET supports (linked against a glibc no newer than .NET's minimum) | T14 "align it with the existing .NET infrastructure" | blocked pending package (measured: Rust needs glibc 2.39, .NET 2.27; how to build is Tim's choice) |
 
 ## Finish line
 | ID | Requirement | Source | Status |
