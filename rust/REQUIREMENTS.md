@@ -70,8 +70,8 @@ Sources:
 | F2 | Version computed once (eng/compute-build-id.sh) and passed to both builds | T14 | done 7d1897f eng/build-install-layout.sh (one build id -> -p:Denice* and DENICE_VERSION; both halves print the same SemVer) |
 | F3 | Build for all six platforms: osx-arm64, osx-x64, win-x64, win-arm64, linux-x64, linux-arm64 | T14 | open |
 | F4 | Formatting and lint gate with warnings as errors (as TreatWarningsAsErrors + analyzers) | T14 | open |
-| F5 | Custom-rule management: Rust custom rules R1–R12 (rust/RULES.md) as dylint lints with their own tests, run in CI beside Clippy with warnings as errors, on a pinned nightly for the lint crate | T14, P-build rust-rules | open |
-| F6 | Each applicable C# custom rule has a Rust counterpart or a recorded reason it cannot apply to Rust (listed in rust/RULES.md) | T14 | open |
+| F5 | Custom-rule management: Rust custom rules R1–R12 (rust/RULES.md) as dylint lints with their own tests, run in CI beside Clippy with warnings as errors, on a pinned nightly for the lint crate | T14, P-build rust-rules | done 25b0f06 rust/lints/denice_rules (R1-R12 dylint lints); ui fixtures + tests/fixture_workspace.rs; eng/rust-checks.sh step 4 runs the rules' tests and the rules over all targets |
+| F6 | Each applicable C# custom rule has a Rust counterpart or a recorded reason it cannot apply to Rust (listed in rust/RULES.md) | T14 | done 25b0f06 rust/RULES.md maps all 38 C# rule ids: 12 Rust counterparts built, the rest with recorded reasons |
 | F7 | Unit and integration tests run in CI on every platform that runs tests today | T14 | open |
 | F8 | Coverage gate at the same 75% threshold | T14 | open |
 | F9 | Platform signing of the Rust executables (codesign hardened runtime / Authenticode) | T14 | open |
