@@ -1,0 +1,6 @@
+[denice_rules]
+unsafe_allowed = ["ui/r1_allowed.rs"]
+os_branching_allowed = ["ui/r3_allowed.rs"]
+process_allowed = ["ui/r4_allowed.rs"]
+env_read_allowed = ["ui/r4_allowed.rs"]
+current_exe_allowed = ["ui/r5_allowed.rs"]

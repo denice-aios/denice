@@ -1,0 +1,5 @@
+# The custom rules are compiler plug-ins (dylint), so they need a nightly with rustc-dev (pkg-697310396f74 rust-rules:
+# "dylint now"). This pin is the one to move on a Rust upgrade; the product itself stays on rust/rust-toolchain.toml.
+[toolchain]
+channel = "nightly-2026-08-20"
+components = ["llvm-tools-preview", "rustc-dev"]

@@ -1,0 +1,6 @@
+# A fixture for rules R10 and R11, which need real crates: denice_loader uses denice_entry (not allowed) and
+# denice_core (allowed); product_user uses the test-only crate `tempfile` (a local stand-in) in product code. Each
+# violation sits in a crate nothing else depends on, so one failure never stops the other from being checked.
+[workspace]
+resolver = "3"
+members = ["denice_core", "denice_loader", "denice_entry", "tempfile", "product_user"]

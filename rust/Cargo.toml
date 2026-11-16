@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
 members = ["crates/denice-core", "crates/denice-loader", "crates/denice-entry"]
+# The custom rules (rust/RULES.md) build on their own pinned nightly, so they are their own workspace.
+exclude = ["lints"]
 
 [workspace.package]
 edition = "2024"

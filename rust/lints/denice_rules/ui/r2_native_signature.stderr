@@ -1,0 +1,38 @@
+error: `unsafe` in $DIR/r2_native_signature.rs, which is not a native module (rust/dylint.toml unsafe_allowed)
+  --> $DIR/r2_native_signature.rs:19:1
+   |
+LL | / unsafe extern "C" {
+LL | |     fn takes_char(c: char);
+LL | | }
+   | |_^
+   |
+   = note: `#[deny(r1_unsafe_outside_native_modules)]` on by default
+
+error: native signature uses `bool`: a C bool's size differs by platform (C# DN0103); use an integer
+  --> $DIR/r2_native_signature.rs:14:1
+   |
+LL | pub type BadBool = unsafe extern "C" fn(bool) -> i32;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[deny(r2_non_c_native_signature)]` on by default
+
+error: native signature uses `&u8`: references are not C types; use a raw pointer
+  --> $DIR/r2_native_signature.rs:15:1
+   |
+LL | pub type BadRef = unsafe extern "C" fn(&u8);
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: native signature uses `RustPoint`: not a C type
+  --> $DIR/r2_native_signature.rs:16:1
+   |
+LL | pub type BadStruct = unsafe extern "C" fn() -> RustPoint;
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: native signature uses `char`: Rust char is not a C type
+  --> $DIR/r2_native_signature.rs:20:5
+   |
+LL |     fn takes_char(c: char);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 5 previous errors
+

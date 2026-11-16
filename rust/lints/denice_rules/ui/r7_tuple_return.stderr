@@ -1,0 +1,16 @@
+error: this function returns a tuple; return a named struct
+  --> $DIR/r7_tuple_return.rs:7:15
+   |
+LL | fn tuple() -> (i32, i32) {
+   |               ^^^^^^^^^^
+   |
+   = note: `#[deny(r7_tuple_return)]` on by default
+
+error: this method returns a tuple; return a named struct
+  --> $DIR/r7_tuple_return.rs:20:24
+   |
+LL |     fn tuple(&self) -> (u8, u8) {
+   |                        ^^^^^^^^
+
+error: aborting due to 2 previous errors
+

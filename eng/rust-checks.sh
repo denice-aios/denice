@@ -5,9 +5,12 @@
 #   2. lint with warnings as errors (clippy, workspace lints in rust/Cargo.toml: pedantic, no unwrap/expect/panic);
 #   3. every test (unit, rule and real-process integration tests) with coverage, failing under the same 75% line
 #      threshold as the .NET gate (decision threshold-75-hard-gate). Test files are excluded from the measured set,
-#      as the .NET gate excludes *.Tests assemblies.
+#      as the .NET gate excludes *.Tests assemblies;
+#   4. Denice's custom rules R1-R12 (rust/RULES.md; dylint per pkg-697310396f74): the rules' own tests, then the rules
+#      over every product and test target, failing on any finding (the counterpart of the C# analyzers in the build).
 # Usage: eng/rust-checks.sh [<lcov-output-path>]
-# Environment: CARGO (default: cargo). Requires cargo-llvm-cov (CI pins the version).
+# Environment: CARGO (default: cargo). Requires cargo-llvm-cov, cargo-dylint and dylint-link (CI pins the versions)
+# and the rules' nightly (rust/lints/denice_rules/rust-toolchain.toml, installed by rustup on first use).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -28,4 +31,7 @@ echo "rust-checks: tests with coverage (min 75% of product lines)"
 "$CARGO" llvm-cov --workspace --locked --ignore-filename-regex '(_tests\.rs|/tests/)' \
   --fail-under-lines 75 --lcov --output-path "$LCOV"
 "$CARGO" llvm-cov report --ignore-filename-regex '(_tests\.rs|/tests/)' --summary-only
+echo "rust-checks: custom rules R1-R12 — their own tests, then the product code"
+( cd lints/denice_rules && "$CARGO" test --locked )
+"$CARGO" dylint --path lints/denice_rules --all -- --all-targets --locked
 echo "rust-checks: PASS"

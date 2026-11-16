@@ -63,7 +63,17 @@ public sealed class VersionInstallerTests
 
         IPlatformFileSystem platform = services.Platform.FileSystem;
         string entry = Path.Combine(Final, $"denice-v{Version}-osx-arm64");
-        platform.IsExecutable(entry).Should().Be(platform.NeedsExecutableFlag());
+        string library = Path.Combine(Final, "Denice.Runtime.dll");
+        if (platform.NeedsExecutableFlag())
+        {
+            platform.IsExecutable(entry).Should().BeTrue("the release marked the entry executable");
+            platform.IsExecutable(library).Should().BeFalse("the release did not mark the library executable");
+        }
+        else
+        {
+            // Windows has no executable flag: whether a file runs depends on its type, not on a flag the install sets.
+            services.FileSystem.GetFileReader().Exists(entry).Should().BeTrue();
+        }
     }
 
     [Fact]

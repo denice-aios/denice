@@ -1,0 +1,9 @@
+[package]
+name = "denice_loader"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+denice_core = { path = "../denice_core" }
+denice_entry = { path = "../denice_entry" }

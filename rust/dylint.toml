@@ -1,0 +1,33 @@
+# Allow-lists for Denice's custom Rust rules (rust/RULES.md, rust/lints/denice_rules). One owner per list.
+# Entries are path suffixes; `*` matches one folder name.
+[denice_rules]
+# R1 (C# DN0008): native calls.
+unsafe_allowed = [
+  "crates/denice-entry/src/hosting.rs",      # .NET hostfxr
+  "crates/denice-loader/src/launcher.rs",    # Ctrl+C handling while the version runs
+  "crates/denice-core/src/platform.rs",      # exit through the C runtime on Windows
+]
+# R3 (C# DN0009/DN0101): branching on the OS or architecture.
+os_branching_allowed = [
+  "crates/denice-core/src/platform.rs",
+  "crates/denice-loader/src/launcher.rs",
+  "crates/denice-entry/src/hosting.rs",
+]
+# R4 (C# DN0011): the single owners of processes and environment variables.
+process_allowed = ["crates/denice-loader/src/launcher.rs"]
+env_read_allowed = ["crates/denice-entry/src/loader_swap.rs"]
+# R5 (C# DN0020): only the programs' entry points ask for their own path.
+current_exe_allowed = ["crates/*/src/main.rs"]
+
+# R11 (C# DN0023/DN0029/DN0040/DN0041): crate direction.
+[[denice_rules.crate_dependencies]]
+krate = "denice_loader"
+may_use = ["denice_core"]
+
+[[denice_rules.crate_dependencies]]
+krate = "denice_entry"
+may_use = ["denice_core"]
+
+[[denice_rules.crate_dependencies]]
+krate = "denice_core"
+may_use = []

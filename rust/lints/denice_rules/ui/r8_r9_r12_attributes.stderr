@@ -1,0 +1,52 @@
+error: a test may not be ignored; it must run on every platform
+  --> $DIR/r8_r9_r12_attributes.rs:5:1
+   |
+LL | #[ignore]
+   | ^^^^^^^^^
+   |
+   = note: `#[deny(r8_ignored_test)]` on by default
+
+error: OS or architecture `cfg_attr` in $DIR/r8_r9_r12_attributes.rs, which is not a platform module (rust/dylint.toml os_branching_allowed)
+  --> $DIR/r8_r9_r12_attributes.rs:8:1
+   |
+LL | #[cfg_attr(windows, ignore)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[deny(r3_os_branching_outside_platform_modules)]` on by default
+
+error: a test may not be ignored; it must run on every platform
+  --> $DIR/r8_r9_r12_attributes.rs:8:1
+   |
+LL | #[cfg_attr(windows, ignore)]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: code may not opt out of coverage
+  --> $DIR/r8_r9_r12_attributes.rs:11:1
+   |
+LL | #[cfg_attr(coverage_nightly, coverage(off))]
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[deny(r9_coverage_opt_out)]` on by default
+
+error: `#[track_caller]` records the caller's file and line
+  --> $DIR/r8_r9_r12_attributes.rs:14:1
+   |
+LL | #[track_caller]
+   | ^^^^^^^^^^^^^^^
+   |
+   = note: `#[deny(r12_caller_location)]` on by default
+
+error: `file!` records a source location
+  --> $DIR/r8_r9_r12_attributes.rs:21:13
+   |
+LL |     let _ = file!();
+   |             ^^^^^^^
+
+error: `line!` records a source location
+  --> $DIR/r8_r9_r12_attributes.rs:22:13
+   |
+LL |     let _ = line!();
+   |             ^^^^^^^
+
+error: aborting due to 7 previous errors
+

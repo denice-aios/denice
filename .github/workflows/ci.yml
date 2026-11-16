@@ -105,7 +105,10 @@ jobs:
         run: |
           cd rust && rustup toolchain install && rustc --version && cargo --version
           cargo install cargo-llvm-cov --version 0.9.1 --locked
-      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75% (rust/REQUIREMENTS.md F4 F7 F8)
+          # The custom rules (dylint, pkg-697310396f74) build on their own pinned nightly with rustc-dev.
+          ( cd lints/denice_rules && rustup toolchain install )
+          cargo install cargo-dylint dylint-link --version 6.4.0 --locked
+      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75%, custom rules R1-R12 (rust/REQUIREMENTS.md F4 F5 F7 F8)
         shell: bash
         run: eng/rust-checks.sh evidence/rust-coverage-${{ runner.os }}.lcov
       - name: Build both mac install layouts (loader + versioned entry + Denice Runtime)
@@ -289,7 +292,10 @@ jobs:
         run: |
           cd rust && rustup toolchain install && rustc --version && cargo --version
           cargo install cargo-llvm-cov --version 0.9.1 --locked
-      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75% (rust/REQUIREMENTS.md F4 F7 F8)
+          # The custom rules (dylint, pkg-697310396f74) build on their own pinned nightly with rustc-dev.
+          ( cd lints/denice_rules && rustup toolchain install )
+          cargo install cargo-dylint dylint-link --version 6.4.0 --locked
+      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75%, custom rules R1-R12 (rust/REQUIREMENTS.md F4 F5 F7 F8)
         shell: bash
         run: eng/rust-checks.sh evidence/rust-coverage-${{ runner.os }}.lcov
       - name: Build both windows install layouts (loader + versioned entry + Denice Runtime)
@@ -447,7 +453,10 @@ jobs:
         run: |
           cd rust && rustup toolchain install && rustc --version && cargo --version
           cargo install cargo-llvm-cov --version 0.9.1 --locked
-      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75% (rust/REQUIREMENTS.md F4 F7 F8)
+          # The custom rules (dylint, pkg-697310396f74) build on their own pinned nightly with rustc-dev.
+          ( cd lints/denice_rules && rustup toolchain install )
+          cargo install cargo-dylint dylint-link --version 6.4.0 --locked
+      - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75%, custom rules R1-R12 (rust/REQUIREMENTS.md F4 F5 F7 F8)
         shell: bash
         run: eng/rust-checks.sh evidence/rust-coverage-${{ runner.os }}.lcov
       - name: Build both linux install layouts (loader + versioned entry + Denice Runtime)

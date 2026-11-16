@@ -1,0 +1,22 @@
+error: `std::time::SystemTime::now` reads the clock or sleeps; product code may not
+  --> $DIR/r6_clock.rs:3:13
+   |
+LL |     let _ = std::time::SystemTime::now();
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[deny(r6_clock_or_sleep)]` on by default
+
+error: `std::time::Instant::now` reads the clock or sleeps; product code may not
+  --> $DIR/r6_clock.rs:4:13
+   |
+LL |     let _ = std::time::Instant::now();
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `std::thread::sleep` reads the clock or sleeps; product code may not
+  --> $DIR/r6_clock.rs:5:5
+   |
+LL |     std::thread::sleep(std::time::Duration::from_millis(1));
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 3 previous errors
+
