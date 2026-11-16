@@ -39,7 +39,7 @@ Sources:
 | ID | Requirement | Source | Status |
 |---|---|---|---|
 | D1 | Denice Runtime performs the downloading; pre-download happens before loading | T14 | open |
-| D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | open |
+| D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
 | D3 | What proves a download genuine | pkg (decision 2) | blocked pending package |
 | D4 | Update source, channel and check timing, controllable in Settings | pkg (decision 3), R7 | blocked pending package |
 
