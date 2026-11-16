@@ -467,6 +467,11 @@ jobs:
           sudo apt-get update -q && sudo apt-get install -y -q gcc-x86-64-linux-gnu
           eng/build-install-layout.sh linux-arm64 layouts/linux-arm64
           eng/build-install-layout.sh linux-x64 layouts/linux-x64
+      - name: The Linux Rust programs need no newer glibc than Denice Runtime's .NET (rust/REQUIREMENTS.md F12)
+        run: |
+          sudo apt-get install -y -q binutils-x86-64-linux-gnu
+          eng/check-glibc.sh layouts/linux-arm64 linux-arm64
+          OBJDUMP=x86_64-linux-gnu-objdump eng/check-glibc.sh layouts/linux-x64 linux-x64
       - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
         run: dotnet test -c Release $AG --logger "trx;LogFileName=linux.trx"
       - name: Coverage gate — aggregate + Linux implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
