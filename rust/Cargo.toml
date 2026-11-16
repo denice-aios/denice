@@ -14,6 +14,7 @@ denice-core = { path = "crates/denice-core" }
 semver = "1.0.26"
 libloading = "0.8.8"
 libc = "0.2.175"
+windows-sys = "0.60.2"
 
 # Warnings are errors in CI (RUSTFLAGS=-D warnings), matching TreatWarningsAsErrors on the .NET side.
 [workspace.lints.rust]

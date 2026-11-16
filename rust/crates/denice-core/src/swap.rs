@@ -204,26 +204,28 @@ mod tests {
         }
     }
 
+    /// Real file operations, except that the first rename onto `.1` fails.
+    struct FailFirstActivation(std::cell::Cell<bool>, PathBuf);
+    impl SwapFiles for FailFirstActivation {
+        fn copy_tree(&self, from: &Path, to: &Path) -> io::Result<()> {
+            RealFiles.copy_tree(from, to)
+        }
+        fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
+            if to == self.1 && !self.0.replace(true) {
+                return Err(io::Error::other("injected activation failure"));
+            }
+            RealFiles.rename(from, to)
+        }
+        fn remove_if_present(&self, path: &Path) -> io::Result<()> {
+            RealFiles.remove_if_present(path)
+        }
+    }
+
     #[test]
     fn a_failed_activation_puts_the_old_loader_back() {
         let f = fixture();
         // Fail only step 3 (`denice.ver` -> `denice`); the restore (`denice.old` -> `denice`) must still work,
         // so fail the first rename onto `denice` and let the second through.
-        struct FailFirstActivation(std::cell::Cell<bool>, PathBuf);
-        impl SwapFiles for FailFirstActivation {
-            fn copy_tree(&self, from: &Path, to: &Path) -> io::Result<()> {
-                RealFiles.copy_tree(from, to)
-            }
-            fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
-                if to == self.1 && !self.0.replace(true) {
-                    return Err(io::Error::other("injected activation failure"));
-                }
-                RealFiles.rename(from, to)
-            }
-            fn remove_if_present(&self, path: &Path) -> io::Result<()> {
-                RealFiles.remove_if_present(path)
-            }
-        }
         let files = FailFirstActivation(std::cell::Cell::new(false), f.layout.loader_path());
         let err = swap_with(&files, &f.layout, &f.new_loader).err().unwrap_or_else(|| unreachable!());
         assert_eq!(err.step, SwapStep::Activate);

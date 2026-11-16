@@ -29,10 +29,18 @@ pub enum HostError {
 impl fmt::Display for HostError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::LoadHostResolver(path, why) => write!(f, "cannot load the .NET host resolver {}: {why}", path.display()),
-            Self::MissingStartFunction(why) => write!(f, "the .NET host resolver has no hostfxr_main_startupinfo: {why}"),
-            Self::MissingRuntime(path) => write!(f, "Denice Runtime is missing: {}", path.display()),
-            Self::InvalidText(text) => write!(f, "cannot pass {} to .NET: it contains a NUL character", text.to_string_lossy()),
+            Self::LoadHostResolver(path, why) => {
+                write!(f, "cannot load the .NET host resolver {}: {why}", path.display())
+            }
+            Self::MissingStartFunction(why) => {
+                write!(f, "the .NET host resolver has no hostfxr_main_startupinfo: {why}")
+            }
+            Self::MissingRuntime(path) => {
+                write!(f, "Denice Runtime is missing: {}", path.display())
+            }
+            Self::InvalidText(text) => {
+                write!(f, "cannot pass {} to .NET: it contains a NUL character", text.to_string_lossy())
+            }
         }
     }
 }
@@ -81,18 +89,21 @@ pub fn run(request: &HostRequest<'_>) -> Result<i32, HostError> {
     let host_path = NativeString::new(request.host_path.as_os_str())?;
     let dotnet_root = NativeString::new(request.version_dir.as_os_str())?;
     let app_path = NativeString::new(runtime.as_os_str())?;
-    let argv_ptrs: Vec<*const NativeChar> = argv.iter().map(NativeString::as_ptr).collect();
-    let argc = i32::try_from(argv_ptrs.len()).map_err(|_| HostError::InvalidText(OsString::from("too many arguments")))?;
+    let argument_pointers: Vec<*const NativeChar> = argv.iter().map(NativeString::as_ptr).collect();
+    let argument_count = i32::try_from(argument_pointers.len())
+        .map_err(|_| HostError::InvalidText(OsString::from("too many arguments")))?;
 
     // SAFETY: the library is .NET's hostfxr from the version folder; it stays loaded for the whole call.
     let library = unsafe { libloading::Library::new(&hostfxr_path) }
         .map_err(|e| HostError::LoadHostResolver(hostfxr_path.clone(), e.to_string()))?;
     // SAFETY: hostfxr_main_startupinfo has exactly this signature in every supported .NET version
     // (dotnet/runtime src/native/corehost/fxr/hostfxr.h).
-    let start: libloading::Symbol<'_, StartupInfoFn> =
-        unsafe { library.get(b"hostfxr_main_startupinfo\0") }.map_err(|e| HostError::MissingStartFunction(e.to_string()))?;
+    let start: libloading::Symbol<'_, StartupInfoFn> = unsafe { library.get(b"hostfxr_main_startupinfo\0") }
+        .map_err(|e| HostError::MissingStartFunction(e.to_string()))?;
     // SAFETY: every pointer points into a NUL-terminated buffer owned above that outlives the call.
-    let code = unsafe { start(argc, argv_ptrs.as_ptr(), host_path.as_ptr(), dotnet_root.as_ptr(), app_path.as_ptr()) };
+    let code = unsafe {
+        start(argument_count, argument_pointers.as_ptr(), host_path.as_ptr(), dotnet_root.as_ptr(), app_path.as_ptr())
+    };
     Ok(code)
 }
 

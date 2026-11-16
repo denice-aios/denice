@@ -36,7 +36,9 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Version(e) => e.fmt(f),
-            Self::MissingCarriedLoader(path) => write!(f, "this version carries no loader at {}", path.display()),
+            Self::MissingCarriedLoader(path) => {
+                write!(f, "this version carries no loader at {}", path.display())
+            }
             Self::Swap(e) => e.fmt(f),
         }
     }
@@ -65,7 +67,9 @@ impl LoaderContext {
 /// # Errors
 /// Returns why the replacement did not happen; the installed loader is then unchanged.
 pub fn replace_older_loader(version_dir: &Path) -> Result<Outcome, Error> {
-    let Some(context) = LoaderContext::from_environment() else { return Ok(Outcome::NotNeeded) };
+    let Some(context) = LoaderContext::from_environment() else {
+        return Ok(Outcome::NotNeeded);
+    };
     let this_version = Version::of_this_build().map_err(Error::Version)?;
     decide_and_swap(&context, &this_version, version_dir)
 }
@@ -116,7 +120,8 @@ mod tests {
     #[test]
     fn an_older_loader_is_replaced() {
         let i = install();
-        let context = LoaderContext { install_root: i.root.clone(), loader_version: "0.1.100-pre-release+aaaaaaa".into() };
+        let context =
+            LoaderContext { install_root: i.root.clone(), loader_version: "0.1.100-pre-release+aaaaaaa".into() };
         let outcome = decide_and_swap(&context, &version("0.1.200-pre-release+bbbbbbb"), &i.version_dir);
         assert!(matches!(outcome, Ok(Outcome::Replaced)));
         assert_eq!(installed_loader(&i), "new");
@@ -137,7 +142,8 @@ mod tests {
     fn a_version_without_a_carried_loader_reports_it_and_keeps_the_old_one() {
         let i = install();
         std::fs::remove_file(i.version_dir.join(loader_file_name())).unwrap_or_else(|e| unreachable!("{e}"));
-        let context = LoaderContext { install_root: i.root.clone(), loader_version: "0.1.100-pre-release+aaaaaaa".into() };
+        let context =
+            LoaderContext { install_root: i.root.clone(), loader_version: "0.1.100-pre-release+aaaaaaa".into() };
         let outcome = decide_and_swap(&context, &version("0.1.200-pre-release+bbbbbbb"), &i.version_dir);
         assert!(matches!(outcome, Err(Error::MissingCarriedLoader(_))));
         assert_eq!(installed_loader(&i), "old");

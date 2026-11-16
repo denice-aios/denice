@@ -1,6 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
-//! The Denice product version: `MAJOR.MINOR.COMBINED[-channel]+hash`, ordered by SemVer precedence.
+//! The Denice product version: `MAJOR.MINOR.COMBINED[-channel]+hash`, ordered by `SemVer` precedence.
 
 use std::cmp::Ordering;
 use std::fmt;
@@ -9,7 +9,7 @@ use std::str::FromStr;
 /// The version this binary was built with (from `DENICE_VERSION`, see build.rs).
 pub const BUILD_VERSION: &str = env!("DENICE_BUILD_VERSION");
 
-/// A Denice product version. Ordering is SemVer precedence; build metadata (`+hash`) breaks ties only so
+/// A Denice product version. Ordering is `SemVer` precedence; build metadata (`+hash`) breaks ties only so
 /// that the order is total and stable, never to prefer one build over another of the same version.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Version(semver::Version);
@@ -18,7 +18,7 @@ impl Version {
     /// The version this binary was built with.
     ///
     /// # Errors
-    /// Returns an error if the stamped build version is not valid SemVer (a broken build).
+    /// Returns an error if the stamped build version is not valid `SemVer` (a broken build).
     pub fn of_this_build() -> Result<Self, ParseVersionError> {
         BUILD_VERSION.parse()
     }
@@ -42,7 +42,7 @@ impl fmt::Display for Version {
     }
 }
 
-/// The text was not a SemVer version.
+/// The text was not a `SemVer` version.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseVersionError(String);
 

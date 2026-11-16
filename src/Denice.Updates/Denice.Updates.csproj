@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Denice Runtime's side of the loader protocol (eng/loader-protocol.json): recognising that the loader started
+       this version, recording that it started, and (in later pieces) downloading, checking and installing newer
+       versions. Tim, 14 November 2026: "The .NET DLL performs the downloading". It reaches the OS only through the
+       owned services in Denice.Abstractions. -->
+  <PropertyGroup>
+    <RootNamespace>Denice.Updates</RootNamespace>
+    <AssemblyName>Denice.Updates</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Denice.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Denice.Abstractions/Denice.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

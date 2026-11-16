@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Denice.Abstractions.Contracts;
 using Denice.Engine;
+using Denice.Updates;
 
 namespace Denice.Runtime;
 
@@ -41,6 +42,10 @@ internal sealed class Program
     internal async Task<int> Run(ISystemServices services)
     {
         ArgumentNullException.ThrowIfNull(services);
+
+        // Started by the loader: record that this version started, so the loader keeps it and removes older ones.
+        LoaderHandshake.Read(services)?.RecordStarted();
+
         RootCommand root = BuildRootCommand(services);
         return await root.Parse(_args).InvokeAsync().ConfigureAwait(false);
     }

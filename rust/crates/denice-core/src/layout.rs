@@ -6,7 +6,9 @@
 //! downloaded and are never chosen.
 
 use crate::platform;
-use crate::protocol::{BAD_MARKER, LOADER_BACKUP_SUFFIX, LOADER_STAGING_SUFFIX, PARTIAL_SUFFIX, STARTED_MARKER, VERSIONS_DIR};
+use crate::protocol::{
+    BAD_MARKER, LOADER_BACKUP_SUFFIX, LOADER_STAGING_SUFFIX, PARTIAL_SUFFIX, STARTED_MARKER, VERSIONS_DIR,
+};
 use crate::version::Version;
 use std::ffi::OsString;
 use std::io;
@@ -103,8 +105,7 @@ impl InstallLayout {
     /// # Errors
     /// Returns the file system error if the versions folder exists but cannot be read.
     pub fn usable_versions(&self) -> io::Result<Vec<InstalledVersion>> {
-        let mut found: Vec<InstalledVersion> =
-            self.complete_versions()?.into_iter().filter(|v| !v.is_bad()).collect();
+        let mut found: Vec<InstalledVersion> = self.complete_versions()?.into_iter().filter(|v| !v.is_bad()).collect();
         found.sort_by(|a, b| b.version.cmp(&a.version));
         Ok(found)
     }
@@ -145,11 +146,15 @@ impl InstallLayout {
         let mut found = Vec::new();
         for entry in entries {
             let entry = entry?;
-            let Some(name) = entry.file_name().to_str().map(str::to_owned) else { continue };
+            let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
+                continue;
+            };
             if name.ends_with(PARTIAL_SUFFIX) || !entry.file_type()?.is_dir() {
                 continue;
             }
-            let Ok(version) = name.parse::<Version>() else { continue };
+            let Ok(version) = name.parse::<Version>() else {
+                continue;
+            };
             let candidate = InstalledVersion { version, dir: entry.path() };
             if candidate.entry_path().is_file() {
                 found.push(candidate);
@@ -160,7 +165,7 @@ impl InstallLayout {
 }
 
 fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
-    let mut name: OsString = path.file_name().map(OsString::from).unwrap_or_default();
+    let mut name: OsString = path.file_name().map_or_default(OsString::from);
     name.push(suffix);
     path.with_file_name(name)
 }
@@ -193,7 +198,9 @@ mod tests {
     #[test]
     fn no_versions_folder_means_no_versions() {
         let root = temp();
-        assert!(InstallLayout::new(root.path()).highest_usable_version().unwrap_or_else(|e| unreachable!("{e}")).is_none());
+        assert!(
+            InstallLayout::new(root.path()).highest_usable_version().unwrap_or_else(|e| unreachable!("{e}")).is_none()
+        );
     }
 
     #[test]
@@ -232,7 +239,8 @@ mod tests {
         let _ = install(root.path(), "0.1.100-pre-release+aaaaaaa");
         let _ = install(root.path(), "0.1.200-pre-release+bbbbbbb");
         let layout = InstallLayout::new(root.path());
-        let highest = layout.highest_usable_version().unwrap_or_else(|e| unreachable!("{e}")).unwrap_or_else(|| unreachable!());
+        let highest =
+            layout.highest_usable_version().unwrap_or_else(|e| unreachable!("{e}")).unwrap_or_else(|| unreachable!());
         highest.mark_bad().unwrap_or_else(|e| unreachable!("{e}"));
         assert_eq!(names(&layout), ["0.1.100-pre-release+aaaaaaa"]);
     }
@@ -243,12 +251,19 @@ mod tests {
         let old = install(root.path(), "0.1.100-pre-release+aaaaaaa");
         let _ = install(root.path(), "0.1.200-pre-release+bbbbbbb");
         let layout = InstallLayout::new(root.path());
-        let current = layout.highest_usable_version().unwrap_or_else(|e| unreachable!("{e}")).unwrap_or_else(|| unreachable!());
-        assert!(layout.remove_versions_older_than(&current).unwrap_or_else(|e| unreachable!("{e}")).is_empty());
+        let current =
+            layout.highest_usable_version().unwrap_or_else(|e| unreachable!("{e}")).unwrap_or_else(|| unreachable!());
+        assert_eq!(
+            layout.remove_versions_older_than(&current).unwrap_or_else(|e| unreachable!("{e}")),
+            [] as [std::path::PathBuf; 0]
+        );
         assert!(old.is_dir());
 
         std::fs::write(current.dir.join(STARTED_MARKER), b"").unwrap_or_else(|e| unreachable!("{e}"));
-        assert_eq!(layout.remove_versions_older_than(&current).unwrap_or_else(|e| unreachable!("{e}")), [old.clone()]);
+        assert_eq!(
+            layout.remove_versions_older_than(&current).unwrap_or_else(|e| unreachable!("{e}")),
+            std::slice::from_ref(&old)
+        );
         assert!(!old.exists());
         assert_eq!(names(&layout), ["0.1.200-pre-release+bbbbbbb"]);
     }

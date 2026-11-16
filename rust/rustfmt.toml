@@ -1,0 +1,3 @@
+# Matches the C# line length in .editorconfig.
+max_width = 120
+use_small_heuristics = "Max"

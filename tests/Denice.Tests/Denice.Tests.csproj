@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Denice.Engine/Denice.Engine.csproj" />
+    <ProjectReference Include="../../src/Denice.Updates/Denice.Updates.csproj" />
     <ProjectReference Include="../Denice.TestHelpers/Denice.TestHelpers.csproj" />
   </ItemGroup>
 
