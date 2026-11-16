@@ -16,6 +16,7 @@ Sources:
 - P-install: pkg-f543b9586645 loader-takeover = right-after-swap; install-scope = per-user; per-user-folders = platform-folders.
 - T16b: Tim, 16 November 2026: "Start the loader implementation now as one complete effort, including the macOS app-bundle decision. Do not defer that decision or cut the work short."
 - P-build: pkg-697310396f74 macos-bundle = bundle-inside ("App beside versions"); download-proof = existing-proofs ("All proofs"); update-policy = scheduled; rust-rules = dylint.
+- P-first: pkg-189647304b25 first-install = none of the options, Tim's note: "We need to figure out how this would work for each OS and work as expected.  AN extera Installer may be needed for the right user expected behavior."; update-command-policy = finish-once.
 - R7: global rule 7: "Settings must replace .env configuration. Nothing ships in this project unless it can be fixed in Settings."
 
 ## Components and names
@@ -44,7 +45,7 @@ Sources:
 | D3 | Before use, Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | open |
 | D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | open |
 | S1 | Denice has Settings that the update channel, check interval and off switch live in (none exist today) | R7, P-build update-policy; Settings package | blocked pending package |
-| D5 | What a ready newer version does to a one-shot command versus a long-running session (restart code 75) | P-store "reloads it"; follow-up package decision 2 | blocked pending package |
+| D5 | A one-shot command finishes once and is never re-run; the newer version is used from the next launch; only a long-running Denice session restarts into a ready newer version (exit 75) | P-first update-command-policy | open |
 
 ## Loader replacement
 | ID | Requirement | Source | Status |
@@ -61,7 +62,7 @@ Sources:
 | I3 | macOS: `~/Applications/Denice/Denice.app` holds only the loader (`Contents/MacOS/denice`), `versions/` beside it; Tim's swap order applies to the whole bundle (`Denice.app.ver` → `Denice.app`); a `~/.local/bin/denice` link to the loader | P-install, P-build macos-bundle | open |
 | I4 | Linux: `~/.local/share/denice/` with `~/.local/bin/denice` link | P-install | open |
 | I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | open |
-| I6 | What triggers the first install and creates the Start Menu shortcut / Terminal link / macOS app | P-install, T16; follow-up package decision 1 | blocked pending package |
+| I6 | The first install works the way users expect on each OS (Tim: "We need to figure out how this would work for each OS and work as expected.  AN extera Installer may be needed for the right user expected behavior."); per-OS research, then a decision package | P-first first-install | blocked pending research and package |
 
 ## Infrastructure parity (Rust aligned with .NET)
 | ID | Requirement | Source | Status |
