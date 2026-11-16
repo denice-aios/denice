@@ -15,6 +15,7 @@ Sources:
 - P-store: pkg-a0206b25f619 version-storage = folders-no-pointer; reload-mechanics = parent-restarts, with Tim's note "Unpack first (to denice.ver) then rename current to old and .ver to empty and it's safer."
 - P-install: pkg-f543b9586645 loader-takeover = right-after-swap; install-scope = per-user; per-user-folders = platform-folders.
 - T16b: Tim, 16 November 2026: "Start the loader implementation now as one complete effort, including the macOS app-bundle decision. Do not defer that decision or cut the work short."
+- P-build: pkg-697310396f74 macos-bundle = bundle-inside ("App beside versions"); download-proof = existing-proofs ("All proofs"); update-policy = scheduled; rust-rules = dylint.
 - R7: global rule 7: "Settings must replace .env configuration. Nothing ships in this project unless it can be fixed in Settings."
 
 ## Components and names
@@ -40,8 +41,8 @@ Sources:
 |---|---|---|---|
 | D1 | Denice Runtime performs the downloading; pre-download happens before loading | T14 | open |
 | D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
-| D3 | What proves a download genuine | pkg (decision 2) | blocked pending package |
-| D4 | Update source, channel and check timing, controllable in Settings | pkg (decision 3), R7 | blocked pending package |
+| D3 | Before use, Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | open |
+| D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | open |
 | D5 | What a ready newer version does to a one-shot command versus a long-running session (restart code 75) | P-store "reloads it"; follow-up package decision 2 | blocked pending package |
 
 ## Loader replacement
@@ -56,7 +57,7 @@ Sources:
 |---|---|---|---|
 | I1 | Per-user install; no administrator rights, no service | P-install | open |
 | I2 | Windows: `%LOCALAPPDATA%\Programs\Denice\` with Start Menu shortcut to `denice.exe` | P-install, T16 | open |
-| I3 | macOS: `~/Applications/Denice/`; app-bundle shape | P-install, pkg (decision 1) | blocked pending package |
+| I3 | macOS: `~/Applications/Denice/Denice.app` holds only the loader (`Contents/MacOS/denice`), `versions/` beside it; Tim's swap order applies to the whole bundle (`Denice.app.ver` → `Denice.app`); a `~/.local/bin/denice` link to the loader | P-install, P-build macos-bundle | open |
 | I4 | Linux: `~/.local/share/denice/` with `~/.local/bin/denice` link | P-install | open |
 | I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | open |
 | I6 | What triggers the first install and creates the Start Menu shortcut / Terminal link / macOS app | P-install, T16; follow-up package decision 1 | blocked pending package |
@@ -68,7 +69,7 @@ Sources:
 | F2 | Version computed once (eng/compute-build-id.sh) and passed to both builds | T14 | done 7d1897f eng/build-install-layout.sh (one build id -> -p:Denice* and DENICE_VERSION; both halves print the same SemVer) |
 | F3 | Build for all six platforms: osx-arm64, osx-x64, win-x64, win-arm64, linux-x64, linux-arm64 | T14 | open |
 | F4 | Formatting and lint gate with warnings as errors (as TreatWarningsAsErrors + analyzers) | T14 | open |
-| F5 | Custom-rule management: Rust custom rules with their own tests, enforced in CI; tool per package decision 4 | T14, pkg (decision 4) | blocked pending package |
+| F5 | Custom-rule management: Rust custom rules R1–R12 (rust/RULES.md) as dylint lints with their own tests, run in CI beside Clippy with warnings as errors, on a pinned nightly for the lint crate | T14, P-build rust-rules | open |
 | F6 | Each applicable C# custom rule has a Rust counterpart or a recorded reason it cannot apply to Rust (listed in rust/RULES.md) | T14 | open |
 | F7 | Unit and integration tests run in CI on every platform that runs tests today | T14 | open |
 | F8 | Coverage gate at the same 75% threshold | T14 | open |
