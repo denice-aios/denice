@@ -45,7 +45,7 @@ Sources:
 |---|---|---|---|
 | D1 | Denice Runtime performs the downloading; pre-download happens before loading | T14 | open |
 | D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
-| D3 | Before use (cosign via the Sigstore package, P-cosign), Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | open |
+| D3 | Before use (cosign via the Sigstore package, P-cosign), Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | done ec2254e src/Denice.Updates/VersionInstaller.cs + ReleaseSignature.cs + platform CheckCodeSignature; ReleaseSignatureTests (genuine Sigstore bundle), VersionInstallerSignatureTests (genuinely signed fixtures), VersionInstallerTests |
 | D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | open |
 | S1 | Settings: `settings.yaml` in the per-user Denice data folder (outside the install), changed through `denice settings` (list), `denice settings set <name> <value>`, `denice settings reset <name>`; only the three update settings (updates.enabled, updates.channel, updates.checkIntervalHours) | P-settings, R7 | done bd3016b src/Denice.Updates/SettingsFile.cs, SettingsYaml.cs; tests SettingsYamlTests, SettingsFileTests, SettingsFolderTests, SettingsCliTests (commands end to end) |
 | D5 | A one-shot command finishes once and is never re-run; the newer version is used from the next launch; only a long-running Denice session restarts into a ready newer version (exit 75) | P-first update-command-policy | open |
@@ -87,4 +87,5 @@ Sources:
 | ID | Requirement | Source | Status |
 |---|---|---|---|
 | E1 | End-to-end test in CI on macOS, Windows and Linux: install version A; make version B available; loader updates to B (L4); B replaces the loader (U1-U3); a broken version C falls back (L5) | T16b | open |
+| E3 | Denice Runtime accepts a real release signed by Denice's own CI (its SHA256SUMS bundle and OS signatures) and refuses it when altered, end to end | T16b; P-build download-proof | open |
 | E2 | Every line above closed with evidence; independent review of this file against the source packages finds nothing missing | T16b | open |
