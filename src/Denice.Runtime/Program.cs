@@ -1,6 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -19,13 +20,17 @@ namespace Denice.Runtime;
 /// the only Engine internal this assembly may reach (DN0041) — and threads it into every
 /// handler, so console, environment, version, and clock access all run through the owned services. Its commands,
 /// <c>version</c> and <c>settings</c> (with <c>set</c>, <c>reset</c>, <c>history</c>, and <c>restore</c>), are exposed
-/// through System.CommandLine.
+/// through System.CommandLine. A long-running command runs through <see cref="LongRunningHost"/> (D6), which checks for a
+/// newer version every <c>updates.checkIntervalHours</c> while it runs and ends the session with the restart exit code
+/// when one is ready; every other command is one-shot (D5).
 /// </summary>
 internal sealed class Program
 {
     private const string UpdateCommandName = "update";
 
     private readonly string[] _args;
+    private readonly IReadOnlyList<LongRunningCommand> _longRunningCommands;
+    private readonly Func<ISystemServices, LongRunningHost>? _host;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Program"/> class holding the command-line arguments. It is
@@ -35,7 +40,25 @@ internal sealed class Program
     /// only in-assembly caller.
     /// </summary>
     /// <param name="args">The command-line arguments.</param>
-    internal Program(string[] args) => _args = args;
+    internal Program(string[] args)
+        : this(args, [], null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Program"/> class with long-running commands and, optionally, the host
+    /// they run in. Only <c>Denice.Runtime.Tests</c> calls it: Denice ships no long-running command yet, so the tests
+    /// register their own to prove the host (D6) through <see cref="Run(ISystemServices)"/>.
+    /// </summary>
+    /// <param name="args">The command-line arguments.</param>
+    /// <param name="longRunningCommands">The long-running commands added to the root command.</param>
+    /// <param name="host">Builds the host each long-running command runs in; null for the update checks over GitHub.</param>
+    internal Program(string[] args, IReadOnlyList<LongRunningCommand> longRunningCommands, Func<ISystemServices, LongRunningHost>? host)
+    {
+        _args = args;
+        _longRunningCommands = longRunningCommands;
+        _host = host;
+    }
 
     /// <summary>
     /// Parses the arguments and invokes the matched command, threading the given container into every handler. This is
@@ -52,22 +75,36 @@ internal sealed class Program
         LoaderHandshake.Read(services)?.RecordStarted();
 
         RootCommand root = BuildRootCommand(services);
+        foreach (LongRunningCommand longRunning in _longRunningCommands)
+        {
+            root.Subcommands.Add(longRunning.Command);
+        }
+
         ParseResult parsed = root.Parse(_args);
 
         // The update check at every start runs in the background, never delaying the command. A one-shot command does not
         // wait for it: when the command ends the check stops and the next launch tries again (pkg-79dc8dd1e15d,
-        // "retry-next-launch"); `denice update` checks in the foreground instead.
+        // "retry-next-launch"); `denice update` checks in the foreground instead. A long-running command's host also
+        // watches it: a newer version it installs (or finds installed) restarts the session as soon as it finishes.
         using var stop = new CancellationTokenSource();
-        Task background = IsUpdateCommand(parsed) ? Task.CompletedTask : Task.Run(() => StartCheckAsync(services, stop.Token), stop.Token);
+        Task<UpdateOutcome>? startCheck = IsUpdateCommand(parsed) ? null : Task.Run(() => StartCheckAsync(services, stop.Token), stop.Token);
+        foreach (LongRunningCommand longRunning in _longRunningCommands)
+        {
+            SetLongRunningAction(services, longRunning, startCheck);
+        }
+
         int exitCode = await parsed.InvokeAsync().ConfigureAwait(false);
         await stop.CancelAsync().ConfigureAwait(false);
-        try
+        if (startCheck is not null)
         {
-            await background.ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Stopped with the command; the next launch tries again.
+            try
+            {
+                _ = await startCheck.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Stopped with the command; the next launch tries again.
+            }
         }
 
         return exitCode;
@@ -187,10 +224,10 @@ internal sealed class Program
     private static bool IsUpdateCommand(ParseResult parsed) =>
         string.Equals(parsed.CommandResult.Command.Name, UpdateCommandName, StringComparison.Ordinal);
 
-    private static async Task StartCheckAsync(ISystemServices services, CancellationToken ct)
+    private static async Task<UpdateOutcome> StartCheckAsync(ISystemServices services, CancellationToken ct)
     {
         using var updates = new UpdateService(services);
-        _ = await updates.CheckAndInstallAsync(UpdateRequest.AtStart, null, ct).ConfigureAwait(false);
+        return await updates.CheckAndInstallAsync(UpdateRequest.AtStart, null, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -245,5 +282,31 @@ internal sealed class Program
             services.Console.ErrorWriteLine(exception.Message);
             return 1;
         }
+    }
+
+    /// <summary>
+    /// Makes <paramref name="longRunning"/> a long-running command: its action runs through <see cref="LongRunningHost"/>,
+    /// which checks for a newer version every <c>updates.checkIntervalHours</c> while it runs (when updates are on), stops
+    /// it once a newer version is installed and ends the session with the restart exit code (D6); when it ends first, its
+    /// own exit code wins. The start check counts too: a newer version it installs, or finds installed, restarts the
+    /// session once it finishes. This is the one way a command declares itself long-running.
+    /// </summary>
+    /// <param name="services">The composition container.</param>
+    /// <param name="longRunning">The command and what it runs.</param>
+    /// <param name="startCheck">The update check at this start, under way in the background; null when none runs.</param>
+    private void SetLongRunningAction(ISystemServices services, LongRunningCommand longRunning, Task<UpdateOutcome>? startCheck) =>
+        longRunning.Command.SetAction((parse, ct) => RunLongRunningAsync(services, startCheck, token => longRunning.Run(parse, token), ct));
+
+    private async Task<int> RunLongRunningAsync(
+        ISystemServices services, Task<UpdateOutcome>? startCheck, Func<CancellationToken, Task<int>> run, CancellationToken ct)
+    {
+        if (_host is not null)
+        {
+            return await _host(services).RunAsync(run, ct).ConfigureAwait(false);
+        }
+
+        using var updates = new UpdateService(services);
+        var loop = new UpdateLoop(services, updates);
+        return await new LongRunningHost(token => loop.RunUntilNewerVersionAsync(startCheck, token)).RunAsync(run, ct).ConfigureAwait(false);
     }
 }

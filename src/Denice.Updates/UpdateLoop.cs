@@ -48,16 +48,36 @@ public sealed class UpdateLoop
     }
 
     /// <summary>
-    /// Checks every <c>updates.checkIntervalHours</c> until a check installs a newer version. A failed check is retried
-    /// at the next interval; while updates are switched off nothing is checked.
+    /// Checks every <c>updates.checkIntervalHours</c> until a check installs a newer version. A failed check is reported
+    /// on standard error with its reason and retried at the next interval; while updates are switched off nothing is
+    /// checked.
     /// </summary>
     /// <param name="ct">Ends the loop, including a check under way.</param>
     /// <returns>The installed version and the exit code the session ends with, or <see langword="null"/> when
     /// <paramref name="ct"/> ended the loop.</returns>
-    public async Task<NewerVersionReady?> RunUntilNewerVersionAsync(CancellationToken ct)
+    public Task<NewerVersionReady?> RunUntilNewerVersionAsync(CancellationToken ct) => RunUntilNewerVersionAsync(null, ct);
+
+    /// <summary>
+    /// Waits for the check at this start first, then checks every <c>updates.checkIntervalHours</c>, until a check installs
+    /// (or finds installed) a newer version. The start check's outcome counts like any other: a newer version it installed
+    /// ends the loop as soon as it finishes, and a failure is reported and the interval checks go on. A failed check is
+    /// reported on standard error with its reason and retried at the next interval; while updates are switched off nothing
+    /// is checked.
+    /// </summary>
+    /// <param name="startCheck">The update check at this start (<see cref="UpdateRequest.AtStart"/>), under way in the
+    /// background; null when none runs. The loop only waits for it; its owner runs and cancels it.</param>
+    /// <param name="ct">Ends the loop, including a check under way.</param>
+    /// <returns>The installed version and the exit code the session ends with, or <see langword="null"/> when
+    /// <paramref name="ct"/> ended the loop.</returns>
+    public async Task<NewerVersionReady?> RunUntilNewerVersionAsync(Task<UpdateOutcome>? startCheck, CancellationToken ct)
     {
         try
         {
+            if (startCheck is not null && Ready(await UntilCancelledAsync(startCheck, ct).ConfigureAwait(false)) is { } fromStart)
+            {
+                return fromStart;
+            }
+
             while (true)
             {
                 TimeSpan interval = Interval();
@@ -65,9 +85,9 @@ public sealed class UpdateLoop
                 _waiting?.Invoke(interval);
                 await wait.ConfigureAwait(false);
                 UpdateOutcome outcome = await _updates.CheckAndInstallAsync(UpdateRequest.WhileRunning, null, ct).ConfigureAwait(false);
-                if (outcome is { Result: UpdateResult.Installed, Version: { } version })
+                if (Ready(outcome) is { } ready)
                 {
-                    return new NewerVersionReady(version);
+                    return ready;
                 }
             }
         }
@@ -75,6 +95,37 @@ public sealed class UpdateLoop
         {
             return null;
         }
+    }
+
+    // Waits for a task its owner runs and cancels, ending early when ct is cancelled.
+    private static async Task<T> UntilCancelledAsync<T>(Task<T> task, CancellationToken ct)
+    {
+        var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using (ct.Register(() => cancelled.TrySetCanceled(ct)))
+        {
+            if (await Task.WhenAny(task, cancelled.Task).ConfigureAwait(false) != task)
+            {
+                ct.ThrowIfCancellationRequested();
+            }
+
+            return await task.ConfigureAwait(false);
+        }
+    }
+
+    // The one place a check's outcome becomes "a newer version is ready" (or a reported failure).
+    private NewerVersionReady? Ready(UpdateOutcome outcome)
+    {
+        if (outcome is { Result: UpdateResult.Installed, Version: { } version })
+        {
+            return new NewerVersionReady(version);
+        }
+
+        if (outcome.Result == UpdateResult.Failed)
+        {
+            _services.Console.ErrorWriteLine($"The update check failed; Denice checks again at the next interval. {outcome.Reason}");
+        }
+
+        return null;
     }
 
     // The interval as Settings now say (a broken settings file is restored to the last known good as it is read); a
