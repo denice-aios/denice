@@ -1,0 +1,7 @@
+[[denice_rules.crate_dependencies]]
+krate = "denice_loader"
+may_use = ["denice_core"]
+
+[[denice_rules.crate_dependencies]]
+krate = "denice_entry"
+may_use = ["denice_core"]

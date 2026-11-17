@@ -95,6 +95,9 @@ internal sealed class InMemoryFileSystem : IFileReader, IDirectoryEnumerator, IF
     public void DeleteDirectory(string path, bool recursive) => _store.DeleteDirectory(path, recursive);
 
     /// <inheritdoc />
+    public void MoveDirectory(string source, string destination) => _store.MoveDirectory(source, destination);
+
+    /// <inheritdoc />
     public string CreateTempSubdirectory(string prefix) => _store.CreateTempSubdirectory(prefix);
 
     /// <inheritdoc cref="IFileReader.GetLastWriteTimeUtc" />

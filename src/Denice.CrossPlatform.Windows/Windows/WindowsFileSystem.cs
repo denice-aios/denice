@@ -26,7 +26,7 @@ namespace Denice.CrossPlatform.Windows;
 /// OS-uniform filesystem call. Windows has no executable bit, so <see cref="NeedsExecutableFlag"/> is
 /// <see langword="false"/> and the executable-flag methods throw.
 /// </summary>
-internal sealed class WindowsFileSystem : PlatformFileSystemBase, IPlatformFileSystem
+internal sealed partial class WindowsFileSystem : PlatformFileSystemBase, IPlatformFileSystem
 {
     // ERROR_PRIVILEGE_NOT_HELD (1314): the failure Windows raises for a symlink operation when the user is neither
     // an administrator nor has Developer Mode enabled — the only case this message advises on. It surfaces as a raw
@@ -61,6 +61,10 @@ internal sealed class WindowsFileSystem : PlatformFileSystemBase, IPlatformFileS
     // The BCL already gives the answer; this is now an owned read of the raw Path.DirectorySeparatorChar field
     // (DN0020 owner: the IPlatformFileSystem implementers), not a hardcode.
     public char DirectorySeparator => Path.DirectorySeparatorChar;
+
+    /// <inheritdoc/>
+    // Windows keeps per-user, machine-local application data under %LOCALAPPDATA%, so the base is that variable.
+    public UserDataFolder UserDataFolder { get; } = new(EnvironmentVariable: "LOCALAPPDATA", RelativePath: "Denice");
 
     /// <inheritdoc />
     // The wrapper factory this per-OS class injects directly (fileinfo-factory-breaks-the-cycle); the shared base reads

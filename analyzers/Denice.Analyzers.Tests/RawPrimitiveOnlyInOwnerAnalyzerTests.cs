@@ -422,16 +422,25 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     }
 
     [Fact]
-    public async Task DirectoryMove_InDirectoryWriterOwner_InOwnerAssembly_IsStillReported()
+    public async Task DirectoryMove_InDirectoryWriterOwner_InOwnerAssembly_IsNotReported()
     {
-        // Directory.Move resolves to the empty owner set (IDirectoryWriter has no move member), so it is banned
-        // everywhere — RED even in the DirectoryWriter owner in its owner assembly.
-        Diagnostic diagnostic = Assert.Single(
+        // Directory.Move is owned by IDirectoryWriter.MoveDirectory (grown for the loader's one-rename install of a
+        // downloaded version), so the DirectoryWriter owner in its owner assembly may call it.
+        Assert.Empty(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(
                 DirectoryWriterOwnerCallingDirectoryMoveSource, "Denice.CrossPlatform"));
+    }
+
+    [Fact]
+    public async Task DirectoryMove_OutsideItsOwner_IsReported()
+    {
+        // Owned is not free: a class that does not implement IDirectoryWriter may not call Directory.Move.
+        string source = DirectoryWriterOwnerCallingDirectoryMoveSource.Replace(
+            " : Denice.Abstractions.Contracts.IDirectoryWriter", string.Empty, StringComparison.Ordinal);
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.CrossPlatform"));
         Assert.Equal("DN0011", diagnostic.Id);
-        Assert.Contains(
-            "Directory.Move", AnalyzerRunner.SpanText(DirectoryWriterOwnerCallingDirectoryMoveSource, diagnostic), StringComparison.Ordinal);
+        Assert.Contains("Directory.Move", AnalyzerRunner.SpanText(source, diagnostic), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -769,7 +778,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Cli"));
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "Denice.Runtime"));
         Assert.Equal("DN0011", diagnostic.Id);
     }
 
@@ -784,7 +793,7 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     public async Task ConsoleAdapterOwner_InWrongAssembly_IsReported_SelfGrantBlocked()
     {
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(ConsoleAdapterOwnerSource, "Denice.Cli"));
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(ConsoleAdapterOwnerSource, "Denice.Runtime"));
         Assert.Equal("DN0011", diagnostic.Id);
     }
 

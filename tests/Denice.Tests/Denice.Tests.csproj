@@ -16,11 +16,25 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Denice.Engine/Denice.Engine.csproj" />
+    <ProjectReference Include="../../src/Denice.Updates/Denice.Updates.csproj" />
     <ProjectReference Include="../Denice.TestHelpers/Denice.TestHelpers.csproj" />
   </ItemGroup>
 
   <!-- Shared test-support source, linked (one owner) into each test project that needs it. -->
   <ItemGroup>
+  </ItemGroup>
+
+  <!-- A real keyless Sigstore signature from cosign's v3.1.3 release (cosign_checksums.txt and its bundle), used to
+       prove Denice's cosign check against genuine signatures. -->
+  <!-- The genuinely signed code-signature fixtures (macOS Mach-O and app, Windows PE), shared with
+       Denice.CrossPlatform.Tests, which owns them and their make-fixtures.sh. -->
+  <ItemGroup>
+    <None Include="../Denice.CrossPlatform.Tests/Fixtures/CodeSignature/**/*" CopyToOutputDirectory="PreserveNewest"
+          LinkBase="Fixtures/CodeSignature" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Fixtures/Sigstore/*" CopyToOutputDirectory="PreserveNewest" LinkBase="Fixtures/Sigstore" />
   </ItemGroup>
 
 </Project>

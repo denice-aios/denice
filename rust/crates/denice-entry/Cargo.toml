@@ -1,0 +1,22 @@
+[package]
+name = "denice-entry"
+description = "The versioned Denice entry (`denice-v<version>-<rid>`): replaces an older loader, then hosts .NET and runs Denice Runtime."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "denice-entry"
+path = "src/main.rs"
+
+[dependencies]
+denice-core.workspace = true
+libloading.workspace = true
+
+[dev-dependencies]
+tempfile = "3.23.0"
+
+[lints]
+workspace = true

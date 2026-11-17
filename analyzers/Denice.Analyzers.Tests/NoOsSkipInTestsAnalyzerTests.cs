@@ -40,7 +40,7 @@ public class NoOsSkipInTestsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunWithReferenceAsync<NoOsSkipInTestsAnalyzer>(
-            source, "Denice.Cli.Tests", XunitReference, "xunit.core"));
+            source, "Denice.Runtime.Tests", XunitReference, "xunit.core"));
         Assert.Equal("DN0026", diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Contains("PosixOnlyFactAttribute", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
@@ -58,7 +58,7 @@ public class NoOsSkipInTestsAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunWithReferenceAsync<NoOsSkipInTestsAnalyzer>(
-            source, "Denice.Cli.Tests", XunitReference, "xunit.core"));
+            source, "Denice.Runtime.Tests", XunitReference, "xunit.core"));
         Assert.Equal("DN0026", diagnostic.Id);
         Assert.Contains("OsTheoryAttribute", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -77,7 +77,7 @@ public class NoOsSkipInTestsAnalyzerTests
             """;
 
         ImmutableArray<Diagnostic> diagnostics = await AnalyzerRunner.RunWithReferenceAsync<NoOsSkipInTestsAnalyzer>(
-            source, "Denice.Cli.Tests", XunitReference, "xunit.core");
+            source, "Denice.Runtime.Tests", XunitReference, "xunit.core");
 
         Assert.Equal(2, diagnostics.Length);
         Assert.All(diagnostics, diagnostic => Assert.Equal("DN0026", diagnostic.Id));
@@ -99,7 +99,7 @@ public class NoOsSkipInTestsAnalyzerTests
             """;
 
         Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<NoOsSkipInTestsAnalyzer>(
-            source, "Denice.Cli.Tests", XunitReference, "xunit.core"));
+            source, "Denice.Runtime.Tests", XunitReference, "xunit.core"));
     }
 
     [Fact]

@@ -35,6 +35,7 @@ internal sealed class InMemoryFileSystemStore
     private Dictionary<string, PathHandler> _handlers;
     private IEqualityComparer<string> _comparer;
     private bool? _executableOverride;
+    private UserDataFolder? _userDataFolderOverride;
     private int _tempCounter;
 
     /// <summary>
@@ -90,6 +91,17 @@ internal sealed class InMemoryFileSystemStore
     /// </summary>
     internal bool NeedsExecutableFlag => _executableOverride ?? (_basePlatform?.NeedsExecutableFlag() ?? false);
 
+    /// <summary>
+    /// Gets where this simulated OS keeps Denice's per-user data folder — the value the platform fake's
+    /// <c>UserDataFolder</c> returns. It defaults to the real platform's answer (following the running OS through the
+    /// injected base, never a raw OS branch) and is overridden by <see cref="SetUserDataFolder"/> so a unit test can
+    /// simulate another OS's layout. With no base and no override there is no answer, so it throws, naming the fix.
+    /// </summary>
+    internal UserDataFolder UserDataFolder =>
+        _userDataFolderOverride ?? _basePlatform?.UserDataFolder ?? throw new InvalidOperationException(
+            "The fake platform has no per-user data folder; call OnPlatform().SimulateUserDataFolder(...) or start from "
+            + "SystemServicesBuilder.Real().SimulateFileSystem().");
+
     /// <summary>Installs a per-path handler — the first link in the resolution chain for that path.</summary>
     /// <param name="path">The path the handler takes control of.</param>
     /// <param name="handler">The handler invoked first for every operation on <paramref name="path"/>.</param>
@@ -123,6 +135,13 @@ internal sealed class InMemoryFileSystemStore
     /// </summary>
     /// <param name="needsExecutableFlag">The simulated executable-bit support.</param>
     internal void SetNeedsExecutableFlag(bool needsExecutableFlag) => _executableOverride = needsExecutableFlag;
+
+    /// <summary>
+    /// Sets the value the platform fake's <c>UserDataFolder</c> returns, overriding the default that follows the running
+    /// OS through the injected base — so a unit test can simulate the Windows, macOS, or Linux per-user data folder.
+    /// </summary>
+    /// <param name="userDataFolder">The simulated per-user data folder.</param>
+    internal void SetUserDataFolder(UserDataFolder userDataFolder) => _userDataFolderOverride = userDataFolder;
 
     /// <summary>
     /// Switches the simulator's case mode, keeping the platform fake's <c>IsCaseSensitive</c> and this overlay's path
@@ -316,6 +335,30 @@ internal sealed class InMemoryFileSystemStore
     /// <param name="recursive"><see langword="true"/> to delete the directory and its contents.</param>
     internal void DeleteDirectory(string path, bool recursive) =>
         DispatchVoid(path, FileSystemOperation.DeleteDirectory, resolved => DeleteDirectoryCore(resolved, recursive));
+
+    /// <summary>
+    /// Moves a directory and everything under it; the destination must not exist. The overlay has no single-node rename,
+    /// so it recreates the tree at the destination and deletes the source, which a caller observes as one move.
+    /// </summary>
+    /// <param name="source">The absolute path of the existing directory.</param>
+    /// <param name="destination">The absolute path it moves to.</param>
+    internal void MoveDirectory(string source, string destination) =>
+        DispatchVoid(source, FileSystemOperation.MoveDirectory, resolved =>
+        {
+            if (!DirectoryExistsCore(resolved))
+            {
+                throw new DirectoryNotFoundException($"The source directory '{source}' does not exist.");
+            }
+
+            string resolvedDestination = Resolve(destination, followFinal: false);
+            if (DirectoryExistsCore(resolvedDestination) || FileExistsCore(resolvedDestination))
+            {
+                throw new IOException($"The destination '{destination}' already exists.");
+            }
+
+            CopyTreeCore(resolved, resolvedDestination);
+            DeleteDirectoryCore(resolved, recursive: true);
+        });
 
     /// <summary>Sets a directory's last-write time in UTC.</summary>
     /// <param name="path">The absolute directory path whose last-write time is set.</param>
@@ -790,6 +833,27 @@ internal sealed class InMemoryFileSystemStore
             && ((_baseReader?.Exists(entry) ?? false) || (_baseEnumerator?.DirectoryExists(entry) ?? false)))
         {
             throw new IOException($"Cannot {action} '{entry}': a real file or directory exists there.");
+        }
+    }
+
+    private void CopyTreeCore(string source, string destination)
+    {
+        CreateDirectoryCore(destination);
+        foreach (DirectoryChild child in EnumerateChildrenCore(source))
+        {
+            string target = Path.Combine(destination, Path.GetFileName(child.FullPath));
+            if (child.IsDirectory)
+            {
+                CopyTreeCore(child.FullPath, target);
+            }
+            else
+            {
+                WriteFileCore(target, ReadAllBytesCore(child.FullPath));
+                if (_nodes.TryGetValue(Normalize(child.FullPath), out OverlayNode? node) && node.Executable)
+                {
+                    _nodes[Normalize(target)].Executable = true;
+                }
+            }
         }
     }
 }

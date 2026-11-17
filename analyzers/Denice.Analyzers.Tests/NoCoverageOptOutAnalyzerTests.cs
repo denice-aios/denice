@@ -47,7 +47,7 @@ public class NoCoverageOptOutAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<NoCoverageOptOutAnalyzer>(source, "Denice.Cli"));
+            await AnalyzerRunner.RunAsync<NoCoverageOptOutAnalyzer>(source, "Denice.Runtime"));
         Assert.Equal("DN0032", diagnostic.Id);
         Assert.Contains("Work", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
@@ -56,7 +56,7 @@ public class NoCoverageOptOutAnalyzerTests
     public async Task ExcludeFromCodeCoverage_InTestAssembly_IsNotReported()
     {
         // Test projects are out of the coverage scope, so they may exclude freely.
-        Assert.Empty(await AnalyzerRunner.RunAsync<NoCoverageOptOutAnalyzer>(ExcludeOnTypeSource, "Denice.Cli.Tests"));
+        Assert.Empty(await AnalyzerRunner.RunAsync<NoCoverageOptOutAnalyzer>(ExcludeOnTypeSource, "Denice.Runtime.Tests"));
     }
 
     [Fact]

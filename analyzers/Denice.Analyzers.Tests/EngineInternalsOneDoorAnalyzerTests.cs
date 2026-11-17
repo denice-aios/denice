@@ -53,7 +53,7 @@ public class EngineInternalsOneDoorAnalyzerTests
     // The two gated consumers. Every reach is proved from BOTH, because the grant the relocation adds is to both.
     public static TheoryData<string> GatedAssemblies => new()
     {
-        SharedAnalyzerSources.CliAssemblyName,
+        SharedAnalyzerSources.RuntimeAssemblyName,
         TestHelpersAssembly,
     };
 
@@ -286,7 +286,7 @@ public class EngineInternalsOneDoorAnalyzerTests
         var data = new TheoryData<string, string, string[]>();
         foreach ((string declaration, string[] subjects) in reaches)
         {
-            data.Add(SharedAnalyzerSources.CliAssemblyName, declaration, subjects);
+            data.Add(SharedAnalyzerSources.RuntimeAssemblyName, declaration, subjects);
             data.Add(TestHelpersAssembly, declaration, subjects);
         }
 

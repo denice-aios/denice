@@ -268,7 +268,7 @@ public class BuilderCompletenessAnalyzerTests
             """;
 
         Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<BuilderCompletenessAnalyzer>(
-            consumerSource, "Denice.Cli.Tests", referenceWithContainerAndIncompleteBuilder, "Denice.TestHelpers"));
+            consumerSource, "Denice.Runtime.Tests", referenceWithContainerAndIncompleteBuilder, "Denice.TestHelpers"));
     }
 
     [Fact]

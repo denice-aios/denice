@@ -58,6 +58,9 @@ public enum FileSystemOperation
     /// <summary>A directory delete (<c>IDirectoryWriter.DeleteDirectory</c>).</summary>
     DeleteDirectory,
 
+    /// <summary>A directory move (rename).</summary>
+    MoveDirectory,
+
     /// <summary>A directory last-write-time set (<c>IDirectoryWriter.SetLastWriteTimeUtc</c>).</summary>
     SetLastWriteTimeUtc,
 }

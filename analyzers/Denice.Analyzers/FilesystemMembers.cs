@@ -82,10 +82,11 @@ internal static class FilesystemMembers
             // File.Delete -> IFileWriter.DeleteFile ; Directory.Delete -> IDirectoryWriter.DeleteDirectory.
             ["Delete"] = new(FileWriterOwner, DirectoryWriterOwner),
 
-            // File.Move -> IFileWriter.Move ; Directory.Move -> NoOwner (IDirectoryWriter has no move/rename member),
-            // so a directory-side Move is banned everywhere until IDirectoryWriter is deliberately grown and the
-            // contract amended (complete-the-set-not-a-test-fake) — never mapped to a DirectoryWriter it cannot back.
-            ["Move"] = new(FileWriterOwner, NoOwner),
+            // File.Move -> IFileWriter.Move ; Directory.Move -> IDirectoryWriter.MoveDirectory. IDirectoryWriter was
+            // deliberately grown with MoveDirectory for the loader's one-rename install of a downloaded version
+            // (pkg-a0206b25f619), with the contract, the real adapter and the in-memory store amended together
+            // (complete-the-set-not-a-test-fake).
+            ["Move"] = new(FileWriterOwner, DirectoryWriterOwner),
 
             // File.GetLastWriteTimeUtc -> IFileReader.GetLastWriteTimeUtc (the contract completes the set on
             // IFileReader) ; Directory.GetLastWriteTimeUtc -> IDirectoryEnumerator.GetLastWriteTimeUtc.

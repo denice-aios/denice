@@ -23,6 +23,14 @@ public interface IDirectoryWriter
     void DeleteDirectory(string path, bool recursive);
 
     /// <summary>
+    /// Moves (renames) a directory and everything in it in one step. A downloaded version becomes usable only through
+    /// this one rename, so the loader never sees half a version (pkg-a0206b25f619).
+    /// </summary>
+    /// <param name="source">The absolute path of the existing directory.</param>
+    /// <param name="destination">The absolute path it moves to; nothing may exist there yet.</param>
+    void MoveDirectory(string source, string destination);
+
+    /// <summary>
     /// Sets the directory's last-write time in UTC.
     /// </summary>
     /// <param name="path">The absolute directory path whose last-write time is set.</param>

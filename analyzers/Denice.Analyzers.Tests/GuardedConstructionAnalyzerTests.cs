@@ -90,7 +90,7 @@ public class GuardedConstructionAnalyzerTests
         using Denice.Boundaries;
         using Denice.Abstractions.Contracts;
 
-        namespace Denice.Cli
+        namespace Denice.Runtime
         {
             internal static class Program
             {
@@ -418,7 +418,7 @@ public class GuardedConstructionAnalyzerTests
     public async Task CreateCall_InProgramCompositionMethod_IsNotReported()
     {
         Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(
-            CallFromProgramSource, "denice", BoundariesSource, "Denice.Boundaries"));
+            CallFromProgramSource, "Denice.Runtime", BoundariesSource, "Denice.Boundaries"));
     }
 
     [Fact]
@@ -438,24 +438,24 @@ public class GuardedConstructionAnalyzerTests
     }
 
     [Fact]
-    public async Task CreateCall_InProgramNamespaceButAssemblyNamedAsTheRootNamespace_IsReported()
+    public async Task CreateCall_InProgramNamespaceButAnotherAssemblyName_IsReported()
     {
-        // The CLI's real compiled assembly name is "denice", NOT its root namespace "Denice.Cli"; a Program compiled
-        // into an assembly named "Denice.Cli" is not the real composition point, so it IS reported.
+        // The composition point is anchored to the real compiled assembly name "Denice.Runtime"; a Program in the same
+        // namespace compiled into any other assembly (here the old CLI name "denice") is not it, so it IS reported.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(
-                CallFromProgramSource, "Denice.Cli", BoundariesSource, "Denice.Boundaries"));
+                CallFromProgramSource, "denice", BoundariesSource, "Denice.Boundaries"));
         Assert.Equal("DN0017", diagnostic.Id);
     }
 
     [Fact]
-    public async Task CreateCall_InProgramNamedTypeInDifferentNamespaceOfCliAssembly_IsReported()
+    public async Task CreateCall_InProgramNamedTypeInDifferentNamespaceOfRuntimeAssembly_IsReported()
     {
-        // Nominal collision: a class named Program in a DIFFERENT namespace of the real assembly ("denice") cannot
+        // Nominal collision: a class named Program in a DIFFERENT namespace of the real assembly ("Denice.Runtime") cannot
         // self-grant — the exemption anchors on namespace + name.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(
-                CallFromProgramInDifferentNamespaceSource, "denice", BoundariesSource, "Denice.Boundaries"));
+                CallFromProgramInDifferentNamespaceSource, "Denice.Runtime", BoundariesSource, "Denice.Boundaries"));
         Assert.Equal("DN0017", diagnostic.Id);
     }
 

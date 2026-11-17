@@ -1,0 +1,22 @@
+error: `std::env::temp_dir` depends on the environment; product code may not use it
+  --> $DIR/r5_environment_path.rs:3:13
+   |
+LL |     let _ = std::env::temp_dir();
+   |             ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[deny(r5_environment_path)]` on by default
+
+error: `std::env::current_dir` depends on the environment; product code may not use it
+  --> $DIR/r5_environment_path.rs:4:13
+   |
+LL |     let _ = std::env::current_dir();
+   |             ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: `std::env::current_exe`: only rust/dylint.toml current_exe_allowed may ask for the program's path
+  --> $DIR/r5_environment_path.rs:5:13
+   |
+LL |     let _ = std::env::current_exe();
+   |             ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 3 previous errors
+

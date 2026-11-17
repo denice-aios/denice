@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Cli", "src\Denice.Cli\Denice.Cli.csproj", "{B86C1F94-E893-46F8-8E93-CDC767FD4A10}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Runtime", "src\Denice.Runtime\Denice.Runtime.csproj", "{B86C1F94-E893-46F8-8E93-CDC767FD4A10}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Analyzers", "analyzers\Denice.Analyzers\Denice.Analyzers.csproj", "{FBBC6014-85B1-4081-94FC-C724A544BF43}"
 EndProject
@@ -23,7 +23,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.CrossPlatform.Tests", "tests\Denice.CrossPlatform.Tests\Denice.CrossPlatform.Tests.csproj", "{45010A1A-97FF-46AC-959F-65F7B608A164}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Cli.Tests", "tests\Denice.Cli.Tests\Denice.Cli.Tests.csproj", "{F6F10A39-4D64-449C-AB5D-7A79724B381B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Runtime.Tests", "tests\Denice.Runtime.Tests\Denice.Runtime.Tests.csproj", "{F6F10A39-4D64-449C-AB5D-7A79724B381B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Abstractions", "src\Denice.Abstractions\Denice.Abstractions.csproj", "{C15C99CA-E948-426F-A469-1DB25CEAFAE6}"
 EndProject
@@ -34,6 +34,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Engine", "src\Denice.Engine\Denice.Engine.csproj", "{2D4C637E-B11E-439D-AF31-C9C0C4184095}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Tests", "tests\Denice.Tests\Denice.Tests.csproj", "{B8F1AB4A-690C-4AFF-AF93-F616CDA7E86D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Denice.Updates", "src\Denice.Updates\Denice.Updates.csproj", "{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "analyzers", "analyzers", "{F883AD26-E2D9-0064-49F2-B333EF800629}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -213,6 +217,18 @@ Global
 		{B8F1AB4A-690C-4AFF-AF93-F616CDA7E86D}.Release|x64.Build.0 = Release|Any CPU
 		{B8F1AB4A-690C-4AFF-AF93-F616CDA7E86D}.Release|x86.ActiveCfg = Release|Any CPU
 		{B8F1AB4A-690C-4AFF-AF93-F616CDA7E86D}.Release|x86.Build.0 = Release|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Debug|x64.Build.0 = Debug|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Debug|x86.Build.0 = Debug|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Release|x64.ActiveCfg = Release|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Release|x64.Build.0 = Release|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Release|x86.ActiveCfg = Release|Any CPU
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -232,5 +248,6 @@ Global
 		{32777804-FEE6-45FC-B307-BC2CCA250B47} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{2D4C637E-B11E-439D-AF31-C9C0C4184095} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{B8F1AB4A-690C-4AFF-AF93-F616CDA7E86D} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{E6AD6375-4A1D-430F-8C6F-0A2FFD0D438C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

@@ -5,7 +5,8 @@ namespace Denice.Abstractions.Contracts;
 /// <summary>
 /// The platform's file-system capability: the complete set of operations the engine needs that the managed BCL
 /// cannot do OS-uniformly — the version-pointer symlinks the machine layout depends on, the POSIX executable
-/// bit, per-filesystem case-sensitivity detection, and the OS-divergent raw path-separator value. It is a
+/// bit, per-filesystem case-sensitivity detection, the OS-divergent raw path-separator value, and the operating-system
+/// code signature of a file (Apple code signature on macOS, Authenticode on Windows, none on Linux). It is a
 /// capability surface and is allowed to grow, but every member is part of one coherent complete set.
 /// Implementations are per-OS behind this locked interface; the engine consumes only the interface and stays
 /// OS-agnostic.
@@ -18,6 +19,20 @@ public interface IPlatformFileSystem
     /// rule) and every other site reaches the separator through this interface.
     /// </summary>
     char DirectorySeparator { get; }
+
+    /// <summary>
+    /// Gets the operating-system code-signature format this OS uses, so an OS-agnostic caller can tell which files carry
+    /// a signature (an app bundle and Mach-O executables on macOS; <c>.exe</c> and <c>.dll</c> files on Windows) and
+    /// whether there is anything to check at all (<see cref="CodeSignatureFormat.None"/> on Linux).
+    /// </summary>
+    CodeSignatureFormat CodeSignatureFormat { get; }
+
+    /// <summary>
+    /// Gets where this OS keeps Denice's per-user data folder (the folder <c>settings.yaml</c> lives in): Windows
+    /// <c>%LOCALAPPDATA%\Denice\</c>, macOS <c>~/Library/Application Support/Denice/</c>, Linux <c>~/.config/denice/</c>.
+    /// It is a description resolved by the caller through <see cref="IEnvironment"/>, so it reads nothing itself.
+    /// </summary>
+    UserDataFolder UserDataFolder { get; }
 
     /// <summary>
     /// Gets a value indicating whether the path is a symlink.
@@ -95,4 +110,18 @@ public interface IPlatformFileSystem
     /// <param name="path">The directory path whose backing file system is probed.</param>
     /// <returns><see langword="true"/> when name matching against <paramref name="path"/> is case-sensitive.</returns>
     bool IsCaseSensitive(string path);
+
+    /// <summary>
+    /// Checks the operating-system code signature of the file or app bundle at <paramref name="path"/>: the signature
+    /// must be present and intact, and its leaf signing certificate's SHA-256 fingerprint must be one of
+    /// <paramref name="pinnedSignerSha256"/>. Denice signs with self-signed certificates that never chain to a trusted
+    /// root, so trust in an operating-system root store is neither required nor sufficient — only the pin decides who
+    /// signed. On Linux, which has no OS code signature, the result is <see cref="CodeSignatureStatus.NotApplicable"/>.
+    /// </summary>
+    /// <param name="path">The file or app bundle to check.</param>
+    /// <param name="pinnedSignerSha256">The accepted signer-certificate SHA-256 fingerprints, as 64 hex digits with or
+    /// without <c>:</c> separators, in either case.</param>
+    /// <returns>The outcome, the signer fingerprint that was found, and a human-readable detail.</returns>
+    /// <exception cref="ArgumentException">A pinned fingerprint is not a SHA-256 fingerprint.</exception>
+    CodeSignatureCheck CheckCodeSignature(string path, IReadOnlyCollection<string> pinnedSignerSha256);
 }

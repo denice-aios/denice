@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Denice.Runtime</RootNamespace>
+    <AssemblyName>Denice.Runtime</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Denice Runtime is a DLL (Tim, 14 November 2026: "the current .NET CLI becomes a DLL"; name per pkg-d435af7f8061).
+       The versioned Rust entry (rust/crates/denice-entry) hosts it with .NET's hostfxr, so a publish with a
+       RuntimeIdentifier is self-contained and NOT single-file: the runtime, hostfxr and Denice.Runtime.dll sit loose in
+       the version folder for the entry to load. The SDK insists on generating an apphost for a self-contained app
+       (NETSDK1067); DeniceRemoveAppHost deletes it from the publish folder so no .NET executable ships. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>false</PublishSingleFile>
+  </PropertyGroup>
+
+  <Target Name="DeniceRemoveAppHost" AfterTargets="Publish" Condition="'$(RuntimeIdentifier)' != ''">
+    <Delete Files="$(PublishDir)$(AssemblyName)$(_NativeExecutableExtension)" />
+    <Error Condition="Exists('$(PublishDir)$(AssemblyName)$(_NativeExecutableExtension)')"
+           Text="The .NET apphost is still in the publish folder; Denice Runtime must ship only as a DLL." />
+  </Target>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+
+  <!-- The CLI test project reaches the internal Program.Run seam through this grant (cli-tests-reach-run-via-ivt),
+       the same InternalsVisibleTo convention the per-OS platform factories and the Boundaries door use. The signing
+       transform (eng/signing.props) adds the public key on a signed build. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Denice.Runtime.Tests" />
+  </ItemGroup>
+
+  <!-- Thread the target RID to the engine as DenicePlatformRid so the per-OS implementation selection in
+       Denice.CrossPlatform/PlatformImplementation.targets stays consistent across restore and build. On a
+       self-contained cross-RID publish the SDK strips RuntimeIdentifier when it builds this app's library
+       references, which would otherwise let restore (RID present) and the stripped engine build (RID absent, host
+       fallback) pick DIFFERENT per-OS libraries and bundle both. DenicePlatformRid is not on the SDK's strip
+       list, so it survives; when no RID is set it is empty and the engine falls back to the build-host OS. -->
+  <ItemGroup>
+    <!-- The composition root builds the one ISystemServices via SystemServices.Create() (DN0017-pinned to Program),
+         which now lives in Denice.Engine and is reached through Engine's InternalsVisibleTo grant to "Denice.Runtime"
+         (DN0041 permits that one invocation and nothing else among Engine internals). The direct Boundaries reference
+         is gone with it: Engine owns the container, references Boundaries itself, and imports the per-OS selection, so
+         threading the RID to Engine alone keeps that selection consistent across restore and build. -->
+    <ProjectReference Include="../Denice.Updates/Denice.Updates.csproj" />
+    <ProjectReference Include="../Denice.Engine/Denice.Engine.csproj">
+      <AdditionalProperties Condition="'$(RuntimeIdentifier)' != ''">DenicePlatformRid=$(RuntimeIdentifier)</AdditionalProperties>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>

@@ -22,8 +22,8 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 
-echo "check-single-platform-lib: publishing Denice.Cli for RID '$RID' (self-contained) ..."
-dotnet publish "$REPO_ROOT/src/Denice.Cli/Denice.Cli.csproj" \
+echo "check-single-platform-lib: publishing Denice.Runtime for RID '$RID' (self-contained) ..."
+dotnet publish "$REPO_ROOT/src/Denice.Runtime/Denice.Runtime.csproj" \
   -c Release -r "$RID" --self-contained -o "$OUT" "$@"
 
 # Distinct per-OS families present among the published output files.

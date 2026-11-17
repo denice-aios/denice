@@ -1,0 +1,105 @@
+# Denice loader: requirements and finish line
+
+Every line comes from Tim's own words or a recorded package answer (source in brackets).
+A line is closed only by evidence: the commit and the test (or CI job) that proves it.
+No line may be marked "not needed", "later" or "out of scope" by the implementer.
+Only Tim's recorded answer can remove or change a line; the answer is then cited here.
+`eng/check-requirements.sh` fails CI while any line lacks evidence.
+
+Status values: `open`, `done <commit> <test or CI job>`, `blocked <package id>` (waiting on Tim's answer).
+
+Sources:
+- T14: Tim, 14 November 2026, architecture request (quoted in pkg-d435af7f8061).
+- P-name: pkg-d435af7f8061 managed-dll-name = denice-runtime.
+- T16: Tim, 16 November 2026: "Name the loader “denice” (or “denice.exe”, adjusted for the operating system), so the entry point is always Denice, including when launched from the Start Menu."
+- P-store: pkg-a0206b25f619 version-storage = folders-no-pointer; reload-mechanics = parent-restarts, with Tim's note "Unpack first (to denice.ver) then rename current to old and .ver to empty and it's safer."
+- P-install: pkg-f543b9586645 loader-takeover = right-after-swap; install-scope = per-user; per-user-folders = platform-folders.
+- T16b: Tim, 16 November 2026: "Start the loader implementation now as one complete effort, including the macOS app-bundle decision. Do not defer that decision or cut the work short."
+- P-build: pkg-697310396f74 macos-bundle = bundle-inside ("App beside versions"); download-proof = existing-proofs ("All proofs"); update-policy = scheduled; rust-rules = dylint.
+- P-first: pkg-189647304b25 first-install = none of the options, Tim's note: "We need to figure out how this would work for each OS and work as expected.  AN extera Installer may be needed for the right user expected behavior."; update-command-policy = finish-once.
+- P-settings: pkg-a372b9307553 denice-settings = denice-commands, Tim's note: "BUT we use YAML for the settings file not JSON.  And we minimize settings because we will later move them to the DB."
+- P-cosign: pkg-471f394bb261 cosign-checker = use-sigstore (the `Sigstore` NuGet package pinned to 1.1.1, MIT, github.com/mitchdenny/sigstore-dotnet; trust root shipped in Denice Runtime; identity pinned to Denice's CI workflow).
+- P-linux: pkg-2a7c75112d13 linux-build = build-with-cargo-zigbuild.
+- P-short: pkg-79dc8dd1e15d unfinished-update-at-exit = retry-next-launch, Tim's note: "We'll also add an "update" command to allow the user to manually override.  We'll be long running before this is a problem."
+- P-os: pkg-494745156d56 windows-install = inno; macos-install = script-then-dmg; macos-versions = application-support; code-signing = apple-and-signpath; linux-install = tarball-script (all the recommended options).
+- R7: global rule 7: "Settings must replace .env configuration. Nothing ships in this project unless it can be fixed in Settings."
+
+## Components and names
+| ID | Requirement | Source | Status |
+|---|---|---|---|
+| N1 | Rust loader executable named `denice` (`denice.exe` on Windows) | T16 | done 7d1897f rust/crates/denice-loader (bin `denice`); eng/build-install-layout.sh step 3; eng/loader-e2e-test.sh step 1 |
+| N2 | Rust entry executable named `denice-v<version>-<rid>` (`.exe` on Windows), the name produced by the build itself, no later rename | T14 | done 7d1897f eng/build-install-layout.sh step 2 (`cargo rustc -- --emit=link=`); eng/loader-e2e-test.sh step 1 runs `versions/<v>/denice-v<v>-<rid>` |
+| N3 | Today's .NET CLI becomes a DLL named Denice Runtime, hosted by the Rust entry | T14, P-name | done 91d5e32 src/Denice.Runtime (Denice.Runtime.dll, apphost removed); denice-entry/src/hosting.rs; eng/loader-e2e-test.sh step 1 |
+| N4 | Everything else of today's .NET code is kept | T14 | done 91d5e32 the whole .NET solution kept; dotnet test: 542 passed (Denice.Tests, Runtime.Tests, CrossPlatform.Tests, Analyzers.Tests) |
+
+## Loading
+| ID | Requirement | Source | Status |
+|---|---|---|---|
+| L1 | Loader finds the highest known version (SemVer order of `versions/<version>/`, complete folders only) and loads it | T14, P-store | done 7d1897f denice-core/src/layout_tests.rs highest_complete_version_is_chosen, partial_downloads_are_never_chosen; loader_rules.rs starts_the_highest_known_version |
+| L2 | Loader stays running as parent; starts the entry as a child with the same arguments; passes through stdin/stdout/stderr and the exit code | P-store | done b59332b denice-loader/tests/real_processes.rs runs_highest_with_arguments (arguments, console, exit code) |
+| L3 | Entry hosts .NET and runs Denice Runtime with the arguments; returns its exit code | T14 | done 7d1897f eng/loader-e2e-test.sh step 1 (real entry hosts real Denice Runtime, SemVer printed) |
+| L4 | On Denice Runtime's reserved "restart into newer version" exit code, loader rescans and starts the new highest version with the same arguments | T14, P-store | done b59332b loader_rules.rs reloads_into_a_newer_version_when_asked; real_processes.rs restarts_into_newer_version |
+| L5 | If a new version fails to start, loader starts the previous version and marks the failed one so it is not chosen again | P-store | done 7d1897f loader_rules.rs falls_back_to_the_previous_version_when_the_new_one_fails_to_start; eng/loader-e2e-test.sh steps 3-4 |
+| L6 | Previous version kept until the new one has started successfully once; then older versions removed | P-store | done 7d1897f loader_rules.rs the_previous_version_is_kept_until_the_new_one_has_started_then_removed; eng/loader-e2e-test.sh step 2 |
+
+## Downloading (in .NET)
+| ID | Requirement | Source | Status |
+|---|---|---|---|
+| D1 | Denice Runtime performs the downloading; pre-download happens before loading | T14 | done 33c2eda src/Denice.Updates/UpdateService.cs (Denice Runtime downloads and installs; checks before loading); UpdateServiceTests |
+| D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
+| D3 | Before use (cosign via the Sigstore package, P-cosign), Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | done ec2254e src/Denice.Updates/VersionInstaller.cs + ReleaseSignature.cs + platform CheckCodeSignature; ReleaseSignatureTests (genuine Sigstore bundle), VersionInstallerSignatureTests (genuinely signed fixtures), VersionInstallerTests |
+| D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | done 4cd6760 UpdateService AtStart (every start, background, off switch) + Program; UpdateServiceTests (start check regardless of last check), UpdateCliTests |
+| S1 | Settings: `settings.yaml` in the per-user Denice data folder (outside the install), changed through `denice settings` (list), `denice settings set <name> <value>`, `denice settings reset <name>`; only the three update settings (updates.enabled, updates.channel, updates.checkIntervalHours) | P-settings, R7 | done bd3016b src/Denice.Updates/SettingsFile.cs, SettingsYaml.cs; tests SettingsYamlTests, SettingsFileTests, SettingsFolderTests, SettingsCliTests (commands end to end) |
+| D6 | A long-running Denice session checks every interval while it runs and restarts into a ready newer version (exit 75) | P-build update-policy, P-first; Tim: "We'll be long running before this is a problem." | open |
+| D5 | A one-shot command finishes once and is never re-run; the newer version is used from the next launch; only a long-running Denice session restarts into a ready newer version (exit 75) | P-first update-command-policy | done 33c2eda Program: one-shot commands are never re-run; the background check stops with the command; an installed version starts next launch; UpdateCliTests |
+
+## Loader replacement
+| ID | Requirement | Source | Status |
+|---|---|---|---|
+| U1 | A higher-numbered version carries a newer loader and replaces the installed one | T14 | done 7d1897f denice-entry/src/loader_swap.rs; real_entry.rs an_older_loader_is_replaced_and_the_entry_asks_for_the_hand_over; eng/loader-e2e-test.sh step 2 |
+| U2 | Order: unpack to `denice.ver`; rename `denice` to `denice.old`; rename `denice.ver` to `denice` (failure at any step restores the old loader) | P-store note | done 4d75bd1 denice-core/src/swap_tests.rs (order, failed unpack/backup/activation restore, leftovers) |
+| U3 | Hand over right after the swap: version exits with the reserved "loader replaced" code; old loader starts new `denice` with the same arguments and exits; new loader deletes `denice.old` | P-install | done 7d1897f loader_rules.rs hands_over_to_the_installed_loader_right_after_a_swap; real_processes.rs hands_over_to_replaced_loader; eng/loader-e2e-test.sh steps 2 and 4 (denice.old gone) |
+
+## Installation
+| ID | Requirement | Source | Status |
+|---|---|---|---|
+| I1 | Per-user install; no administrator rights, no service | P-install | done 0bce102 CI run 44020082695: a standard (non-administrator) Windows user installed with the setup and ran denice version; install.sh writes only under HOME (test-real-install) |
+| I2 | Windows: a per-user Inno Setup installer (no admin prompt) installs into `%LOCALAPPDATA%\Programs\Denice\`, adds the Start Menu shortcut to `denice.exe` and an Installed apps entry with uninstall, then leaves updating to Denice | P-install, T16, P-os | done 0bce102 CI run 44020082695: setup installs per-user into %LOCALAPPDATA%\Programs\Denice with Start Menu Denice.lnk and a per-user (HKCU) Installed apps entry; denice version runs; uninstall removes the folder, the shortcut and the entry |
+| I3 | macOS: `Denice.app` (only the loader) in `~/Applications/`; the versions in `~/Library/Application Support/Denice/versions/`; the loader swap replaces the whole app in Tim's order; installed by the install script (the notarized DMG is part of F13) | P-install, P-build macos-bundle, P-os | done 6e06e33 CI run 44009624784: eng/install/test-real-install.sh installed the real osx-arm64 layout, ran it through ~/.local/bin/denice, uninstalled; eng/loader-e2e-test.sh (app swap, versions in Application Support) |
+| I4 | Linux: the release tarball plus the shared install script installs into `~/.local/share/denice/`, links `~/.local/bin/denice`, adds a menu entry in `~/.local/share/applications`, and uninstalls with the script | P-install, P-os | done 6e06e33 CI run 44009624784: eng/install/test-real-install.sh installed the real linux-arm64 layout into ~/.local/share/denice, ran it through ~/.local/bin/denice, uninstalled; eng/install/test-install.sh (desktop entry, XDG_DATA_HOME) |
+| I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | open |
+| I6 | The first install per OS as Tim chose: Windows Inno Setup installer, macOS and Linux one shared install script (`curl -fsSL …/install.sh | sh`), macOS DMG after notarization | P-first, P-os | open |
+
+## Infrastructure parity (Rust aligned with .NET)
+| ID | Requirement | Source | Status |
+|---|---|---|---|
+| F1 | Pinned Rust toolchain (as global.json pins the .NET SDK) | T14 | done 91d5e32 rust/rust-toolchain.toml (1.100.0, components, six targets) |
+| F2 | Version computed once (eng/compute-build-id.sh) and passed to both builds | T14 | done 7d1897f eng/build-install-layout.sh (one build id -> -p:Denice* and DENICE_VERSION; both halves print the same SemVer) |
+| F3 | Build for all six platforms: osx-arm64, osx-x64, win-x64, win-arm64, linux-x64, linux-arm64 | T14 | done 9e5b07c CI run 43992165133: install layouts for osx-arm64, osx-x64, win-x64, win-arm64, linux-arm64, linux-x64 |
+| F4 | Formatting and lint gate with warnings as errors (as TreatWarningsAsErrors + analyzers) | T14 | done 9e5b07c CI run 43992165133: eng/rust-checks.sh (rustfmt --check, clippy -D warnings, custom rules) on macOS, Windows, Linux |
+| F5 | Custom-rule management: Rust custom rules R1–R12 (rust/RULES.md) as dylint lints with their own tests, run in CI beside Clippy with warnings as errors, on a pinned nightly for the lint crate | T14, P-build rust-rules | done 25b0f06 rust/lints/denice_rules (R1-R12 dylint lints); ui fixtures + tests/fixture_workspace.rs; eng/rust-checks.sh step 4 runs the rules' tests and the rules over all targets |
+| F6 | Each applicable C# custom rule has a Rust counterpart or a recorded reason it cannot apply to Rust (listed in rust/RULES.md) | T14 | done 25b0f06 rust/RULES.md maps all 38 C# rule ids: 12 Rust counterparts built, the rest with recorded reasons |
+| F7 | Unit and integration tests run in CI on every platform that runs tests today | T14 | done 9e5b07c CI run 43992165133: Rust and .NET tests on macOS, Windows and Linux |
+| F8 | Coverage gate at the same 75% threshold | T14 | done 9e5b07c CI run 43992165133: cargo-llvm-cov --fail-under-lines 75 on each OS; .NET coverage gate unchanged |
+| F13 | Real code signing (and before switching, ship the new certificates' fingerprints in a release signed by the old ones, so installed copies keep accepting updates): Apple Developer ID signing and notarization on macOS, then the drag-to-Applications DMG; SignPath Foundation signing on Windows; in CI | P-os code-signing, macos-install | blocked pending Tim's Apple Developer membership and SignPath Foundation approval |
+| F9 | Platform signing of the Rust executables (codesign hardened runtime / Authenticode) | T14 | open |
+| F10 | sha256 + cosign for release files, verified before publishing | T14 | open |
+| F11 | Release contains the new layout for all six platforms | T14 | open |
+| F12 | The Linux Rust executables run on every Linux distribution Denice Runtime's .NET supports (linked against a glibc no newer than .NET's minimum) | T14 "align it with the existing .NET infrastructure"; P-linux | done 9e5b07c CI run 43992165133: eng/check-glibc.sh PASS (Rust needs glibc 2.17 arm64 / 2.16 x64; .NET 2.27) |
+
+## Finish line
+| ID | Requirement | Source | Status |
+|---|---|---|---|
+| E1 | End-to-end test in CI on macOS, Windows and Linux: install version A; make version B available; loader updates to B (L4); B replaces the loader (U1-U3); a broken version C falls back (L5) | T16b | open |
+| E3 | Denice Runtime accepts a real release signed by Denice's own CI (its SHA256SUMS bundle and OS signatures) and refuses it when altered, end to end | T16b; P-build download-proof | open |
+| U4 | On Windows the old loader cannot be replaced in place: it starts the new loader, waits and passes its exit code on | P-install loader-takeover (review finding); pkg-d4e90c3ce176 windows-handover: "Wait" | done 7d1897f crates/denice-loader/tests/real_processes.rs "hands over to the replaced loader" (exit code 33 passed on) in the windows job of CI run 44024493855 |
+| D7 | Default update channel is pre-release only while no stable release exists ("default pre-release while no stable release exists") | P-build update-policy | done 4cd6760 UpdateChannel.PreReleaseUntilStable + ReleaseCandidate; UpdateServiceTests (switches to stable once one exists; explicit setting wins), SettingsCliTests |
+| S2 | A broken settings.yaml is restored from the last known good one (a rolling history of 20 successfully loaded files; version 0 is every default), and `denice settings history` / `restore <n>` revert to an earlier one | R7, S1 (review finding); pkg-d4e90c3ce176 broken-settings, Tim: "Restore from last known good.  If last known good is original (reset) then that is just version 0.  Upon successful loads, the file is backed up (or checked to see if already is then added).  A rolling list is held (say 20) and we can revert back to the last setting that worked and was still close to user preferene." | open |
+| I7 | `denice` works as a command after install on all three systems without the user editing PATH: install.sh adds ~/.local/bin to the zsh, bash and fish profiles (`--no-modify-path` skips it; uninstall removes it); the Windows installer adds its folder to the user's PATH (uninstall removes it); the GUI entries stay in each system's expected place (macOS ~/Applications/Denice.app, Linux menu entry, Windows Start Menu) | R7, P-os (review finding); pkg-d4e90c3ce176 install-path "Update profile", Tim: "This needs to provide similar results across all 3 Operating systems and in all cases proper GUI and other shortcuts should be placed in the expected install locations." | open |
+| I8 | Double-clicking Denice.app is left as it is (it starts Denice with no window) until Denice has a window | P-build macos-bundle; pkg-d4e90c3ce176 app-launch: "Leave unchanged" | done 1af7093 eng/macos/Info.plist.in unchanged, per pkg-d4e90c3ce176 app-launch |
+| I9 | Uninstall removes versions Denice downloaded after setup, and the Installed apps entry exists (Windows) | P-os (option text: "Uninstall must explicitly remove versions added after installation") | done 0bce102 CI run 44020082695: a version folder added after setup is removed by uninstall with the install folder; the Installed apps entry is HKCU and removed |
+| I10 | Release checks on clean machines: macOS standard user (quarantine, translocation, app-management prompt), Windows standard user (SmartScreen, Smart App Control), Linux GNOME/KDE menu and PATH | P-os (option text) | open |
+| I11 | The install script verifies a download beyond a sha256 from the same source ("must verify downloads") | P-os (option text) | open |
+| C1 | Concurrent launches: one Denice removing an older version folder while another Denice still runs it, and two equal versions | P-store (open engineering detail) | open |
+| F14 | Every Denice payload is signed, including the Windows setup | P-os (option text: "Sign all Denice executable payloads, not just setup.") | open |
+| E2 | Every line above closed with evidence; independent review of this file against the source packages finds nothing missing | T16b | open |

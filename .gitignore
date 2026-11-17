@@ -168,3 +168,6 @@ handoff/
 jarvis-reply.md
 JARVIS-REPLY.md
 
+
+# Rust build output
+rust/target/

@@ -69,7 +69,7 @@ internal static class SharedAnalyzerSources
     internal const string EngineAssemblySource = $$"""
         using System.Runtime.CompilerServices;
 
-        [assembly: InternalsVisibleTo("denice")]
+        [assembly: InternalsVisibleTo("Denice.Runtime")]
         [assembly: InternalsVisibleTo("Denice.TestHelpers")]
         [assembly: InternalsVisibleTo("Denice.Tests")]
 
@@ -147,10 +147,10 @@ internal static class SharedAnalyzerSources
 
     /// <summary>
     /// The compiled assembly name of the CLI consumer the Engine grant reaches — <c>denice</c>, not the
-    /// <c>Denice.Cli</c> root namespace. Held here once because more than one test class compiles a fixture as
+    /// <c>Denice.Runtime</c> root namespace. Held here once because more than one test class compiles a fixture as
     /// that consumer.
     /// </summary>
-    internal const string CliAssemblyName = "denice";
+    internal const string RuntimeAssemblyName = "Denice.Runtime";
 
     /// <summary>
     /// The fully qualified name of the internal Engine type <see cref="EngineAssemblySource"/> declares, as a
