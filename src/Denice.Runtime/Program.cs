@@ -4,6 +4,7 @@ using System;
 using System.CommandLine;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Denice.Abstractions.Contracts;
 using Denice.Engine;
@@ -21,6 +22,8 @@ namespace Denice.Runtime;
 /// </summary>
 internal sealed class Program
 {
+    private const string UpdateCommandName = "update";
+
     private readonly string[] _args;
 
     /// <summary>
@@ -48,7 +51,25 @@ internal sealed class Program
         LoaderHandshake.Read(services)?.RecordStarted();
 
         RootCommand root = BuildRootCommand(services);
-        return await root.Parse(_args).InvokeAsync().ConfigureAwait(false);
+        ParseResult parsed = root.Parse(_args);
+
+        // The scheduled update check runs in the background, never delaying the command. A one-shot command does not wait
+        // for it: when the command ends the check stops and the next launch tries again (pkg-79dc8dd1e15d,
+        // "retry-next-launch"); `denice update` checks in the foreground instead.
+        using var stop = new CancellationTokenSource();
+        Task background = IsUpdateCommand(parsed) ? Task.CompletedTask : Task.Run(() => ScheduledCheckAsync(services, stop.Token), stop.Token);
+        int exitCode = await parsed.InvokeAsync().ConfigureAwait(false);
+        await stop.CancelAsync().ConfigureAwait(false);
+        try
+        {
+            await background.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // Stopped with the command; the next launch tries again.
+        }
+
+        return exitCode;
     }
 
     /// <summary>
@@ -70,6 +91,7 @@ internal sealed class Program
         var root = new RootCommand("Denice.");
         root.Subcommands.Add(BuildVersionCommand(services));
         root.Subcommands.Add(BuildSettingsCommand(services));
+        root.Subcommands.Add(BuildUpdateCommand(services));
         return root;
     }
 
@@ -135,6 +157,51 @@ internal sealed class Program
         command.Subcommands.Add(set);
         command.Subcommands.Add(reset);
         return command;
+    }
+
+    private static bool IsUpdateCommand(ParseResult parsed) =>
+        string.Equals(parsed.CommandResult.Command.Name, UpdateCommandName, StringComparison.Ordinal);
+
+    private static async Task ScheduledCheckAsync(ISystemServices services, CancellationToken ct)
+    {
+        using var updates = new UpdateService(services);
+        _ = await updates.CheckAndInstallAsync(UpdateRequest.Scheduled, null, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Builds the <c>update</c> command: checks now, whatever the interval and the off switch say (Tim, pkg-79dc8dd1e15d:
+    /// "We'll also add an "update" command to allow the user to manually override."), shows the download's progress, and
+    /// installs a newer version for the next launch. It does not restart this command (pkg-189647304b25, "finish once").
+    /// </summary>
+    /// <param name="services">The composition container.</param>
+    /// <returns>The configured <c>update</c> command.</returns>
+    private static Command BuildUpdateCommand(ISystemServices services)
+    {
+        var command = new Command(UpdateCommandName, "Check for a newer Denice now and install it; it starts the next time you run Denice.");
+        command.SetAction((_, ct) => UpdateNowAsync(services, ct));
+        return command;
+    }
+
+    private static async Task<int> UpdateNowAsync(ISystemServices services, CancellationToken ct)
+    {
+        using var updates = new UpdateService(services);
+        var progress = new ConsoleDownloadProgress(services.Console);
+        UpdateOutcome outcome = await updates.CheckAndInstallAsync(UpdateRequest.Manual, progress, ct).ConfigureAwait(false);
+        switch (outcome.Result)
+        {
+            case UpdateResult.Installed:
+                services.Console.WriteLine($"Denice {outcome.Version} is installed. It starts the next time you run Denice.");
+                return 0;
+            case UpdateResult.NoNewerVersion:
+                services.Console.WriteLine($"Denice {services.BuildInfo.SemVer} is the newest version on your update channel.");
+                return 0;
+            case UpdateResult.NotInstalledByLoader:
+                services.Console.ErrorWriteLine("This Denice was not started by its loader, so there is nothing to update.");
+                return 1;
+            default:
+                services.Console.ErrorWriteLine($"The update failed: {outcome.Reason}");
+                return 1;
+        }
     }
 
     // Runs one settings action over the user's settings file. A refusal the user can fix (an unknown name, an invalid

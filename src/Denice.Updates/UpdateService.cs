@@ -57,22 +57,29 @@ public sealed class UpdateService : IDisposable
         _http = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: true);
     }
 
-    /// <inheritdoc cref="CheckAndInstallAsync(IProgress{long}?, CancellationToken)"/>
-    public Task<UpdateOutcome> CheckAndInstallAsync(CancellationToken ct) => CheckAndInstallAsync(null, ct);
+    /// <inheritdoc cref="CheckAndInstallAsync(UpdateRequest, IProgress{DownloadProgress}?, CancellationToken)"/>
+    public Task<UpdateOutcome> CheckAndInstallAsync(CancellationToken ct) =>
+        CheckAndInstallAsync(UpdateRequest.Scheduled, null, ct);
+
+    /// <inheritdoc cref="CheckAndInstallAsync(UpdateRequest, IProgress{DownloadProgress}?, CancellationToken)"/>
+    public Task<UpdateOutcome> CheckAndInstallAsync(IProgress<DownloadProgress>? progress, CancellationToken ct) =>
+        CheckAndInstallAsync(UpdateRequest.Scheduled, progress, ct);
 
     /// <summary>
     /// Checks once for a newer version on the chosen channel and installs it. Only a completed check (nothing newer, or
     /// installed) is recorded as the last check; a failed or cancelled one records nothing, so the next start tries again.
     /// </summary>
-    /// <param name="progress">Receives the release file's bytes downloaded so far, when given.</param>
+    /// <param name="request">A scheduled check honours the off switch and the interval; a manual one checks now.</param>
+    /// <param name="progress">Receives the release file's bytes downloaded so far and its size, when given.</param>
     /// <param name="ct">Cancels the check; a cancelled install leaves no version behind.</param>
     /// <returns>What the check did. Network errors and refused downloads are <see cref="UpdateResult.Failed"/>.</returns>
     /// <exception cref="OperationCanceledException"><paramref name="ct"/> was cancelled.</exception>
-    public async Task<UpdateOutcome> CheckAndInstallAsync(IProgress<long>? progress, CancellationToken ct)
+    public async Task<UpdateOutcome> CheckAndInstallAsync(
+        UpdateRequest request, IProgress<DownloadProgress>? progress, CancellationToken ct)
     {
         try
         {
-            return await CheckAsync(progress, ct).ConfigureAwait(false);
+            return await CheckAsync(request, progress, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -88,24 +95,26 @@ public sealed class UpdateService : IDisposable
     /// <inheritdoc />
     public void Dispose() => _http.Dispose();
 
-    private async Task<UpdateOutcome> CheckAsync(IProgress<long>? progress, CancellationToken ct)
+    private async Task<UpdateOutcome> CheckAsync(UpdateRequest request, IProgress<DownloadProgress>? progress, CancellationToken ct)
     {
-        UpdateSettings settings = UpdateSettings.Read(_services);
-        if (!settings.Enabled)
-        {
-            return UpdateOutcome.Disabled;
-        }
-
+        // A developer run (no loader) has nothing to update and never touches the user's settings.
         LoaderHandshake? handshake = LoaderHandshake.Read(_services);
         if (handshake is null)
         {
             return UpdateOutcome.NotInstalledByLoader;
         }
 
+        bool manual = request == UpdateRequest.Manual;
+        UpdateSettings settings = UpdateSettings.Read(_services);
+        if (!manual && !settings.Enabled)
+        {
+            return UpdateOutcome.Disabled;
+        }
+
         var lastCheck = new LastUpdateCheck(_services);
         DateTimeOffset now = _services.Clock.GetUtcNow();
         DateTimeOffset? last = lastCheck.Read();
-        if (last is { } previous && previous <= now && now - previous < settings.CheckInterval)
+        if (!manual && last is { } previous && previous <= now && now - previous < settings.CheckInterval)
         {
             return UpdateOutcome.NotDue;
         }
@@ -153,7 +162,7 @@ public sealed class UpdateService : IDisposable
             : rid;
     }
 
-    private async Task<byte[]> DownloadCheckedAsync(ReleaseCandidate release, IProgress<long>? progress, CancellationToken ct)
+    private async Task<byte[]> DownloadCheckedAsync(ReleaseCandidate release, IProgress<DownloadProgress>? progress, CancellationToken ct)
     {
         if (release.Checksum is null)
         {
@@ -173,7 +182,7 @@ public sealed class UpdateService : IDisposable
         return zip;
     }
 
-    private async Task<byte[]> DownloadAsync(ReleaseCandidate release, IProgress<long>? progress, CancellationToken ct)
+    private async Task<byte[]> DownloadAsync(ReleaseCandidate release, IProgress<DownloadProgress>? progress, CancellationToken ct)
     {
         using HttpResponseMessage response = await SendAsync(release.Zip, "application/octet-stream", ct).ConfigureAwait(false);
         using var bytes = new MemoryStream((int)Math.Clamp(release.ZipSize, 0, int.MaxValue));
@@ -185,7 +194,7 @@ public sealed class UpdateService : IDisposable
             while ((read = await body.ReadAsync(chunk, ct).ConfigureAwait(false)) > 0)
             {
                 await bytes.WriteAsync(chunk.AsMemory(0, read), ct).ConfigureAwait(false);
-                progress?.Report(bytes.Length);
+                progress?.Report(new DownloadProgress(bytes.Length, release.ZipSize));
             }
         }
 

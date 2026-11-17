@@ -72,6 +72,20 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AManualCheck_OverridesTheOffSwitchAndTheInterval()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        new SettingsFile(services).Set("updates.enabled", "false");
+        RecordLastCheck(Start - TimeSpan.FromMinutes(1));
+        AddRelease(version, prerelease: true, zip: TestReleases.Release(version, TestReleases.Files(version)));
+        ServeReleases();
+
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.Manual, null, CancellationToken.None);
+
+        outcome.Should().Be(UpdateOutcome.Installed(version));
+    }
+
+    [Fact]
     public async Task WithoutALoader_ThereIsNothingToUpdate()
     {
         var developerRun = new UpdateService(Services(new Dictionary<string, string>(StringComparer.Ordinal), entry: null), github, AcceptingCosign);
@@ -451,8 +465,9 @@ public sealed class UpdateServiceTests : IDisposable
 
         outcome.Should().Be(UpdateOutcome.Installed(version));
         progress.Reports.Count.Should().BeGreaterThan(1);
-        progress.Reports.Should().BeInAscendingOrder().And.OnlyHaveUniqueItems();
-        progress.Reports[^1].Should().Be(zip.Length);
+        progress.Reports.Select(report => report.Received).Should().BeInAscendingOrder().And.OnlyHaveUniqueItems();
+        progress.Reports[^1].Received.Should().Be(zip.Length);
+        progress.Reports.Should().OnlyContain(report => report.Total == zip.Length, "each report carries the file's size");
     }
 
     [Fact]
@@ -577,10 +592,10 @@ public sealed class UpdateServiceTests : IDisposable
         LastCheck().Should().BeNull();
     }
 
-    private sealed class RecordingProgress : IProgress<long>
+    private sealed class RecordingProgress : IProgress<DownloadProgress>
     {
-        public List<long> Reports { get; } = [];
+        public List<DownloadProgress> Reports { get; } = [];
 
-        public void Report(long value) => Reports.Add(value);
+        public void Report(DownloadProgress value) => Reports.Add(value);
     }
 }
