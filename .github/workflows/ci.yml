@@ -367,20 +367,25 @@ jobs:
           $password = ConvertTo-SecureString $plain -AsPlainText -Force
           New-LocalUser -Name 'denicestd' -Password $password -AccountNeverExpires | Out-Null
           if ((Get-LocalGroupMember -Group 'Administrators' | Where-Object Name -like '*\denicestd')) { throw 'the test user is an administrator' }
-          Start-Service seclogon
-          $cred = New-Object System.Management.Automation.PSCredential('denicestd', $password)
+          # Run as that user through a scheduled task (its own logon session); processes started from the runner's
+          # service session with other credentials cannot initialise a window station.
           $log = Join-Path $env:PUBLIC 'denice-setup-std.log'
-          $p = Start-Process -FilePath $copy -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/LOG=`"$log`"" -Credential $cred -LoadUserProfile -WorkingDirectory $env:PUBLIC -Wait -PassThru
-          if ($p.ExitCode -ne 0) {
-            if (Test-Path $log) { Get-Content $log | Select-Object -Last 40 | ForEach-Object { Write-Host $_ } } else { Write-Host "setup wrote no log at $log" }
-            throw "setup as a standard user exited with $($p.ExitCode)"
-          }
-          $exe = 'C:\Users\denicestd\AppData\Local\Programs\Denice\denice.exe'
-          if (-not (Test-Path $exe)) { throw "no denice.exe for the standard user at $exe" }
           $out = Join-Path $env:PUBLIC 'denice-std-version.txt'
-          $r = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', "`"$exe`" settings set updates.enabled false && `"$exe`" version > `"$out`" 2>&1" -Credential $cred -LoadUserProfile -Wait -PassThru
-          $text = Get-Content $out -Raw
-          if ($r.ExitCode -ne 0 -or -not ($text -match [regex]::Escape("SemVer: $env:DENICE_VERSION"))) { throw "denice version as a standard user failed: $text" }
+          $exe = 'C:\Users\denicestd\AppData\Local\Programs\Denice\denice.exe'
+          $script = Join-Path $env:PUBLIC 'denice-std.cmd'
+          Set-Content -Path $script -Encoding ascii -Value @(
+            "`"$copy`" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER /LOG=`"$log`"",
+            "`"$exe`" settings set updates.enabled false",
+            "`"$exe`" version > `"$out`" 2>&1")
+          schtasks /Create /TN DeniceStdInstall /TR "cmd.exe /c `"$script`"" /SC ONCE /ST 23:59 /RU denicestd /RP $plain /RL LIMITED /F | Out-Null
+          schtasks /Run /TN DeniceStdInstall | Out-Null
+          $deadline = (Get-Date).AddMinutes(5)
+          do { Start-Sleep -Seconds 5; $state = (Get-ScheduledTask -TaskName DeniceStdInstall).State } while ($state -eq 'Running' -and (Get-Date) -lt $deadline)
+          $result = (Get-ScheduledTaskInfo -TaskName DeniceStdInstall).LastTaskResult
+          if (Test-Path $log) { Get-Content $log | Select-Object -Last 15 | ForEach-Object { Write-Host $_ } }
+          if (-not (Test-Path $exe)) { throw "no denice.exe for the standard user at $exe (task result $result)" }
+          $text = if (Test-Path $out) { Get-Content $out -Raw } else { '' }
+          if (-not ($text -match [regex]::Escape("SemVer: $env:DENICE_VERSION"))) { throw "denice version as a standard user failed (task result $result): $text" }
           Write-Host "installed and ran as a standard user: $text"
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
