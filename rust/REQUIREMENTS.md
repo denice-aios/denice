@@ -48,9 +48,9 @@ Sources:
 | D1 | Denice Runtime performs the downloading; pre-download happens before loading | T14 | done 33c2eda src/Denice.Updates/UpdateService.cs (Denice Runtime downloads and installs; checks before loading); UpdateServiceTests |
 | D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
 | D3 | Before use (cosign via the Sigstore package, P-cosign), Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | done ec2254e src/Denice.Updates/VersionInstaller.cs + ReleaseSignature.cs + platform CheckCodeSignature; ReleaseSignatureTests (genuine Sigstore bundle), VersionInstallerSignatureTests (genuinely signed fixtures), VersionInstallerTests |
-| D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | done 33c2eda UpdateService (GitHub Releases, channel, interval, off switch from Settings S1) + Program background check at launch + denice update; UpdateServiceTests, UpdateCliTests |
+| D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | open |
 | S1 | Settings: `settings.yaml` in the per-user Denice data folder (outside the install), changed through `denice settings` (list), `denice settings set <name> <value>`, `denice settings reset <name>`; only the three update settings (updates.enabled, updates.channel, updates.checkIntervalHours) | P-settings, R7 | done bd3016b src/Denice.Updates/SettingsFile.cs, SettingsYaml.cs; tests SettingsYamlTests, SettingsFileTests, SettingsFolderTests, SettingsCliTests (commands end to end) |
-| D6 | A long-running Denice session checks every interval while it runs and restarts into a ready newer version (exit 75) | P-build update-policy, P-first; Tim: "We'll be long running before this is a problem." | blocked pending a long-running Denice session (none exists yet) |
+| D6 | A long-running Denice session checks every interval while it runs and restarts into a ready newer version (exit 75) | P-build update-policy, P-first; Tim: "We'll be long running before this is a problem." | open |
 | D5 | A one-shot command finishes once and is never re-run; the newer version is used from the next launch; only a long-running Denice session restarts into a ready newer version (exit 75) | P-first update-command-policy | done 33c2eda Program: one-shot commands are never re-run; the background check stops with the command; an installed version starts next launch; UpdateCliTests |
 
 ## Loader replacement
@@ -63,12 +63,12 @@ Sources:
 ## Installation
 | ID | Requirement | Source | Status |
 |---|---|---|---|
-| I1 | Per-user install; no administrator rights, no service | P-install | done 3af9ec3 CI run 44006707671: the Windows setup installed per-user with no admin prompt (PrivilegesRequired=lowest); install.sh writes only under HOME |
-| I2 | Windows: a per-user Inno Setup installer (no admin prompt) installs into `%LOCALAPPDATA%\Programs\Denice\`, adds the Start Menu shortcut to `denice.exe` and an Installed apps entry with uninstall, then leaves updating to Denice | P-install, T16, P-os | done 3af9ec3 CI run 44006707671: denice-setup-v<version>-win-x64.exe installed silently as the user into %LOCALAPPDATA%\Programs\Denice, Start Menu Denice.lnk present, denice version ran, uninstall left nothing |
+| I1 | Per-user install; no administrator rights, no service | P-install | open |
+| I2 | Windows: a per-user Inno Setup installer (no admin prompt) installs into `%LOCALAPPDATA%\Programs\Denice\`, adds the Start Menu shortcut to `denice.exe` and an Installed apps entry with uninstall, then leaves updating to Denice | P-install, T16, P-os | open |
 | I3 | macOS: `Denice.app` (only the loader) in `~/Applications/`; the versions in `~/Library/Application Support/Denice/versions/`; the loader swap replaces the whole app in Tim's order; installed by the install script (the notarized DMG is part of F13) | P-install, P-build macos-bundle, P-os | done 6e06e33 CI run 44009624784: eng/install/test-real-install.sh installed the real osx-arm64 layout, ran it through ~/.local/bin/denice, uninstalled; eng/loader-e2e-test.sh (app swap, versions in Application Support) |
 | I4 | Linux: the release tarball plus the shared install script installs into `~/.local/share/denice/`, links `~/.local/bin/denice`, adds a menu entry in `~/.local/share/applications`, and uninstalls with the script | P-install, P-os | done 6e06e33 CI run 44009624784: eng/install/test-real-install.sh installed the real linux-arm64 layout into ~/.local/share/denice, ran it through ~/.local/bin/denice, uninstalled; eng/install/test-install.sh (desktop entry, XDG_DATA_HOME) |
-| I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | done 6e06e33 CI run 44009624784: a real release layout installed from its zip on macOS and Linux (install.sh --from), and the Windows setup installed silently |
-| I6 | The first install per OS as Tim chose: Windows Inno Setup installer, macOS and Linux one shared install script (`curl -fsSL …/install.sh | sh`), macOS DMG after notarization | P-first, P-os | done 6e06e33 Windows Inno Setup installer and the shared macOS/Linux install.sh, both proven in CI run 44009624784 (the macOS DMG follows notarization, F13) |
+| I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | open |
+| I6 | The first install per OS as Tim chose: Windows Inno Setup installer, macOS and Linux one shared install script (`curl -fsSL …/install.sh | sh`), macOS DMG after notarization | P-first, P-os | open |
 
 ## Infrastructure parity (Rust aligned with .NET)
 | ID | Requirement | Source | Status |
@@ -81,7 +81,7 @@ Sources:
 | F6 | Each applicable C# custom rule has a Rust counterpart or a recorded reason it cannot apply to Rust (listed in rust/RULES.md) | T14 | done 25b0f06 rust/RULES.md maps all 38 C# rule ids: 12 Rust counterparts built, the rest with recorded reasons |
 | F7 | Unit and integration tests run in CI on every platform that runs tests today | T14 | done 9e5b07c CI run 43992165133: Rust and .NET tests on macOS, Windows and Linux |
 | F8 | Coverage gate at the same 75% threshold | T14 | done 9e5b07c CI run 43992165133: cargo-llvm-cov --fail-under-lines 75 on each OS; .NET coverage gate unchanged |
-| F13 | Real code signing: Apple Developer ID signing and notarization on macOS, then the drag-to-Applications DMG; SignPath Foundation signing on Windows; in CI | P-os code-signing, macos-install | blocked pending Tim's Apple Developer membership and SignPath Foundation approval |
+| F13 | Real code signing (and before switching, ship the new certificates' fingerprints in a release signed by the old ones, so installed copies keep accepting updates): Apple Developer ID signing and notarization on macOS, then the drag-to-Applications DMG; SignPath Foundation signing on Windows; in CI | P-os code-signing, macos-install | blocked pending Tim's Apple Developer membership and SignPath Foundation approval |
 | F9 | Platform signing of the Rust executables (codesign hardened runtime / Authenticode) | T14 | open |
 | F10 | sha256 + cosign for release files, verified before publishing | T14 | open |
 | F11 | Release contains the new layout for all six platforms | T14 | open |
@@ -90,6 +90,16 @@ Sources:
 ## Finish line
 | ID | Requirement | Source | Status |
 |---|---|---|---|
-| E1 | End-to-end test in CI on macOS, Windows and Linux: install version A; make version B available; loader updates to B (L4); B replaces the loader (U1-U3); a broken version C falls back (L5) | T16b | done 9e5b07c CI run 43992165133: eng/loader-e2e-test.sh passed on osx-arm64, win-x64 and linux-arm64 |
+| E1 | End-to-end test in CI on macOS, Windows and Linux: install version A; make version B available; loader updates to B (L4); B replaces the loader (U1-U3); a broken version C falls back (L5) | T16b | open |
 | E3 | Denice Runtime accepts a real release signed by Denice's own CI (its SHA256SUMS bundle and OS signatures) and refuses it when altered, end to end | T16b; P-build download-proof | open |
+| U4 | On Windows the old loader cannot be replaced in place: it starts the new loader, waits and passes its exit code on (it does not exit at once as the chosen option says) — needs Tim's answer | P-install loader-takeover (review finding) | blocked pending package |
+| D7 | Default update channel is pre-release only while no stable release exists ("default pre-release while no stable release exists") | P-build update-policy | open |
+| S2 | A broken settings.yaml can be fixed through Denice, not by hand (rule 7) | R7, S1 (review finding) | blocked pending package |
+| I7 | `denice` works as a command after the macOS/Linux install without the user editing PATH (rule 7) | R7, P-os (review finding) | blocked pending package |
+| I8 | Double-clicking Denice.app (Finder, Dock, Launchpad) starts Denice ("App launch plus a Terminal link") | P-build macos-bundle | blocked pending package |
+| I9 | Uninstall removes versions Denice downloaded after setup, and the Installed apps entry exists (Windows) | P-os (option text: "Uninstall must explicitly remove versions added after installation") | open |
+| I10 | Release checks on clean machines: macOS standard user (quarantine, translocation, app-management prompt), Windows standard user (SmartScreen, Smart App Control), Linux GNOME/KDE menu and PATH | P-os (option text) | open |
+| I11 | The install script verifies a download beyond a sha256 from the same source ("must verify downloads") | P-os (option text) | open |
+| C1 | Concurrent launches: one Denice removing an older version folder while another Denice still runs it, and two equal versions | P-store (open engineering detail) | open |
+| F14 | Every Denice payload is signed, including the Windows setup | P-os (option text: "Sign all Denice executable payloads, not just setup.") | open |
 | E2 | Every line above closed with evidence; independent review of this file against the source packages finds nothing missing | T16b | open |

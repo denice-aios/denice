@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Denice.app (pkg-697310396f74 macos-bundle: "App beside versions"): the app holds only the loader; the versions
-     live beside it in ~/Applications/Denice/versions/. eng/build-install-layout.sh fills @VERSION@ and @SHORT_VERSION@. -->
+<!-- Denice.app (pkg-697310396f74 macos-bundle) holds only the loader. Its versions live in
+     ~/Library/Application Support/Denice/versions/ (pkg-494745156d56 macos-versions). eng/build-install-layout.sh fills
+     @VERSION@ and @SHORT_VERSION@. -->
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key>
