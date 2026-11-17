@@ -332,7 +332,7 @@ jobs:
           $app = Join-Path $env:LOCALAPPDATA 'Programs\Denice'
           $exe = Join-Path $app 'denice.exe'
           if (-not (Test-Path $exe)) { throw "denice.exe is not in $app" }
-          $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Denice\Denice.lnk'
+          $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Denice.lnk'
           if (-not (Test-Path $shortcut)) { throw "no Start Menu shortcut at $shortcut" }
           & $exe settings set updates.enabled false
           $out = & $exe version
