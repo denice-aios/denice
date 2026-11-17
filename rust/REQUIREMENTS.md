@@ -19,6 +19,7 @@ Sources:
 - P-first: pkg-189647304b25 first-install = none of the options, Tim's note: "We need to figure out how this would work for each OS and work as expected.  AN extera Installer may be needed for the right user expected behavior."; update-command-policy = finish-once.
 - P-settings: pkg-a372b9307553 denice-settings = denice-commands, Tim's note: "BUT we use YAML for the settings file not JSON.  And we minimize settings because we will later move them to the DB."
 - P-cosign: pkg-471f394bb261 cosign-checker = use-sigstore (the `Sigstore` NuGet package pinned to 1.1.1, MIT, github.com/mitchdenny/sigstore-dotnet; trust root shipped in Denice Runtime; identity pinned to Denice's CI workflow).
+- P-linux: pkg-2a7c75112d13 linux-build = build-with-cargo-zigbuild.
 - R7: global rule 7: "Settings must replace .env configuration. Nothing ships in this project unless it can be fixed in Settings."
 
 ## Components and names
@@ -80,7 +81,7 @@ Sources:
 | F9 | Platform signing of the Rust executables (codesign hardened runtime / Authenticode) | T14 | open |
 | F10 | sha256 + cosign for release files, verified before publishing | T14 | open |
 | F11 | Release contains the new layout for all six platforms | T14 | open |
-| F12 | The Linux Rust executables run on every Linux distribution Denice Runtime's .NET supports (linked against a glibc no newer than .NET's minimum) | T14 "align it with the existing .NET infrastructure" | blocked pending package (measured: Rust needs glibc 2.39, .NET 2.27; how to build is Tim's choice) |
+| F12 | The Linux Rust executables run on every Linux distribution Denice Runtime's .NET supports (linked against a glibc no newer than .NET's minimum) | T14 "align it with the existing .NET infrastructure"; P-linux | open |
 
 ## Finish line
 | ID | Requirement | Source | Status |

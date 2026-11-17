@@ -459,12 +459,16 @@ jobs:
       - name: Rust gate — format, lint (warnings are errors), tests, coverage ≥ 75%, custom rules R1-R12 (rust/REQUIREMENTS.md F4 F5 F7 F8)
         shell: bash
         run: eng/rust-checks.sh evidence/rust-coverage-${{ runner.os }}.lcov
-      - name: Build both linux install layouts (loader + versioned entry + Denice Runtime)
-        # This runner is arm64; the x86_64 Rust programs link with the cross linker.
-        env:
-          CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER: x86_64-linux-gnu-gcc
+      - name: Install Zig 0.15.2 and cargo-zigbuild 0.24.1 (Linux Rust programs link against glibc 2.17; pkg-2a7c75112d13)
         run: |
-          sudo apt-get update -q && sudo apt-get install -y -q gcc-x86-64-linux-gnu
+          curl -fsSL -o "$RUNNER_TEMP/zig.tar.xz" https://ziglang.org/download/0.15.2/zig-aarch64-linux-0.15.2.tar.xz
+          echo "958ed7d1e00d0ea76590d27666efbf7a932281b3d7ba0c6b01b0ff26498f667f  $RUNNER_TEMP/zig.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/zig.tar.xz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/zig-aarch64-linux-0.15.2" >> "$GITHUB_PATH"
+          cargo install cargo-zigbuild --version 0.24.1 --locked
+      - name: Build both linux install layouts (loader + versioned entry + Denice Runtime)
+        # cargo-zigbuild links both architectures from this arm64 runner, against glibc 2.17.
+        run: |
           eng/build-install-layout.sh linux-arm64 layouts/linux-arm64
           eng/build-install-layout.sh linux-x64 layouts/linux-x64
       - name: The Linux Rust programs need no newer glibc than Denice Runtime's .NET (rust/REQUIREMENTS.md F12)
