@@ -3,6 +3,7 @@
 //! Platform facts. This is the only module in the Rust code that branches on the target OS or architecture
 //! (the Rust counterpart of the C# rule that OS branching lives only in the cross-platform layer).
 
+use crate::protocol::ENTRY_PREFIX;
 use std::path::{Path, PathBuf};
 
 /// The .NET runtime identifier of this build's target (the same names the release files use).
@@ -142,7 +143,7 @@ const BUNDLE_PROGRAM_DIR: &str = "Contents/MacOS";
 /// The versioned entry's file name: `denice-v<version>-<rid>`, `.exe` on Windows.
 #[must_use]
 pub fn entry_file_name(version: &str) -> String {
-    format!("denice-v{version}-{}{}", rid(), exe_suffix())
+    format!("{ENTRY_PREFIX}{version}-{}{}", rid(), exe_suffix())
 }
 
 /// Ends this process with `code`, keeping the full exit code (32-bit on Windows, so a version's crash code reaches the

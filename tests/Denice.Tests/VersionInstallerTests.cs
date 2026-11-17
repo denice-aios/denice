@@ -27,6 +27,7 @@ namespace Denice.Tests;
 public sealed class VersionInstallerTests
 {
     private const string Version = "0.1.200-pre-release+bbbbbbb";
+    private const string Rid = "osx-arm64";
 
     private readonly ISystemServices services;
     private readonly string root;
@@ -39,11 +40,14 @@ public sealed class VersionInstallerTests
     {
         services = SystemServicesBuilder.Real().SimulateFileSystem().Build();
         root = services.FileSystem.GetDirectoryWriter().CreateTempSubdirectory("denice-install-");
-        installer = new VersionInstaller(services, root, AcceptingCosign);
+        installer = new VersionInstaller(services, root, Rid, AcceptingCosign);
     }
 
     private static ReleaseTrust AcceptingCosign { get; } =
         new((_, _, _) => Task.FromResult<string?>(null), DeniceSigningCertificates.Sha256Fingerprints.ToArray());
+
+    /// <summary>A file in the version folder that shares the entry's prefix but is not the entry (a debug file).</summary>
+    private static string DebugFile => $"denice-v{Version}-{Rid}.pdb";
 
     private string Final => Path.Combine(root, LoaderProtocol.VersionsDirectory, Version);
 
@@ -194,6 +198,7 @@ public sealed class VersionInstallerTests
         var refusing = new VersionInstaller(
             services,
             root,
+            Rid,
             new ReleaseTrust((_, _, _) => Task.FromResult<string?>("not Denice's release workflow"), []));
 
         Func<Task> act = () => refusing.InstallAsync(Release(Files()), CancellationToken.None);
@@ -226,7 +231,7 @@ public sealed class VersionInstallerTests
     {
         byte[]? seenChecksums = null;
         string? seenBundle = null;
-        var recording = new VersionInstaller(services, root, new ReleaseTrust(
+        var recording = new VersionInstaller(services, root, Rid, new ReleaseTrust(
             (checksums, bundle, _) =>
             {
                 seenChecksums = checksums.ToArray();
@@ -242,18 +247,68 @@ public sealed class VersionInstallerTests
     }
 
     [Fact]
+    public async Task AnotherFileSharingTheEntrysPrefix_IsCoveredByTheChecksums()
+    {
+        Dictionary<string, string> files = WithDebugFile(Files());
+        string sums = Sums(files);
+        files[DebugFile] = "tampered";
+
+        Func<Task> act = () => installer.InstallAsync(Release(files, sums), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidDataException>()).WithMessage($"*'{DebugFile}' does not match its checksum*");
+        NothingInstalled();
+    }
+
+    [Fact]
+    public async Task AnotherFileSharingTheEntrysPrefix_MustBeListedInTheChecksums()
+    {
+        Dictionary<string, string> files = Files();
+        string sums = Sums(files);
+
+        Func<Task> act = () => installer.InstallAsync(Release(WithDebugFile(files), sums), CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidDataException>()).WithMessage($"*'{DebugFile}' is not listed in SHA256SUMS*");
+        NothingInstalled();
+    }
+
+    [Fact]
+    public async Task AnotherFileSharingTheEntrysPrefix_IsInTheChecksumsTheCosignCheckSigns()
+    {
+        byte[]? seenChecksums = null;
+        var recording = new VersionInstaller(services, root, Rid, new ReleaseTrust(
+            (checksums, _, _) =>
+            {
+                seenChecksums = checksums.ToArray();
+                return Task.FromResult<string?>(null);
+            },
+            []));
+
+        await recording.InstallAsync(Release(WithDebugFile(Files())), CancellationToken.None);
+
+        Encoding.UTF8.GetString(seenChecksums!).Should().Contain($"  {DebugFile}\n");
+    }
+
+    [Fact]
     public void Constructor_RejectsMissingArguments()
     {
-        Action noServices = () => _ = new VersionInstaller(null!, root);
-        Action noRoot = () => _ = new VersionInstaller(services, string.Empty);
-        Action noTrust = () => _ = new VersionInstaller(services, root, null!);
+        Action noServices = () => _ = new VersionInstaller(null!, root, Rid);
+        Action noRoot = () => _ = new VersionInstaller(services, string.Empty, Rid);
+        Action noRid = () => _ = new VersionInstaller(services, root, string.Empty);
+        Action noTrust = () => _ = new VersionInstaller(services, root, Rid, null!);
 
         noServices.Should().Throw<ArgumentNullException>();
         noRoot.Should().Throw<ArgumentException>();
+        noRid.Should().Throw<ArgumentException>();
         noTrust.Should().Throw<ArgumentNullException>();
     }
 
     private static Dictionary<string, string> Files() => TestReleases.Files(Version);
+
+    private static Dictionary<string, string> WithDebugFile(Dictionary<string, string> files)
+    {
+        files[DebugFile] = "debug symbols";
+        return files;
+    }
 
     private static string Sums(Dictionary<string, string> files) => TestReleases.Sums(files);
 

@@ -17,7 +17,7 @@ fn has(spec: &str, key: &str, value: &str) -> bool {
 #[test]
 fn constants_equal_the_shared_protocol_file() {
     let spec = spec();
-    let expected: [(&str, String); 14] = [
+    let expected: [(&str, String); 15] = [
         ("restartIntoNewerVersion", EXIT_RESTART_INTO_NEWER_VERSION.to_string()),
         ("loaderReplaced", EXIT_LOADER_REPLACED.to_string()),
         ("installRoot", ENV_INSTALL_ROOT.to_owned()),
@@ -32,6 +32,7 @@ fn constants_equal_the_shared_protocol_file() {
         ("loaderStagingSuffix", LOADER_STAGING_SUFFIX.to_owned()),
         ("loaderBackupSuffix", LOADER_BACKUP_SUFFIX.to_owned()),
         ("runtimeAssembly", RUNTIME_ASSEMBLY.to_owned()),
+        ("entryPrefix", ENTRY_PREFIX.to_owned()),
     ];
     for (key, value) in expected {
         assert!(has(&spec, key, &value), "eng/loader-protocol.json: {key} is not {value}");

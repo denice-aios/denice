@@ -298,6 +298,33 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AFileSharingTheEntrysPrefix_DoesNotNameThePlatform()
+    {
+        ISystemServices windowsServices = Services(LoaderVariables(), entry: $"denice-v{Running}-win-x64.exe");
+        windowsServices.FileSystem.GetFileWriter().WriteAllText(Path.Combine(versionDirectory, $"denice-v{Running}-win-x64.pdb"), "debug");
+        using var windows = new UpdateService(windowsServices, github, AcceptingCosign);
+        AddRelease("0.1.300-pre-release+ccccccc", prerelease: true, rids: [Rid, "win-x64"]);
+        ServeReleases();
+
+        await windows.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
+
+        github.WasRequested(ZipUrl("0.1.300-pre-release+ccccccc", "win-x64")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AVersionFolderWithOnlyADebugFileSharingTheEntrysPrefix_Fails()
+    {
+        using var broken = new UpdateService(Services(LoaderVariables(), entry: $"denice-v{Running}-win-x64.pdb"), github, AcceptingCosign);
+        ServeReleases();
+
+        UpdateOutcome outcome = await broken.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
+
+        outcome.Result.Should().Be(UpdateResult.Failed);
+        outcome.Reason.Should().Contain("<rid> entry");
+        github.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task AVersionFolderWithoutItsEntry_Fails()
     {
         using var broken = new UpdateService(Services(LoaderVariables(), entry: "something-else"), github, AcceptingCosign);
