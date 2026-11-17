@@ -29,7 +29,7 @@ public sealed class LongRunningHost
 
     /// <summary>Initializes a new instance of the <see cref="LongRunningHost"/> class.</summary>
     /// <param name="newerVersion">Watches for a newer version until one is ready, or returns <see langword="null"/>
-    /// once its token is cancelled (the contract of <see cref="UpdateLoop.RunUntilNewerVersionAsync"/>).</param>
+    /// once its token is cancelled (the contract of <see cref="UpdateLoop.RunUntilNewerVersionAsync(Task{UpdateOutcome}, CancellationToken)"/>).</param>
     public LongRunningHost(Func<CancellationToken, Task<NewerVersionReady?>> newerVersion)
     {
         ArgumentNullException.ThrowIfNull(newerVersion);

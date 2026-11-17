@@ -77,25 +77,34 @@ internal sealed class Program
         RootCommand root = BuildRootCommand(services);
         foreach (LongRunningCommand longRunning in _longRunningCommands)
         {
-            root.Subcommands.Add(BuildLongRunningCommand(services, longRunning));
+            root.Subcommands.Add(longRunning.Command);
         }
 
         ParseResult parsed = root.Parse(_args);
 
         // The update check at every start runs in the background, never delaying the command. A one-shot command does not
         // wait for it: when the command ends the check stops and the next launch tries again (pkg-79dc8dd1e15d,
-        // "retry-next-launch"); `denice update` checks in the foreground instead.
+        // "retry-next-launch"); `denice update` checks in the foreground instead. A long-running command's host also
+        // watches it: a newer version it installs (or finds installed) restarts the session as soon as it finishes.
         using var stop = new CancellationTokenSource();
-        Task background = IsUpdateCommand(parsed) ? Task.CompletedTask : Task.Run(() => StartCheckAsync(services, stop.Token), stop.Token);
+        Task<UpdateOutcome>? startCheck = IsUpdateCommand(parsed) ? null : Task.Run(() => StartCheckAsync(services, stop.Token), stop.Token);
+        foreach (LongRunningCommand longRunning in _longRunningCommands)
+        {
+            SetLongRunningAction(services, longRunning, startCheck);
+        }
+
         int exitCode = await parsed.InvokeAsync().ConfigureAwait(false);
         await stop.CancelAsync().ConfigureAwait(false);
-        try
+        if (startCheck is not null)
         {
-            await background.ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Stopped with the command; the next launch tries again.
+            try
+            {
+                _ = await startCheck.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // Stopped with the command; the next launch tries again.
+            }
         }
 
         return exitCode;
@@ -215,10 +224,10 @@ internal sealed class Program
     private static bool IsUpdateCommand(ParseResult parsed) =>
         string.Equals(parsed.CommandResult.Command.Name, UpdateCommandName, StringComparison.Ordinal);
 
-    private static async Task StartCheckAsync(ISystemServices services, CancellationToken ct)
+    private static async Task<UpdateOutcome> StartCheckAsync(ISystemServices services, CancellationToken ct)
     {
         using var updates = new UpdateService(services);
-        _ = await updates.CheckAndInstallAsync(UpdateRequest.AtStart, null, ct).ConfigureAwait(false);
+        return await updates.CheckAndInstallAsync(UpdateRequest.AtStart, null, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -279,18 +288,17 @@ internal sealed class Program
     /// Makes <paramref name="longRunning"/> a long-running command: its action runs through <see cref="LongRunningHost"/>,
     /// which checks for a newer version every <c>updates.checkIntervalHours</c> while it runs (when updates are on), stops
     /// it once a newer version is installed and ends the session with the restart exit code (D6); when it ends first, its
-    /// own exit code wins. This is the one way a command declares itself long-running.
+    /// own exit code wins. The start check counts too: a newer version it installs, or finds installed, restarts the
+    /// session once it finishes. This is the one way a command declares itself long-running.
     /// </summary>
     /// <param name="services">The composition container.</param>
     /// <param name="longRunning">The command and what it runs.</param>
-    /// <returns>The command, with its action set.</returns>
-    private Command BuildLongRunningCommand(ISystemServices services, LongRunningCommand longRunning)
-    {
-        longRunning.Command.SetAction((parse, ct) => RunLongRunningAsync(services, token => longRunning.Run(parse, token), ct));
-        return longRunning.Command;
-    }
+    /// <param name="startCheck">The update check at this start, under way in the background; null when none runs.</param>
+    private void SetLongRunningAction(ISystemServices services, LongRunningCommand longRunning, Task<UpdateOutcome>? startCheck) =>
+        longRunning.Command.SetAction((parse, ct) => RunLongRunningAsync(services, startCheck, token => longRunning.Run(parse, token), ct));
 
-    private async Task<int> RunLongRunningAsync(ISystemServices services, Func<CancellationToken, Task<int>> run, CancellationToken ct)
+    private async Task<int> RunLongRunningAsync(
+        ISystemServices services, Task<UpdateOutcome>? startCheck, Func<CancellationToken, Task<int>> run, CancellationToken ct)
     {
         if (_host is not null)
         {
@@ -298,6 +306,7 @@ internal sealed class Program
         }
 
         using var updates = new UpdateService(services);
-        return await new LongRunningHost(new UpdateLoop(services, updates)).RunAsync(run, ct).ConfigureAwait(false);
+        var loop = new UpdateLoop(services, updates);
+        return await new LongRunningHost(token => loop.RunUntilNewerVersionAsync(startCheck, token)).RunAsync(run, ct).ConfigureAwait(false);
     }
 }

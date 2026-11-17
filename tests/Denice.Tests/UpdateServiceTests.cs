@@ -802,6 +802,86 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task TheHost_WhenTheStartCheckInstallsANewerVersion_StopsTheCommandAndEndsWithTheRestartExitCodeAtOnce()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+
+        int exitCode = await HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
+
+        exitCode.Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion);
+        command.WasStopped.Should().BeTrue();
+        Installed(version).Should().BeTrue();
+        waits.Reader.TryRead(out _).Should().BeFalse("no interval passed: the session ended when the start check finished");
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheStartCheckFindsANewerVersionAlreadyInstalled_EndsWithTheRestartExitCodeAtOnce()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        services.FileSystem.GetDirectoryWriter().CreateDirectory(Path.Combine(root, LoaderProtocol.VersionsDirectory, version));
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+
+        int exitCode = await HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
+
+        exitCode.Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion);
+        command.WasStopped.Should().BeTrue();
+        github.WasRequested(ZipUrl(version)).Should().BeFalse("the version was already installed");
+        waits.Reader.TryRead(out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheStartCheckFindsNothing_TheIntervalChecksGoOn()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+        Task<int> session = HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
+
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+        github.Requests.Should().ContainSingle("the start check ran");
+        command.IsRunning.Should().BeTrue();
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        clock.Advance(TimeSpan.FromHours(6));
+
+        (await session).Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion);
+        command.WasStopped.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheStartCheckFails_ReportsItAndTheIntervalChecksGoOn()
+    {
+        github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, () => throw new HttpRequestException("No such host is known."));
+        var command = new LongRunningTestCommand();
+        Task<int> session = HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
+
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+
+        console.Error.Should().Contain("The update check failed; Denice checks again at the next interval. No such host is known.");
+        command.IsRunning.Should().BeTrue();
+        command.Finish(0);
+        (await session).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task TheLoop_CancelledWhileTheStartCheckRuns_EndsWithoutWaitingForIt()
+    {
+        var startCheck = new TaskCompletionSource<UpdateOutcome>();
+        using var stop = new CancellationTokenSource();
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(startCheck.Task, stop.Token);
+
+        await stop.CancelAsync();
+
+        (await run).Should().BeNull();
+        waits.Reader.TryRead(out _).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task TheHost_WhenTheSessionIsEnded_StopsTheCommandAndTheChecks()
     {
         ServeReleases();
@@ -962,6 +1042,17 @@ public sealed class UpdateServiceTests : IDisposable
 
     // The long-running host over the update loop that reports each wait (see Loop).
     private LongRunningHost Host() => new(Loop());
+
+    // The long-running host that first waits for the given start check, as Program wires it.
+    private LongRunningHost HostAfterStartCheck(Task<UpdateOutcome> startCheck)
+    {
+        UpdateLoop loop = Loop();
+        return new(ct => loop.RunUntilNewerVersionAsync(startCheck, ct));
+    }
+
+    // The check at this start, under way in the background as Program starts it.
+    private Task<UpdateOutcome> StartCheck() =>
+        Task.Run(() => Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None));
 
     // The interval of the loop's next wait once that wait is on the fake clock (so moving the clock on reaches it), or
     // null when the loop ends instead of waiting again.
