@@ -206,9 +206,10 @@ jobs:
           # signatures.
           for rid in osx-arm64 osx-x64; do
             L="layouts/$rid"; V="$L/versions/$DENICE_ASSET_VERSION"
-            for app in "$L/Denice.app" "$V/Denice.app"; do
-              codesign --force --options runtime --keychain "$KC" --sign "$IDENTITY" "$app"
-            done
+            # Sign the root app once and copy it into the version: two separate signatures differ (each carries its
+            # own signing time), and ci-stage-layout.sh requires the carried loader to equal the root one.
+            codesign --force --options runtime --keychain "$KC" --sign "$IDENTITY" "$L/Denice.app"
+            rm -rf "$V/Denice.app"; ditto "$L/Denice.app" "$V/Denice.app"
             codesign --force --options runtime --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$V/denice-v$DENICE_ASSET_VERSION-$rid"
           done
       - name: Launch the codesigned mac layout (proves hardened runtime lets the loader, entry and .NET run)
@@ -218,8 +219,12 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          layouts/osx-arm64/Denice.app/Contents/MacOS/denice version
-          rm -f "layouts/osx-arm64/versions/$DENICE_ASSET_VERSION/.started"
+          # The loader finds versions in ~/Library/Application Support/Denice/versions (pkg-494745156d56
+          # macos-versions), so run it with a throwaway HOME holding a copy of the signed version.
+          LAUNCH_HOME="$RUNNER_TEMP/launch-home"; VERSIONS="$LAUNCH_HOME/Library/Application Support/Denice/versions"
+          mkdir -p "$VERSIONS"
+          ditto "layouts/osx-arm64/versions/$DENICE_ASSET_VERSION" "$VERSIONS/$DENICE_ASSET_VERSION"
+          HOME="$LAUNCH_HOME" layouts/osx-arm64/Denice.app/Contents/MacOS/denice version
       - name: Stage, checksum, and cosign the mac layouts
         if: github.event_name == 'push'
         run: |
@@ -470,7 +475,9 @@ jobs:
           # assemblies. The .NET runtime's own files keep Microsoft's signatures.
           foreach ($rid in 'win-x64','win-arm64') {
             $layout = "layouts\$rid"; $version = Join-Path $layout "versions\$env:DENICE_ASSET_VERSION"
-            $files = @((Join-Path $layout 'denice.exe'), (Join-Path $version 'denice.exe'),
+            # The carried loader is copied from the signed root one afterwards (below): two separate signatures
+            # differ (each has its own timestamp), and ci-stage-layout.sh requires the two to be equal.
+            $files = @((Join-Path $layout 'denice.exe'),
                        (Join-Path $version "denice-v$env:DENICE_ASSET_VERSION-$rid.exe")) +
                      @(Get-ChildItem -Path $version -Filter 'Denice.*.dll' | ForEach-Object FullName)
             foreach ($bin in $files) {
@@ -482,6 +489,7 @@ jobs:
                 if ($LASTEXITCODE -ne 0) { Write-Error "signtool sign failed for $bin on both timestamp servers." }
               }
             }
+            Copy-Item -Force (Join-Path $layout 'denice.exe') (Join-Path $version 'denice.exe')
           }
       - name: Rebuild the installers from the signed layouts, then sign the installers (push only)
         if: github.event_name == 'push'
