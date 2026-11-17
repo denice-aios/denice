@@ -35,6 +35,13 @@ diff -rq "$LAYOUT/$LOADER" "$VERSION_DIR/$LOADER" > /dev/null \
 
 name="denice-v${DENICE_ASSET_VERSION}-$RID"
 rm -f "$DIST/$name.zip"
-( cd "$LAYOUT" && zip -q -r -X -y "$DIST/$name.zip" "$LOADER" versions )
+# Info-ZIP keeps the executable bits and links macOS and Linux need; Git Bash on the Windows runner has no `zip`, so
+# Windows (no executable bits to keep) uses the runner's 7-Zip.
+if command -v zip > /dev/null 2>&1; then
+  ( cd "$LAYOUT" && zip -q -r -X -y "$DIST/$name.zip" "$LOADER" versions )
+else
+  case "$RID" in win-*) ;; *) echo "ci-stage-layout: zip is required for $RID" >&2; exit 1 ;; esac
+  ( cd "$LAYOUT" && 7z a -tzip -r -bso0 -bsp0 "$DIST/$name.zip" "$LOADER" versions )
+fi
 ( cd "$DIST" && "${SUM[@]}" "$name.zip" > "$name.zip.sha256" && "${SUM[@]}" -c "$name.zip.sha256" )
 echo "ci-stage-layout: staged $DIST/$name.zip ($(wc -l < "$VERSION_DIR/SHA256SUMS" | tr -d ' ') files checksummed and cosigned)"
