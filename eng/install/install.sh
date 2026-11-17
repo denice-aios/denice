@@ -16,8 +16,16 @@
 #          ~/.local/bin/denice -> the loader
 #          $XDG_DATA_HOME/applications/denice.desktop                the menu entry
 #
+# PATH (owner decision pkg-d4e90c3ce176 install-path), unless --no-modify-path, the way rustup does it:
+#   <data folder>/env (the versions/ folder's parent)  puts ~/.local/bin on PATH when it is not there yet
+#   one marked line that sources it, added to ~/.profile (created when missing); to ~/.bash_profile, ~/.bash_login
+#          and ~/.bashrc when they exist; and when zsh is here, to .zshenv ($ZDOTDIR's if it exists or ~/.zshenv
+#          does not, else ~/.zshenv)
+#   $XDG_CONFIG_HOME/fish/conf.d/denice.fish  (default ~/.config)   when fish is here
+#
 # Denice updates itself afterwards: it downloads new versions into versions/ and can replace the loader.
-# --uninstall removes exactly the items above (the whole versions/ folder) and never settings.yaml.
+# --uninstall removes exactly the items above (the whole versions/ folder, the marked profile lines and the line
+# break or file added with them) and never settings.yaml.
 #
 # Test-only environment overrides (not for users):
 #   DENICE_INSTALL_OS=osx|linux   pretend to run on that OS (lets the Linux branch be tested on a Mac)
@@ -34,7 +42,7 @@ fail() { printf 'denice-install: error: %s\n' "$*" >&2; exit 1; }
 
 usage() {
     cat <<'EOF'
-Usage: install.sh [--version <version>] [--from <zip>] [--no-run]
+Usage: install.sh [--version <version>] [--from <zip>] [--no-run] [--no-modify-path]
        install.sh --uninstall
        install.sh --help
 
@@ -45,6 +53,7 @@ Installs Denice for the current user (no administrator rights needed).
   --from <zip>         install from a downloaded release zip (denice-v<version>-<rid>.zip); a .zip.sha256 file
                        beside it is checked when present
   --no-run             do not run `denice version` at the end
+  --no-modify-path     do not add ~/.local/bin to PATH in your shell profiles (zsh, bash, fish, ~/.profile)
   --uninstall          remove what this script installs; settings.yaml is kept
   --help               show this help
 
@@ -60,6 +69,7 @@ action=install
 want_version=""
 from_zip=""
 run_after=yes
+modify_path=yes
 while [ $# -gt 0 ]; do
     case "$1" in
         --version) [ $# -ge 2 ] || fail "--version needs a version"; want_version="$2"; shift 2 ;;
@@ -67,6 +77,7 @@ while [ $# -gt 0 ]; do
         --from) [ $# -ge 2 ] || fail "--from needs a zip file"; from_zip="$2"; shift 2 ;;
         --from=*) from_zip="${1#--from=}"; shift ;;
         --no-run) run_after=no; shift ;;
+        --no-modify-path) modify_path=no; shift ;;
         --uninstall) action=uninstall; shift ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; fail "unknown option: $1" ;;
@@ -97,7 +108,8 @@ if [ "$os" = osx ] && [ "$arch" = x64 ] && [ "$(sysctl -n hw.optional.arm64 2>/d
 fi
 rid="$os-$arch"
 
-bin_dir="$HOME/.local/bin"
+bin_rel=".local/bin"
+bin_dir="$HOME/$bin_rel"
 link="$bin_dir/denice"
 if [ "$os" = osx ]; then
     loader_name="Denice.app"
@@ -115,6 +127,86 @@ loader="$loader_dir/$loader_name"
 versions_dir="$data_dir/versions"
 if [ "$os" = osx ]; then program="$loader/Contents/MacOS/denice"; else program="$loader"; fi
 
+# ---------------------------------------------------------------- PATH in shell profiles (pkg-d4e90c3ce176 install-path)
+# Every profile line this script adds ends with $path_marker; uninstall removes exactly the lines carrying it. The two
+# longer forms also record what else was added with the line, so uninstall can take that away too.
+path_marker="# added by the Denice installer"
+marker_new_file="$path_marker, with this file"
+marker_after_break="$path_marker, with the line break before it"
+env_file="$data_dir/env"
+fish_file="${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/denice.fish"
+zdotdir="${ZDOTDIR:-}"
+owned_file_header="# Puts ~/$bin_rel on PATH for 'denice'. $path_marker; install.sh --uninstall removes this file."
+
+# Escapes \ " ` $ for use inside a double-quoted shell string.
+sh_quote() { printf '%s' "$1" | sed 's/[\\"`$]/\\&/g'; }
+case "$env_file" in
+    "$HOME"/*) env_ref="\$HOME/$(sh_quote "${env_file#"$HOME"/}")" ;;
+    *) env_ref="$(sh_quote "$env_file")" ;;
+esac
+source_line=". \"$env_ref\""
+
+# True when <shell> is the login shell or is installed (rustup's test).
+has_shell() {
+    case "${SHELL:-}" in *"$1"*) return 0 ;; esac
+    command -v "$1" >/dev/null 2>&1
+}
+
+# each_profile <command> <all>: runs <command> <file> for every profile that gets the line, chosen as rustup does.
+# With <all>=all it visits every file that could hold one (uninstall), whatever exists or is installed now.
+each_profile() {
+    "$1" "$HOME/.profile"
+    for rc in .bash_profile .bash_login .bashrc; do
+        if [ "$2" = all ] || [ -f "$HOME/$rc" ]; then "$1" "$HOME/$rc"; fi
+    done
+    if [ "$2" = all ]; then
+        "$1" "$HOME/.zshenv"
+        if [ -n "$zdotdir" ]; then "$1" "$zdotdir/.zshenv"; fi
+    elif has_shell zsh; then
+        # zsh reads $ZDOTDIR/.zshenv when ZDOTDIR is set, else ~/.zshenv; an existing file wins.
+        if [ -n "$zdotdir" ] && { [ -f "$zdotdir/.zshenv" ] || [ ! -f "$HOME/.zshenv" ]; }; then
+            "$1" "$zdotdir/.zshenv"
+        else
+            "$1" "$HOME/.zshenv"
+        fi
+    fi
+}
+
+# Appends the marked source line to <profile> once.
+add_path_line() {
+    if [ -f "$1" ] && grep -qF "$path_marker" "$1"; then return 0; fi
+    if [ ! -e "$1" ]; then
+        mkdir -p "$(dirname "$1")" && printf '%s %s\n' "$source_line" "$marker_new_file" > "$1"
+    elif [ -n "$(tail -c 1 "$1")" ]; then
+        printf '\n%s %s\n' "$source_line" "$marker_after_break" >> "$1"
+    else
+        printf '%s %s\n' "$source_line" "$path_marker" >> "$1"
+    fi || { say "could not add $bin_dir to PATH in $1"; return 0; }
+    say "added $bin_dir to PATH in $1"
+}
+
+# Removes the marked lines from <profile>, and the line break or the whole file added with them; every other byte of
+# the file stays as it is. A line break added before the line stays when the user wrote more after it.
+remove_path_line() {
+    [ -f "$1" ] && grep -qF "$path_marker" "$1" || return 0
+    if [ -z "$(tail -c 1 "$1")" ]; then ends_in_break=yes; else ends_in_break=no; fi
+    DENICE_M="$path_marker" DENICE_B="$marker_after_break" DENICE_N="$marker_new_file" DENICE_E="$ends_in_break" awk '
+        BEGIN { m = ENVIRON["DENICE_M"]; b = ENVIRON["DENICE_B"]; n = ENVIRON["DENICE_N"] }
+        index($0, n) { created = 1 }
+        index($0, b) { drop_break = 1; next }
+        index($0, m) { next }
+        { printf "%s%s", sep, $0; sep = "\n"; drop_break = 0; last = NR }
+        END {
+            if (sep != "" && !drop_break && (last < NR || ENVIRON["DENICE_E"] == "yes")) printf "\n"
+            if (created && sep == "") exit 3
+        }' "$1" > "$1.denice-tmp" && status=0 || status=$?
+    case "$status" in
+        0) cat "$1.denice-tmp" > "$1"; rm -f "$1.denice-tmp"; say "removed the Denice PATH line from $1" ;;
+        3) rm -f "$1.denice-tmp" "$1"; say "removed $1 (the install script created it)" ;;
+        *) rm -f "$1.denice-tmp"; say "could not remove the Denice PATH line from $1" ;;
+    esac
+}
+
 # Removes the link only when it is a symbolic link (a file the user put there is left alone).
 remove_link() {
     if [ -L "$link" ]; then
@@ -131,6 +223,9 @@ if [ "$action" = uninstall ]; then
         if [ -e "$item" ] || [ -L "$item" ]; then rm -rf "$item"; say "removed $item"; fi
     done
     remove_link
+    each_profile remove_path_line all
+    if [ -f "$fish_file" ] && grep -qF "$path_marker" "$fish_file"; then rm -f "$fish_file"; say "removed $fish_file"; fi
+    if [ -f "$env_file" ]; then rm -f "$env_file"; say "removed $env_file"; fi
     if [ -n "$desktop_file" ] && [ -f "$desktop_file" ]; then rm -f "$desktop_file"; say "removed $desktop_file"; fi
     # Linux: the install folder is this script's own; it goes when nothing else (such as settings) is in it.
     if [ "$os" = linux ] && [ -d "$loader_dir" ]; then rmdir "$loader_dir" 2>/dev/null || say "kept $loader_dir: it holds other files"; fi
@@ -252,9 +347,43 @@ else
     ln -sfn "$program" "$link"
     say "linked $link -> $program"
 fi
+
+# ---------------------------------------------------------------- PATH (pkg-d4e90c3ce176 install-path)
+if [ "$modify_path" = yes ]; then
+    # The env file only adds ~/.local/bin when it is missing, so sourcing it twice changes nothing.
+    cat > "$env_file" <<EOF
+#!/bin/sh
+$owned_file_header
+case ":\${PATH}:" in
+    *:"\$HOME/$bin_rel":*) ;;
+    *) export PATH="\$HOME/$bin_rel:\$PATH" ;;
+esac
+EOF
+    say "wrote $env_file"
+    each_profile add_path_line some
+    if has_shell fish; then
+        if [ -f "$fish_file" ] && ! grep -qF "$path_marker" "$fish_file"; then
+            say "left $fish_file alone: it is not a file this script made"
+        else
+            [ -f "$fish_file" ] && fish_note="" || fish_note="added $bin_dir to PATH in $fish_file"
+            mkdir -p "$(dirname "$fish_file")"
+            cat > "$fish_file" <<EOF
+$owned_file_header
+if not contains -- "\$HOME/$bin_rel" \$PATH
+    set -gx PATH "\$HOME/$bin_rel" \$PATH
+end
+EOF
+            [ -z "$fish_note" ] || say "$fish_note"
+        fi
+    fi
+fi
 case ":${PATH:-}:" in
     *":$bin_dir:"*) ;;
-    *) say "hint: $bin_dir is not on your PATH; add it (export PATH=\"\$HOME/.local/bin:\$PATH\") to type 'denice'" ;;
+    *) if [ "$modify_path" = yes ]; then
+           say "a new terminal finds 'denice'; to use it in this one, run: . \"$env_ref\""
+       else
+           say "hint: $bin_dir is not on your PATH (--no-modify-path); add it (export PATH=\"\$HOME/$bin_rel:\$PATH\") to type 'denice'"
+       fi ;;
 esac
 
 # ---------------------------------------------------------------- menu entry (Linux)

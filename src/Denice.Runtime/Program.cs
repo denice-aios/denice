@@ -18,7 +18,8 @@ namespace Denice.Runtime;
 /// factory in <c>Denice.Engine</c>, reached through Engine's <c>InternalsVisibleTo</c> grant to <c>denice</c> and
 /// the only Engine internal this assembly may reach (DN0041) — and threads it into every
 /// handler, so console, environment, version, and clock access all run through the owned services. Its commands,
-/// <c>version</c> and <c>settings</c> (with <c>set</c> and <c>reset</c>), are exposed through System.CommandLine.
+/// <c>version</c> and <c>settings</c> (with <c>set</c>, <c>reset</c>, <c>history</c>, and <c>restore</c>), are exposed
+/// through System.CommandLine.
 /// </summary>
 internal sealed class Program
 {
@@ -115,10 +116,13 @@ internal sealed class Program
     }
 
     /// <summary>
-    /// Builds the <c>settings</c> command and its two subcommands, over the per-user <c>settings.yaml</c> Denice owns:
+    /// Builds the <c>settings</c> command and its subcommands, over the per-user <c>settings.yaml</c> Denice owns:
     /// <c>denice settings</c> lists every setting with its current value and default; <c>denice settings set
     /// &lt;name&gt; &lt;value&gt;</c> changes one with validation; <c>denice settings reset &lt;name&gt;</c> returns it
-    /// to the default. A refused name, value, or settings file prints the reason on standard error and exits 1.
+    /// to the default; <c>denice settings history</c> lists the earlier settings that loaded, and <c>denice settings
+    /// restore &lt;number&gt;</c> brings one back (Tim, pkg-d4e90c3ce176 broken-settings: "we can revert back to the last
+    /// setting that worked and was still close to user preferene."). A refused name, value, version, or settings folder
+    /// prints the reason on standard error and exits 1.
     /// </summary>
     /// <param name="services">The composition container the settings file and console are reached through.</param>
     /// <returns>The configured <c>settings</c> command.</returns>
@@ -154,8 +158,29 @@ internal sealed class Program
             services.Console.WriteLine($"{state.Name}: {state.Value} (the default; saved to {settings.FilePath})");
         }));
 
+        var history = new Command("history", "List the earlier settings that loaded, newest first, to restore one.");
+        history.SetAction(_ => RunSettings(services, settings =>
+        {
+            services.Console.WriteLine($"Settings history for {settings.FilePath}, newest first (restore one with: denice settings restore <number>):");
+            foreach (SettingsVersion version in settings.History())
+            {
+                services.Console.WriteLine($"{version.Number}  {version.SavedDescription}  {version.SettingsDescription}");
+            }
+        }));
+
+        var restoreNumber = new Argument<int>("number") { Description = "The version to restore, as 'denice settings history' lists it; 0 is every default." };
+        var restore = new Command("restore", "Make an earlier version of the settings the current settings.");
+        restore.Arguments.Add(restoreNumber);
+        restore.SetAction(parse => RunSettings(services, settings =>
+        {
+            SettingsVersion version = settings.Restore(parse.GetValue(restoreNumber));
+            services.Console.WriteLine($"Restored settings {version.Description} to {settings.FilePath}");
+        }));
+
         command.Subcommands.Add(set);
         command.Subcommands.Add(reset);
+        command.Subcommands.Add(history);
+        command.Subcommands.Add(restore);
         return command;
     }
 
@@ -205,7 +230,7 @@ internal sealed class Program
     }
 
     // Runs one settings action over the user's settings file. A refusal the user can fix (an unknown name, an invalid
-    // value, an invalid settings file, an unresolvable or unwritable folder) is printed on standard error with exit
+    // value, a version that does not exist, an unresolvable or unwritable folder) is printed on standard error with exit
     // code 1 instead of a stack trace.
     private static int RunSettings(ISystemServices services, Action<SettingsFile> action)
     {
@@ -214,8 +239,8 @@ internal sealed class Program
             action(new SettingsFile(services));
             return 0;
         }
-        catch (Exception exception) when (exception is InvalidSettingException or InvalidDataException or InvalidOperationException
-            or IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is InvalidSettingException or InvalidOperationException or IOException
+            or UnauthorizedAccessException)
         {
             services.Console.ErrorWriteLine(exception.Message);
             return 1;

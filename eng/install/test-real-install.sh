@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Installs a REAL built layout with eng/install/install.sh (macOS / Linux) under a temporary HOME, runs Denice through
-# the ~/.local/bin/denice link the script creates, then uninstalls and checks nothing it installed remains
-# (rust/REQUIREMENTS.md I3 I4 I5 I6). Updates are switched off through Denice's own Settings, so nothing reaches the
+# the ~/.local/bin/denice link the script creates, checks that a new login shell finds `denice` on PATH through the
+# shell profiles the script changed (pkg-d4e90c3ce176 install-path), then uninstalls and checks nothing it installed
+# remains (rust/REQUIREMENTS.md I3 I4 I5 I6). Updates are switched off through Denice's own Settings, so nothing reaches the
 # network.
 # Usage: eng/install/test-real-install.sh <rid> <layout-dir> <work-dir>
 set -euo pipefail
@@ -30,6 +31,15 @@ out="$("$HOME/.local/bin/denice" version)" || fail "the installed Denice did not
 case "$out" in *"SemVer: $VERSION"*) ;; *) fail "expected $VERSION, got: $out" ;; esac
 echo "real-install: ok: installed $VERSION and ran it through ~/.local/bin/denice"
 
+# A new login shell, given only HOME and a minimal PATH, finds denice through the profile and runs it.
+for login in sh bash zsh; do
+  command -v "$login" >/dev/null || { echo "real-install: skip $login -l: not installed"; continue; }
+  out="$(env -i HOME="$HOME" PATH="/usr/bin:/bin:/usr/sbin:/sbin" "$login" -l -c 'command -v denice && denice version' < /dev/null)" \
+    || fail "a new '$login -l' shell did not find and run denice: $out"
+  case "$out" in "$HOME/.local/bin/denice"*"SemVer: $VERSION"*) ;; *) fail "'$login -l' found the wrong denice: $out" ;; esac
+  echo "real-install: ok: a new '$login -l' shell runs denice from PATH"
+done
+
 sh "$REPO_ROOT/eng/install/install.sh" --uninstall
 [ ! -e "$HOME/.local/bin/denice" ] || fail "the link was left behind"
 case "$RID" in
@@ -38,4 +48,6 @@ case "$RID" in
   *)     [ ! -e "$HOME/.local/share/denice" ] || fail "the install folder was left behind" ;;
 esac
 [ -f "$SETTINGS/settings.yaml" ] || fail "uninstall removed the user's settings"
+[ ! -e "$HOME/.profile" ] || fail "uninstall left the ~/.profile the install created"
+! grep -sqF "added by the Denice installer" "$HOME/.zshenv" "$HOME/.bashrc" || fail "uninstall left a PATH line in a profile"
 echo "real-install: ok: uninstalled; settings kept"

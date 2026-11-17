@@ -154,6 +154,7 @@ works. Options go after `sh -s --`:
 ```sh
 curl -fsSL https://raw.githubusercontent.com/denice-aios/denice/dev/eng/install/install.sh | sh -s -- --version <version>
 sh install.sh --from denice-v<version>-<rid>.zip     # install a zip you already downloaded (offline)
+sh install.sh --no-modify-path                       # leave your shell profiles alone
 ```
 
 Where everything goes:
@@ -164,9 +165,22 @@ Where everything goes:
 | Versions | `~/Library/Application Support/Denice/versions/<version>/` | `~/.local/share/denice/versions/<version>/` |
 | Terminal command | `~/.local/bin/denice` → `~/Applications/Denice.app/Contents/MacOS/denice` | `~/.local/bin/denice` → the loader |
 | Menu entry | — | `~/.local/share/applications/denice.desktop` |
+| PATH setup | `~/Library/Application Support/Denice/env` | `~/.local/share/denice/env` |
 
-On Linux `~/.local/share` is `$XDG_DATA_HOME` when that is set. If `~/.local/bin` is not on your `PATH`, the script
-says so; add it to type `denice` from anywhere.
+On Linux `~/.local/share` is `$XDG_DATA_HOME` when that is set.
+
+So you can type `denice` in any new terminal, the script puts `~/.local/bin` on your `PATH` the way rustup does. The
+`env` file in the table adds `~/.local/bin` to `PATH` only when it is missing, and the script adds one line that
+sources it, ending in `# added by the Denice installer`, to:
+
+- `~/.profile` (created when missing), and to `~/.bash_profile`, `~/.bash_login` and `~/.bashrc` when they exist;
+- zsh's `.zshenv` when zsh is installed: `$ZDOTDIR/.zshenv` when `ZDOTDIR` is set (unless only `~/.zshenv` exists),
+  otherwise `~/.zshenv`;
+- for fish, when fish is installed, it writes `~/.config/fish/conf.d/denice.fish` (`$XDG_CONFIG_HOME` when set).
+
+It names each file it changed. Open a new terminal to pick it up, or run the `. "…/env"` command it prints in the
+current one. Installing again adds nothing twice. With `--no-modify-path` it changes no profile and only says when
+`~/.local/bin` is not on your `PATH`.
 
 macOS stays on this script until Denice is notarized: files curl downloads carry no quarantine flag, so the
 self-signed build runs without the Gatekeeper steps above (the script also clears the flag from a zip you downloaded
@@ -178,17 +192,21 @@ Uninstall:
 curl -fsSL https://raw.githubusercontent.com/denice-aios/denice/dev/eng/install/install.sh | sh -s -- --uninstall
 ```
 
-This removes the loader (`Denice.app` on macOS), the whole `versions` folder, the `~/.local/bin/denice` link and the
-Linux menu entry. It keeps your settings (`settings.yaml`) and Denice's other data.
+This removes the loader (`Denice.app` on macOS), the whole `versions` folder, the `~/.local/bin/denice` link, the
+Linux menu entry, the `env` file, the fish file and the marked line in each profile (with the line break or the file
+the install added along with it); the rest of each profile stays exactly as it was. It keeps your settings
+(`settings.yaml`) and Denice's other data.
 
 ### Windows
 
 Download `denice-setup-v<version>-<rid>.exe` (`win-x64` or `win-arm64`) from the release page and run it. It asks for
 no administrator rights and installs into `%LOCALAPPDATA%\Programs\Denice` (`denice.exe` and
-`versions\<version>\`), adds a **Denice** Start Menu shortcut and an entry in **Settings → Apps → Installed apps**.
+`versions\<version>\`), adds a **Denice** Start Menu shortcut and an entry in **Settings → Apps → Installed apps**,
+and adds that folder to your user `PATH` (once), so a new terminal runs `denice`.
 Running a newer setup over an existing install keeps the versions Denice downloaded itself.
 
 Uninstall from **Installed apps**: it removes `%LOCALAPPDATA%\Programs\Denice` entirely, including downloaded
-versions. Your settings in `%LOCALAPPDATA%\Denice` stay.
+versions, and takes that folder off your user `PATH`, leaving the rest of it unchanged. Your settings in
+`%LOCALAPPDATA%\Denice` stay.
 
 The setup file is not yet signed with a recognised certificate, so SmartScreen may warn as described above.

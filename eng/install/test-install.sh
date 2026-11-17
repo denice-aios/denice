@@ -28,6 +28,17 @@ not() { ! "$@"; }
 quiet() { "$@" >/dev/null 2>&1; }
 is_link_to() { [ -L "$1" ] && [ "$(readlink "$1")" = "$2" ]; }
 contains() { grep -qF -- "$2" "$1"; }
+count_is() { [ "$(grep -cF -- "$2" "$1")" = "$3" ]; }
+TEST_PATH="/usr/bin:/bin:/usr/sbin:/sbin"
+MARK="# added by the Denice installer"
+# finds <home> [VAR=value...] <shell> <options>: a fresh shell given only that HOME (and VARs) and a minimal PATH
+# resolves `denice` to the ~/.local/bin link, through the profiles the install changed.
+finds() {
+    local home="$1"; shift
+    [ "$(env -i HOME="$home" PATH="$TEST_PATH" "$@" 'command -v denice' 2>/dev/null < /dev/null | tail -n 1)" = "$home/.local/bin/denice" ]
+}
+HAVE_ZSH=no; PATH="$TEST_PATH" command -v zsh >/dev/null 2>&1 && HAVE_ZSH=yes
+HAVE_FISH=no; command -v fish >/dev/null 2>&1 && HAVE_FISH=yes
 
 # make_zip <os> <version> <out-dir>: a fake release zip and its .zip.sha256, in the CI layout.
 make_zip() {
@@ -59,10 +70,13 @@ make_zip() {
 
 # The environment install.sh sees: a minimal PATH plus the test-only overrides that are set.
 envs() {
-    ENVS=(PATH="/usr/bin:/bin:/usr/sbin:/sbin")
+    ENVS=(PATH="$TEST_PATH")
     [ -n "${XDG:-}" ] && ENVS+=(XDG_DATA_HOME="$XDG")
     [ -n "${TEST_OS:-}" ] && ENVS+=(DENICE_INSTALL_OS="$TEST_OS")
     [ -n "${API:-}" ] && ENVS+=(DENICE_INSTALL_API_URL="$API")
+    [ -n "${LOGIN_SHELL:-}" ] && ENVS+=(SHELL="$LOGIN_SHELL")
+    [ -n "${ZDOT:-}" ] && ENVS+=(ZDOTDIR="$ZDOT")
+    [ -n "${XDGC:-}" ] && ENVS+=(XDG_CONFIG_HOME="$XDGC")
     return 0
 }
 
@@ -109,7 +123,8 @@ test_osx() {
     check "no Denice.app.ver / .old left" not test -e "$APP.ver" -o -e "$APP.old"
     check "no .partial left" not test -e "$VERS/$V1.partial"
     check "no desktop entry on macOS" not test -e "$H/.local/share/applications/denice.desktop"
-    check "PATH hint printed (~/.local/bin not on PATH)" contains <(echo "$out") "is not on your PATH"
+    check "says it added ~/.local/bin to PATH in ~/.profile" contains <(echo "$out") "added $H/.local/bin to PATH in $H/.profile"
+    check "says a new terminal finds denice" contains <(echo "$out") "a new terminal finds 'denice'"
     check "temp folder cleaned up" test -z "$(ls -A "$H/tmp")"
 
     touch "$VERS/$V1/.started"
@@ -141,6 +156,8 @@ test_osx() {
     check "uninstall keeps other files in ~/.local/bin" test -f "$H/.local/bin/other-tool"
     check "uninstall keeps ~/Applications" test -d "$H/Applications"
     check "uninstall says settings are kept" contains <(echo "$out") "kept Denice's settings"
+    check "uninstall removes the ~/.profile the install created" not test -e "$H/.profile"
+    check "uninstall removes the env file" not test -e "$H/Library/Application Support/Denice/env"
     check "a second uninstall is harmless" quiet run_install "$shell" "$H" --uninstall
 
     local B="$WORK/home-osx-bad-$(basename "$shell")" badzip="$WORK/bad/denice-v$V1-osx-$ARCH.zip"
@@ -182,6 +199,7 @@ test_linux() {
         check "desktop entry: Exec is the absolute loader path" contains "$DESK" "Exec=\"$LOADER\""
     fi
     [ "$xdg_mode" = set ] && check "nothing written to ~/.local/share when XDG_DATA_HOME is set" not test -e "$H/.local/share"
+    check "a login shell finds denice through ~/.profile and the env file in the install folder" finds "$H" /bin/sh -l -c
     check "no .ver / .old left" not test -e "$LOADER.ver" -o -e "$LOADER.old"
 
     touch "$VERS/$V1/.started"
@@ -209,6 +227,104 @@ test_linux() {
     check "bad checksum installs nothing" test "$(tree_of "$B")" = "."
     check "a macOS zip is refused on Linux" not quiet run_install "$shell" "$B" --from "$ZIPS/denice-v$V1-osx-$ARCH.zip" --no-run
     unset XDG
+}
+
+# ---------------------------------------------------------------- PATH in shell profiles (pkg-d4e90c3ce176 install-path)
+test_profiles() {
+    local shell="$1" os="$2" tag="$2-$(basename "$1")" out f
+    local H="$WORK/home-path-$tag" O="$WORK/orig-path-$tag" zip="$ZIPS/denice-v$V1-$2-$ARCH.zip"
+    local ENV_REF ENV_FILE FISH="$H/.config/fish/conf.d/denice.fish"
+    unset API XDG ZDOT XDGC LOGIN_SHELL TEST_OS
+    if [ "$os" = osx ]; then ENV_REF='$HOME/Library/Application Support/Denice/env'; else ENV_REF='$HOME/.local/share/denice/env'; fi
+    ENV_FILE="$H/${ENV_REF#\$HOME/}"
+    [ "$os" = osx ] && [ "$(uname -s)" = Darwin ] || TEST_OS="$os"
+    echo "== PATH in shell profiles, $os branch under $shell (HOME=$H; zsh here: $HAVE_ZSH, fish here: $HAVE_FISH)"
+    mkdir -p "$H" "$O"
+    printf 'export USER_MARK=1\n' > "$H/.profile"
+    printf "alias ll='ls -l'" > "$H/.bashrc"          # no final line break
+    printf '# my zshenv\n\n' > "$H/.zshenv"
+    cp -p "$H/.profile" "$H/.bashrc" "$H/.zshenv" "$O/"
+    LOGIN_SHELL=/opt/fish/bin/fish                    # the fish setup runs whether or not fish is installed here
+    out="$(run_install "$shell" "$H" --from "$zip" --no-run)"
+    check "env file written in the Denice data folder" test -f "$ENV_FILE"
+    check "env file adds ~/.local/bin only when it is missing" contains "$ENV_FILE" '*:"$HOME/.local/bin":*) ;;'
+    check "~/.profile: user's content kept, then the line" test "$(cat "$H/.profile")" = "export USER_MARK=1
+. \"$ENV_REF\" $MARK"
+    check "~/.bashrc (no final line break): a line break, then the line" test "$(cat "$H/.bashrc")" = "alias ll='ls -l'
+. \"$ENV_REF\" $MARK, with the line break before it"
+    check "~/.bash_profile is not created" not test -e "$H/.bash_profile"
+    check "~/.bash_login is not created" not test -e "$H/.bash_login"
+    if [ "$HAVE_ZSH" = yes ]; then check "~/.zshenv gets the line (zsh is here)" count_is "$H/.zshenv" "$MARK" 1; fi
+    check "fish: conf.d/denice.fish adds ~/.local/bin when it is missing" contains "$FISH" 'if not contains -- "$HOME/.local/bin" $PATH'
+    check "says it changed ~/.profile" contains <(echo "$out") "added $H/.local/bin to PATH in $H/.profile"
+    check "says it changed ~/.bashrc" contains <(echo "$out") "added $H/.local/bin to PATH in $H/.bashrc"
+    check "says it added the fish file" contains <(echo "$out") "added $H/.local/bin to PATH in $FISH"
+    check "says a new terminal picks it up" contains <(echo "$out") "a new terminal finds 'denice'"
+
+    for f in .profile .bashrc .zshenv; do cp -p "$H/$f" "$O/$f.once"; done
+    cp -p "$FISH" "$O/fish.once"
+    out="$(run_install "$shell" "$H" --from "$zip" --no-run)"
+    for f in .profile .bashrc .zshenv; do check "re-install leaves $f as it was" cmp -s "$H/$f" "$O/$f.once"; done
+    check "re-install leaves the fish file as it was" cmp -s "$FISH" "$O/fish.once"
+    check "re-install reports no profile change" not contains <(echo "$out") "to PATH in"
+
+    check "sh -l -c finds denice" finds "$H" /bin/sh -l -c
+    [ -x /bin/dash ] && check "dash -l -c finds denice" finds "$H" /bin/dash -l -c
+    check "bash -l -c finds denice" finds "$H" bash -l -c
+    check "bash -i -c finds denice (~/.bashrc)" finds "$H" bash -i -c
+    if [ "$HAVE_ZSH" = yes ]; then
+        check "zsh -c finds denice (~/.zshenv)" finds "$H" zsh -c
+        check "zsh -i -c finds denice" finds "$H" zsh -i -c
+        check "zsh -l -c finds denice" finds "$H" zsh -l -c
+    else
+        echo "  skip zsh shells: zsh is not installed here"
+    fi
+    if [ "$HAVE_FISH" = yes ]; then check "fish -c finds denice" finds "$H" "$(command -v fish)" -c
+    else echo "  skip fish -c: fish is not installed here (the fish file's content is checked above)"; fi
+    check "sourcing the env file twice puts ~/.local/bin on PATH once" test "$(env -i HOME="$H" PATH="$TEST_PATH" /bin/sh -c \
+        ". \"\$1\"; . \"\$1\"; echo \"\$PATH\"" sh "$ENV_FILE" | tr ':' '\n' | grep -cxF "$H/.local/bin")" = 1
+
+    out="$(run_install "$shell" "$H" --uninstall)"
+    for f in .profile .bashrc .zshenv; do check "uninstall restores $f byte for byte" cmp -s "$H/$f" "$O/$f"; done
+    check "uninstall removes the fish file" not test -e "$FISH"
+    check "uninstall removes the env file" not test -e "$ENV_FILE"
+    check "uninstall says which profile it changed" contains <(echo "$out") "removed the Denice PATH line from $H/.bashrc"
+
+    # The user wrote more after the line: uninstall keeps the line break it added, so lines never run together.
+    run_install "$shell" "$H" --from "$zip" --no-run >/dev/null
+    printf 'export AFTER=1\n' >> "$H/.bashrc"
+    run_install "$shell" "$H" --uninstall >/dev/null
+    check "uninstall keeps what the user added after the line" test "$(cat "$H/.bashrc")" = "alias ll='ls -l'
+export AFTER=1"
+
+    local N="$WORK/home-path-nomod-$tag"
+    out="$(run_install "$shell" "$N" --from "$zip" --no-run --no-modify-path)"
+    check "--no-modify-path: no profile or fish file is written" not test -e "$N/.profile" -o -e "$N/.zshenv" -o -e "$N/.config"
+    check "--no-modify-path: no env file" not test -e "$N/${ENV_REF#\$HOME/}"
+    check "--no-modify-path: prints the PATH hint instead" contains <(echo "$out") "is not on your PATH (--no-modify-path)"
+
+    local Z="$WORK/home-path-zdot-$tag"
+    ZDOT="$Z/z dot"; LOGIN_SHELL=/bin/zsh
+    out="$(run_install "$shell" "$Z" --from "$zip" --no-run)"
+    check "ZDOTDIR: the line goes to \$ZDOTDIR/.zshenv" count_is "$ZDOT/.zshenv" "$MARK" 1
+    check "ZDOTDIR: ~/.zshenv is not created" not test -e "$Z/.zshenv"
+    [ "$HAVE_ZSH" = yes ] && check "ZDOTDIR: zsh -c finds denice" finds "$Z" ZDOTDIR="$ZDOT" zsh -c
+    run_install "$shell" "$Z" --uninstall >/dev/null
+    check "ZDOTDIR: uninstall removes the \$ZDOTDIR/.zshenv it created" not test -e "$ZDOT/.zshenv"
+    Z="$WORK/home-path-zdot-home-$tag"; ZDOT="$Z/zdot"
+    mkdir -p "$Z"; printf 'ZDOTDIR=~/zdot\n' > "$Z/.zshenv"
+    run_install "$shell" "$Z" --from "$zip" --no-run >/dev/null
+    check "ZDOTDIR: an existing ~/.zshenv wins over a missing \$ZDOTDIR/.zshenv (as rustup)" count_is "$Z/.zshenv" "$MARK" 1
+    unset ZDOT
+
+    local C="$WORK/home-path-xdgc-$tag"
+    XDGC="$C/my config"; LOGIN_SHELL=/opt/fish/bin/fish
+    run_install "$shell" "$C" --from "$zip" --no-run >/dev/null
+    check "XDG_CONFIG_HOME: the fish file goes to \$XDG_CONFIG_HOME/fish/conf.d" test -f "$XDGC/fish/conf.d/denice.fish"
+    check "XDG_CONFIG_HOME: nothing in ~/.config" not test -e "$C/.config"
+    run_install "$shell" "$C" --uninstall >/dev/null
+    check "XDG_CONFIG_HOME: uninstall removes the fish file" not test -e "$XDGC/fish/conf.d/denice.fish"
+    unset XDGC LOGIN_SHELL TEST_OS
 }
 
 # ---------------------------------------------------------------- release lookup, against a file:// release list
@@ -263,6 +379,8 @@ for shell in "${SHELLS[@]}"; do
     test_linux "$shell" unset
     test_linux "$shell" set
     test_lookup "$shell"
+    test_profiles "$shell" osx
+    test_profiles "$shell" linux
 done
 
 echo "== $passed checks passed"
