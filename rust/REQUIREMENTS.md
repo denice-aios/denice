@@ -63,8 +63,8 @@ Sources:
 ## Installation
 | ID | Requirement | Source | Status |
 |---|---|---|---|
-| I1 | Per-user install; no administrator rights, no service | P-install | open |
-| I2 | Windows: a per-user Inno Setup installer (no admin prompt) installs into `%LOCALAPPDATA%\Programs\Denice\`, adds the Start Menu shortcut to `denice.exe` and an Installed apps entry with uninstall, then leaves updating to Denice | P-install, T16, P-os | open |
+| I1 | Per-user install; no administrator rights, no service | P-install | done 3af9ec3 CI run 44006707671: the Windows setup installed per-user with no admin prompt (PrivilegesRequired=lowest); install.sh writes only under HOME |
+| I2 | Windows: a per-user Inno Setup installer (no admin prompt) installs into `%LOCALAPPDATA%\Programs\Denice\`, adds the Start Menu shortcut to `denice.exe` and an Installed apps entry with uninstall, then leaves updating to Denice | P-install, T16, P-os | done 3af9ec3 CI run 44006707671: denice-setup-v<version>-win-x64.exe installed silently as the user into %LOCALAPPDATA%\Programs\Denice, Start Menu Denice.lnk present, denice version ran, uninstall left nothing |
 | I3 | macOS: `Denice.app` (only the loader) in `~/Applications/`; the versions in `~/Library/Application Support/Denice/versions/`; the loader swap replaces the whole app in Tim's order; installed by the install script now, a notarized drag-to-Applications DMG once notarized | P-install, P-build macos-bundle, P-os | open |
 | I4 | Linux: the release tarball plus the shared install script installs into `~/.local/share/denice/`, links `~/.local/bin/denice`, adds a menu entry in `~/.local/share/applications`, and uninstalls with the script | P-install, P-os | open |
 | I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | open |
