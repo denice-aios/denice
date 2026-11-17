@@ -89,9 +89,14 @@ public sealed class SettingsFile
         return State(setting, set);
     }
 
-    // The per-user Denice data folder: the platform says where it is on this OS (DN0009 keeps the OS knowledge in the
-    // platform layer), and the base it names is read through the owned environment.
-    private static string ResolveFolder(ISystemServices services)
+    /// <summary>
+    /// Resolves the per-user Denice data folder: the platform says where it is on this OS (DN0009 keeps the OS knowledge
+    /// in the platform layer), and the base it names is read through the owned environment.
+    /// </summary>
+    /// <param name="services">The owned services the folder and the environment come from.</param>
+    /// <returns>The per-user Denice data folder's absolute path.</returns>
+    /// <exception cref="InvalidOperationException">The folder's base cannot be resolved.</exception>
+    internal static string ResolveFolder(ISystemServices services)
     {
         UserDataFolder folder = services.Platform.FileSystem.UserDataFolder;
         if (folder.EnvironmentVariable is null)
@@ -126,25 +131,7 @@ public sealed class SettingsFile
             : new Dictionary<string, string>(StringComparer.Ordinal);
     }
 
-    // Writes the whole file to a temporary sibling in the same folder, then moves it over the file: a move within one
-    // folder replaces the file in one step, so a reader sees the old file or the new one, never half of either. The
-    // temporary file is removed if anything fails before the move.
-    private void Write(IReadOnlyDictionary<string, string> set)
-    {
-        IFileWriter writer = _services.FileSystem.GetFileWriter();
-        _services.FileSystem.GetDirectoryWriter().CreateDirectory(Path.GetDirectoryName(FilePath)!);
-        string temporary = _services.Random.TemporarySiblingPath(FilePath);
-        try
-        {
-            writer.WriteAllText(temporary, SettingsYaml.Format(set));
-            writer.Move(temporary, FilePath, overwrite: true);
-        }
-        finally
-        {
-            if (_services.FileSystem.GetFileReader().Exists(temporary))
-            {
-                writer.DeleteFile(temporary);
-            }
-        }
-    }
+    // Rewrites the whole file in one step (AtomicTextFile), so a crash never leaves half a file.
+    private void Write(IReadOnlyDictionary<string, string> set) =>
+        new AtomicTextFile(_services).Write(FilePath, SettingsYaml.Format(set));
 }

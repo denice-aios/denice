@@ -27,7 +27,6 @@ namespace Denice.Tests;
 public sealed class VersionInstallerTests
 {
     private const string Version = "0.1.200-pre-release+bbbbbbb";
-    private const int UnixExecutable = 0b111_101_101 << 16;
 
     private readonly ISystemServices services;
     private readonly string root;
@@ -254,53 +253,15 @@ public sealed class VersionInstallerTests
         noTrust.Should().Throw<ArgumentNullException>();
     }
 
-    private static Dictionary<string, string> Files() => new(StringComparer.Ordinal)
-    {
-        ["Denice.Runtime.dll"] = "runtime",
-        ["Denice.Updates.dll"] = "updates",
-        [$"denice-v{Version}-osx-arm64"] = "entry",
-        ["de/System.CommandLine.resources.dll"] = "german",
-    };
+    private static Dictionary<string, string> Files() => TestReleases.Files(Version);
 
-    private static string Sums(Dictionary<string, string> files) => string.Concat(
-        files.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair =>
-            $"{Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(pair.Value)))}  {pair.Key}\n"));
+    private static string Sums(Dictionary<string, string> files) => TestReleases.Sums(files);
 
-    private static byte[] Release(Dictionary<string, string> files) => Release(files, Sums(files));
+    private static byte[] Release(Dictionary<string, string> files) => TestReleases.Release(Version, files);
 
-    private static byte[] Release(Dictionary<string, string> files, string? sums)
-    {
-        var entries = files.ToDictionary(pair => $"versions/{Version}/{pair.Key}", pair => pair.Value, StringComparer.Ordinal);
-        if (sums is not null)
-        {
-            entries[$"versions/{Version}/SHA256SUMS"] = sums;
-            entries[$"versions/{Version}/SHA256SUMS.cosign.bundle"] = "{}";
-        }
+    private static byte[] Release(Dictionary<string, string> files, string? sums) => TestReleases.Release(Version, files, sums);
 
-        entries["denice"] = "loader";
-        return Zip(entries);
-    }
-
-    private static byte[] Zip(Dictionary<string, string> entries)
-    {
-        using var stream = new MemoryStream();
-        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
-        {
-            foreach (KeyValuePair<string, string> pair in entries)
-            {
-                ZipArchiveEntry entry = archive.CreateEntry(pair.Key);
-                if (pair.Key.Contains("denice-v", StringComparison.Ordinal))
-                {
-                    entry.ExternalAttributes = UnixExecutable;
-                }
-
-                using Stream content = entry.Open();
-                content.Write(Encoding.UTF8.GetBytes(pair.Value));
-            }
-        }
-
-        return stream.ToArray();
-    }
+    private static byte[] Zip(Dictionary<string, string> entries) => TestReleases.Zip(entries);
 
     private IDirectoryEnumerator Directories() => services.FileSystem.GetDirectoryReader();
 
