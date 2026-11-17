@@ -20,13 +20,16 @@ internal sealed record ReleaseCandidate(DeniceVersion Version, Uri Zip, long Zip
 {
     private const string AssetPrefix = "denice-v";
     private const string ChecksumSuffix = ".sha256";
+    private const string Draft = "draft";
+    private const string PreRelease = "prerelease";
 
     private static readonly IComparer<ReleaseCandidate> ByVersion =
         Comparer<ReleaseCandidate>.Create((left, right) => DeniceVersion.Order.Compare(left?.Version, right?.Version));
 
     /// <summary>
     /// Picks the highest version on the channel from GitHub's list of releases (<c>GET /repos/{owner}/{repo}/releases</c>):
-    /// drafts are skipped, the stable channel skips pre-releases, and a release without this platform's file is skipped.
+    /// drafts are skipped, the stable channel skips pre-releases, the default channel skips them once the list has any
+    /// stable release (on any platform), and a release without this platform's file is skipped.
     /// </summary>
     /// <param name="releasesJson">GitHub's JSON list of releases.</param>
     /// <param name="channel">The channel the settings choose.</param>
@@ -37,9 +40,15 @@ internal sealed record ReleaseCandidate(DeniceVersion Version, Uri Zip, long Zip
     internal static ReleaseCandidate? Highest(string releasesJson, UpdateChannel channel, string rid)
     {
         using JsonDocument document = JsonDocument.Parse(releasesJson);
-        return document.RootElement.EnumerateArray()
-            .Where(release => !IsTrue(release, "draft")
-                && (channel == UpdateChannel.PreRelease || !IsTrue(release, "prerelease")))
+        List<JsonElement> published = document.RootElement.EnumerateArray().Where(release => !IsTrue(release, Draft)).ToList();
+        bool stableOnly = channel switch
+        {
+            UpdateChannel.Stable => true,
+            UpdateChannel.PreReleaseUntilStable => published.Exists(release => !IsTrue(release, PreRelease)),
+            _ => false,
+        };
+        return published
+            .Where(release => !stableOnly || !IsTrue(release, PreRelease))
             .Select(release => FromRelease(release, rid))
             .OfType<ReleaseCandidate>()
             .Max(ByVersion);

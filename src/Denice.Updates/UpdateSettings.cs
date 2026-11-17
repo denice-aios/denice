@@ -8,15 +8,20 @@ using Denice.Abstractions.Contracts;
 namespace Denice.Updates;
 
 /// <summary>
-/// The update settings, typed, as the update scheduler reads them: <c>updates.enabled</c>, <c>updates.channel</c>, and
+/// The update settings, typed, as the update checks read them: <c>updates.enabled</c>, <c>updates.channel</c>, and
 /// <c>updates.checkIntervalHours</c> from the per-user <c>settings.yaml</c>, each falling back to its default when the
 /// file does not set it.
 /// </summary>
 /// <param name="Enabled">Whether Denice checks for updates at all (<c>updates.enabled</c>, default <c>true</c>).</param>
-/// <param name="Channel">The release channel checked (<c>updates.channel</c>, default <c>pre-release</c>).</param>
-/// <param name="CheckInterval">How long to wait between checks (<c>updates.checkIntervalHours</c>, default 6 hours).</param>
+/// <param name="Channel">The release channel checked (<c>updates.channel</c>; when nothing sets it,
+/// <see cref="UpdateChannel.PreReleaseUntilStable"/>).</param>
+/// <param name="CheckInterval">How long a running session waits between checks (<c>updates.checkIntervalHours</c>,
+/// default 6 hours).</param>
 public sealed record UpdateSettings(bool Enabled, UpdateChannel Channel, TimeSpan CheckInterval)
 {
+    /// <summary>Gets the settings when nothing sets any of them.</summary>
+    public static UpdateSettings Defaults { get; } = From(new Dictionary<string, string>(StringComparer.Ordinal));
+
     /// <summary>
     /// Reads the update settings from the per-user <c>settings.yaml</c>; a missing file means every default.
     /// </summary>
@@ -25,16 +30,22 @@ public sealed record UpdateSettings(bool Enabled, UpdateChannel Channel, TimeSpa
     /// <exception cref="System.IO.InvalidDataException">The settings file is not valid; the message names the line.</exception>
     public static UpdateSettings Read(ISystemServices services) => new SettingsFile(services).ReadUpdateSettings();
 
-    /// <summary>Builds the typed settings from one already-validated value per setting.</summary>
-    /// <param name="values">The effective value of every setting, by name.</param>
+    /// <summary>Builds the typed settings from the values the settings file sets, each already validated.</summary>
+    /// <param name="set">The value of every setting the file sets, by name; a setting it does not set has its default.</param>
     /// <returns>The typed settings.</returns>
-    internal static UpdateSettings From(IReadOnlyDictionary<string, string> values)
+    internal static UpdateSettings From(IReadOnlyDictionary<string, string> set)
     {
-        bool enabled = string.Equals(values[SettingDefinition.EnabledName], SettingDefinition.True, StringComparison.Ordinal);
-        UpdateChannel channel = string.Equals(values[SettingDefinition.ChannelName], SettingDefinition.Stable, StringComparison.Ordinal)
-            ? UpdateChannel.Stable
-            : UpdateChannel.PreRelease;
-        int hours = int.Parse(values[SettingDefinition.CheckIntervalHoursName], NumberStyles.None, CultureInfo.InvariantCulture);
+        bool enabled = string.Equals(Value(set, SettingDefinition.EnabledName), SettingDefinition.True, StringComparison.Ordinal);
+        UpdateChannel channel = set.GetValueOrDefault(SettingDefinition.ChannelName) switch
+        {
+            null => UpdateChannel.PreReleaseUntilStable,
+            SettingDefinition.Stable => UpdateChannel.Stable,
+            _ => UpdateChannel.PreRelease,
+        };
+        int hours = int.Parse(Value(set, SettingDefinition.CheckIntervalHoursName), NumberStyles.None, CultureInfo.InvariantCulture);
         return new UpdateSettings(enabled, channel, TimeSpan.FromHours(hours));
     }
+
+    private static string Value(IReadOnlyDictionary<string, string> set, string name) =>
+        set.TryGetValue(name, out string? value) ? value : SettingDefinition.Find(name)!.DefaultValue;
 }

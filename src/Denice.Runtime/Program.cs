@@ -53,11 +53,11 @@ internal sealed class Program
         RootCommand root = BuildRootCommand(services);
         ParseResult parsed = root.Parse(_args);
 
-        // The scheduled update check runs in the background, never delaying the command. A one-shot command does not wait
-        // for it: when the command ends the check stops and the next launch tries again (pkg-79dc8dd1e15d,
+        // The update check at every start runs in the background, never delaying the command. A one-shot command does not
+        // wait for it: when the command ends the check stops and the next launch tries again (pkg-79dc8dd1e15d,
         // "retry-next-launch"); `denice update` checks in the foreground instead.
         using var stop = new CancellationTokenSource();
-        Task background = IsUpdateCommand(parsed) ? Task.CompletedTask : Task.Run(() => ScheduledCheckAsync(services, stop.Token), stop.Token);
+        Task background = IsUpdateCommand(parsed) ? Task.CompletedTask : Task.Run(() => StartCheckAsync(services, stop.Token), stop.Token);
         int exitCode = await parsed.InvokeAsync().ConfigureAwait(false);
         await stop.CancelAsync().ConfigureAwait(false);
         try
@@ -162,14 +162,14 @@ internal sealed class Program
     private static bool IsUpdateCommand(ParseResult parsed) =>
         string.Equals(parsed.CommandResult.Command.Name, UpdateCommandName, StringComparison.Ordinal);
 
-    private static async Task ScheduledCheckAsync(ISystemServices services, CancellationToken ct)
+    private static async Task StartCheckAsync(ISystemServices services, CancellationToken ct)
     {
         using var updates = new UpdateService(services);
-        _ = await updates.CheckAndInstallAsync(UpdateRequest.Scheduled, null, ct).ConfigureAwait(false);
+        _ = await updates.CheckAndInstallAsync(UpdateRequest.AtStart, null, ct).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Builds the <c>update</c> command: checks now, whatever the interval and the off switch say (Tim, pkg-79dc8dd1e15d:
+    /// Builds the <c>update</c> command: checks now, whatever the off switch says (Tim, pkg-79dc8dd1e15d:
     /// "We'll also add an "update" command to allow the user to manually override."), shows the download's progress, and
     /// installs a newer version for the next launch. It does not restart this command (pkg-189647304b25, "finish once").
     /// </summary>

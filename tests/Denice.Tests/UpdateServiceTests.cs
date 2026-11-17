@@ -10,6 +10,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Denice.Abstractions.Contracts;
 using Denice.TestHelpers;
@@ -21,8 +22,9 @@ using Xunit;
 namespace Denice.Tests;
 
 /// <summary>
-/// Finding and installing a newer Denice from GitHub Releases: the settings switch and the interval, the channel, the
-/// version order, this platform's release file, its <c>.zip.sha256</c>, and what is recorded as the last check. GitHub
+/// Finding and installing a newer Denice from GitHub Releases: the off switch, a check at every start, the channel, the
+/// version order, this platform's release file, its <c>.zip.sha256</c>, what is recorded as the last check, and the
+/// checks a long-running session makes every interval (<see cref="UpdateLoop"/>). GitHub
 /// is a fake handler (no network), the disk is simulated, the clock is fake, and the cosign check is stood in for; the
 /// installer's own checks are proven in <see cref="VersionInstallerTests"/>.
 /// </summary>
@@ -37,6 +39,7 @@ public sealed class UpdateServiceTests : IDisposable
     private readonly FakeGitHub github = new();
     private readonly FakeTimeProvider clock = new(Start);
     private readonly List<object> releases = [];
+    private readonly Channel<TimeSpan> waits = Channel.CreateUnbounded<TimeSpan>();
     private readonly ISystemServices services;
     private readonly string root;
     private readonly string versionDirectory;
@@ -59,12 +62,14 @@ public sealed class UpdateServiceTests : IDisposable
 
     private UpdateService Service => service ??= new UpdateService(services, github, AcceptingCosign);
 
-    [Fact]
-    public async Task WhenUpdatesAreSwitchedOff_NothingIsChecked()
+    [Theory]
+    [InlineData(UpdateRequest.AtStart)]
+    [InlineData(UpdateRequest.WhileRunning)]
+    public async Task WhenUpdatesAreSwitchedOff_NothingIsChecked(UpdateRequest request)
     {
         new SettingsFile(services).Set("updates.enabled", "false");
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(request, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.Disabled);
         github.Requests.Should().BeEmpty();
@@ -72,7 +77,7 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task AManualCheck_OverridesTheOffSwitchAndTheInterval()
+    public async Task AManualCheck_OverridesTheOffSwitch()
     {
         const string version = "0.1.300-pre-release+ccccccc";
         new SettingsFile(services).Set("updates.enabled", "false");
@@ -86,12 +91,27 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task ANewerVersionTheLoaderMarkedBad_IsNotOfferedAgain()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        string folder = Path.Combine(root, LoaderProtocol.VersionsDirectory, version);
+        services.FileSystem.GetDirectoryWriter().CreateDirectory(folder);
+        services.FileSystem.GetFileWriter().WriteAllText(Path.Combine(folder, LoaderProtocol.BadMarker), string.Empty);
+        AddRelease(version, prerelease: true, zip: TestReleases.Release(version, TestReleases.Files(version)));
+        ServeReleases();
+
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.WhileRunning, null, CancellationToken.None);
+
+        outcome.Should().Be(UpdateOutcome.NoNewerVersion);
+    }
+
+    [Fact]
     public async Task WithoutALoader_ThereIsNothingToUpdate()
     {
         var developerRun = new UpdateService(Services(new Dictionary<string, string>(StringComparer.Ordinal), entry: null), github, AcceptingCosign);
         using (developerRun)
         {
-            UpdateOutcome outcome = await developerRun.CheckAndInstallAsync(CancellationToken.None);
+            UpdateOutcome outcome = await developerRun.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
             outcome.Should().Be(UpdateOutcome.NotInstalledByLoader);
         }
@@ -99,41 +119,23 @@ public sealed class UpdateServiceTests : IDisposable
         github.Requests.Should().BeEmpty();
     }
 
-    [Fact]
-    public async Task BeforeTheIntervalHasPassed_NothingIsChecked()
-    {
-        RecordLastCheck(Start - TimeSpan.FromHours(5));
-
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
-
-        outcome.Should().Be(UpdateOutcome.NotDue);
-        github.Requests.Should().BeEmpty();
-        LastCheck().Should().Be(Start - TimeSpan.FromHours(5));
-    }
-
+    // Tim: "Check at every start" — the last check never holds a start check back, however recent (or even in the future).
     [Theory]
-    [InlineData(6, 6)]
-    [InlineData(7, 6)]
-    [InlineData(2, 1)]
-    public async Task OnceTheIntervalHasPassed_ItChecksAndRecordsTheCheck(int hoursAgo, int intervalHours)
+    [InlineData(UpdateRequest.AtStart, -1)]
+    [InlineData(UpdateRequest.AtStart, -300)]
+    [InlineData(UpdateRequest.AtStart, -420)]
+    [InlineData(UpdateRequest.AtStart, 1440)]
+    [InlineData(UpdateRequest.WhileRunning, -1)]
+    [InlineData(UpdateRequest.Manual, -1)]
+    public async Task EveryCheck_RunsWhateverTheLastCheck_AndRecordsIt(UpdateRequest request, int lastCheckMinutesFromNow)
     {
-        new SettingsFile(services).Set("updates.checkIntervalHours", intervalHours.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        RecordLastCheck(Start - TimeSpan.FromHours(hoursAgo));
+        RecordLastCheck(Start + TimeSpan.FromMinutes(lastCheckMinutesFromNow));
         ServeReleases();
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(request, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.NoNewerVersion);
-        LastCheck().Should().Be(Start);
-    }
-
-    [Fact]
-    public async Task ALastCheckInTheFuture_DoesNotStopChecks()
-    {
-        RecordLastCheck(Start + TimeSpan.FromDays(1));
-        ServeReleases();
-
-        (await Service.CheckAndInstallAsync(CancellationToken.None)).Should().Be(UpdateOutcome.NoNewerVersion);
+        github.Requests.Should().ContainSingle();
         LastCheck().Should().Be(Start);
     }
 
@@ -144,7 +146,7 @@ public sealed class UpdateServiceTests : IDisposable
         services.FileSystem.GetFileWriter().WriteAllText(new LastUpdateCheck(services).FilePath, "yesterday");
         ServeReleases();
 
-        (await Service.CheckAndInstallAsync(CancellationToken.None)).Should().Be(UpdateOutcome.NoNewerVersion);
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None)).Should().Be(UpdateOutcome.NoNewerVersion);
     }
 
     [Fact]
@@ -167,7 +169,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease("0.1.400-pre-release+ddddddd", prerelease: true);
         ServeReleases();
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.Installed("0.1.300+ccccccc"));
         Installed("0.1.300+ccccccc").Should().BeTrue();
@@ -180,14 +182,54 @@ public sealed class UpdateServiceTests : IDisposable
     [InlineData("0.1.300+ccccccc", "0.1.300-pre-release+ddddddd", "0.1.300+ccccccc")]
     public async Task ThePreReleaseChannel_TakesTheHighestOfReleasesAndPreReleases(string release, string preRelease, string expected)
     {
+        new SettingsFile(services).Set("updates.channel", "pre-release");
         AddRelease(release, prerelease: false);
         AddRelease(preRelease, prerelease: true);
         ServeReleases();
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.Installed(expected));
         Installed(expected).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheDefaultChannel_WhileNoStableReleaseExists_FollowsPreReleases()
+    {
+        AddRelease("0.1.900+eeeeeee", prerelease: false, draft: true);
+        AddRelease("0.1.300-pre-release+ccccccc", prerelease: true);
+        AddRelease("0.1.400-pre-release+ddddddd", prerelease: true);
+        ServeReleases();
+
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
+
+        outcome.Should().Be(UpdateOutcome.Installed("0.1.400-pre-release+ddddddd"), "a draft is not a stable release");
+    }
+
+    [Theory]
+    [InlineData("0.1.300+ccccccc", "0.1.300+ccccccc")]
+    [InlineData("0.1.100+ccccccc", null)]
+    public async Task TheDefaultChannel_OnceAStableReleaseExists_FollowsStableOnly(string stable, string? expected)
+    {
+        AddRelease(stable, prerelease: false);
+        AddRelease("0.1.400-pre-release+ddddddd", prerelease: true);
+        ServeReleases();
+
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
+
+        outcome.Should().Be(expected is null ? UpdateOutcome.NoNewerVersion : UpdateOutcome.Installed(expected));
+        github.WasRequested(ZipUrl("0.1.400-pre-release+ddddddd")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TheDefaultChannel_CountsAStableReleaseForAnyPlatform()
+    {
+        AddRelease("0.1.300+ccccccc", prerelease: false, rids: ["linux-x64"]);
+        AddRelease("0.1.400-pre-release+ddddddd", prerelease: true);
+        ServeReleases();
+
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None))
+            .Should().Be(UpdateOutcome.NoNewerVersion);
     }
 
     [Fact]
@@ -198,7 +240,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease("0.1.300-pre-release+ccccccc", prerelease: true);
         ServeReleases();
 
-        (await Service.CheckAndInstallAsync(CancellationToken.None))
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None))
             .Should().Be(UpdateOutcome.Installed("0.1.300-pre-release+fffffff"));
     }
 
@@ -209,7 +251,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease("0.1.300-pre-release+ccccccc", prerelease: true);
         ServeReleases();
 
-        (await Service.CheckAndInstallAsync(CancellationToken.None))
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None))
             .Should().Be(UpdateOutcome.Installed("0.1.300-pre-release+ccccccc"));
         github.WasRequested(ZipUrl("0.1.900-pre-release+eeeeeee")).Should().BeFalse();
     }
@@ -223,7 +265,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease(highest, prerelease: true);
         ServeReleases();
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.NoNewerVersion);
         github.Requests.Should().ContainSingle();
@@ -237,7 +279,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease("0.1.300-pre-release+ccccccc", prerelease: true, rids: ["linux-x64", Rid, "win-x64"]);
         ServeReleases();
 
-        (await Service.CheckAndInstallAsync(CancellationToken.None))
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None))
             .Should().Be(UpdateOutcome.Installed("0.1.300-pre-release+ccccccc"));
         github.Requests.Select(request => request.RequestUri!.AbsoluteUri)
             .Should().NotContain(url => url.Contains("linux", StringComparison.Ordinal) || url.Contains("win", StringComparison.Ordinal));
@@ -250,7 +292,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease("0.1.300-pre-release+ccccccc", prerelease: true, rids: [Rid, "win-x64"]);
         ServeReleases();
 
-        await windows.CheckAndInstallAsync(CancellationToken.None);
+        await windows.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         github.WasRequested(ZipUrl("0.1.300-pre-release+ccccccc", "win-x64")).Should().BeTrue();
     }
@@ -261,7 +303,7 @@ public sealed class UpdateServiceTests : IDisposable
         using var broken = new UpdateService(Services(LoaderVariables(), entry: "something-else"), github, AcceptingCosign);
         ServeReleases();
 
-        UpdateOutcome outcome = await broken.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await broken.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Result.Should().Be(UpdateResult.Failed);
         outcome.Reason.Should().Contain("<rid> entry");
@@ -274,7 +316,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease("0.1.300-pre-release+ccccccc", prerelease: true, withChecksum: false);
         ServeReleases();
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Result.Should().Be(UpdateResult.Failed);
         outcome.Reason.Should().Contain("no .zip.sha256");
@@ -289,7 +331,7 @@ public sealed class UpdateServiceTests : IDisposable
         ServeReleases();
         github.Answer(ZipUrl(version) + ".sha256", $"{new string('0', 64)}  denice-v{version}-{Rid}.zip\n");
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Result.Should().Be(UpdateResult.Failed);
         outcome.Reason.Should().Contain("does not match its .zip.sha256");
@@ -305,7 +347,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease(version, prerelease: true);
         ServeReleases();
 
-        UpdateOutcome outcome = await refusing.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await refusing.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Result.Should().Be(UpdateResult.Failed);
         outcome.Reason.Should().Contain("not Denice's release workflow");
@@ -319,7 +361,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease(version, prerelease: true);
         ServeReleases();
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.Installed(version));
         outcome.Version.Should().Be(version);
@@ -335,7 +377,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease("0.1.300-pre-release+ccccccc", prerelease: true);
         ServeReleases();
 
-        await Service.CheckAndInstallAsync(CancellationToken.None);
+        await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         github.Requests.Should().HaveCount(3).And.OnlyContain(request =>
             request.Method == HttpMethod.Get && request.Headers.UserAgent.ToString() == $"Denice/{Running}");
@@ -352,7 +394,7 @@ public sealed class UpdateServiceTests : IDisposable
         AddRelease(version, prerelease: true);
         ServeReleases();
 
-        (await Service.CheckAndInstallAsync(CancellationToken.None)).Should().Be(UpdateOutcome.Installed(version));
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None)).Should().Be(UpdateOutcome.Installed(version));
         github.WasRequested(ZipUrl(version)).Should().BeFalse();
         LastCheck().Should().Be(Start);
     }
@@ -362,7 +404,7 @@ public sealed class UpdateServiceTests : IDisposable
     {
         github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, () => throw new HttpRequestException("No such host is known."));
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.Failed("No such host is known."));
         LastCheck().Should().BeNull();
@@ -373,7 +415,7 @@ public sealed class UpdateServiceTests : IDisposable
     {
         github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, () => throw new TaskCanceledException("timed out"));
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.Failed("the request to GitHub timed out"));
         LastCheck().Should().BeNull();
@@ -387,7 +429,7 @@ public sealed class UpdateServiceTests : IDisposable
     {
         github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, () => new HttpResponseMessage(status));
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Result.Should().Be(UpdateResult.Failed);
         outcome.Reason.Should().Contain($"GitHub answered {(int)status}");
@@ -402,7 +444,7 @@ public sealed class UpdateServiceTests : IDisposable
         ServeReleases();
         github.Answer(ZipUrl(version), () => new HttpResponseMessage(HttpStatusCode.BadGateway));
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Reason.Should().Contain("GitHub answered 502");
         NothingInstalledOrRecorded(version);
@@ -415,7 +457,7 @@ public sealed class UpdateServiceTests : IDisposable
     {
         github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, body);
 
-        (await Service.CheckAndInstallAsync(CancellationToken.None)).Result.Should().Be(UpdateResult.Failed);
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None)).Result.Should().Be(UpdateResult.Failed);
         LastCheck().Should().BeNull();
     }
 
@@ -426,7 +468,7 @@ public sealed class UpdateServiceTests : IDisposable
         services.FileSystem.GetDirectoryWriter().CreateDirectory(Path.GetDirectoryName(settings)!);
         services.FileSystem.GetFileWriter().WriteAllText(settings, "updates.enabled: maybe\n");
 
-        (await Service.CheckAndInstallAsync(CancellationToken.None)).Result.Should().Be(UpdateResult.Failed);
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None)).Result.Should().Be(UpdateResult.Failed);
     }
 
     [Fact]
@@ -444,7 +486,7 @@ public sealed class UpdateServiceTests : IDisposable
             }
         };
 
-        Func<Task> act = () => Service.CheckAndInstallAsync(cancel.Token);
+        Func<Task> act = () => Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, cancel.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
         NothingInstalledOrRecorded(version);
@@ -461,13 +503,188 @@ public sealed class UpdateServiceTests : IDisposable
         ServeReleases();
         var progress = new RecordingProgress();
 
-        UpdateOutcome outcome = await Service.CheckAndInstallAsync(progress, CancellationToken.None);
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, progress, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.Installed(version));
         progress.Reports.Count.Should().BeGreaterThan(1);
         progress.Reports.Select(report => report.Received).Should().BeInAscendingOrder().And.OnlyHaveUniqueItems();
         progress.Reports[^1].Received.Should().Be(zip.Length);
         progress.Reports.Should().OnlyContain(report => report.Total == zip.Length, "each report carries the file's size");
+    }
+
+    [Fact]
+    public async Task TheLoop_ChecksAtEachInterval_NotBefore()
+    {
+        ServeReleases();
+        using var stop = new CancellationTokenSource();
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(stop.Token);
+
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        clock.Advance(TimeSpan.FromHours(6) - TimeSpan.FromSeconds(1));
+        github.Requests.Should().BeEmpty("no check runs before the interval has passed");
+        clock.Advance(TimeSpan.FromSeconds(1));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        github.Requests.Should().ContainSingle();
+        LastCheck().Should().Be(Start + TimeSpan.FromHours(6));
+        clock.Advance(TimeSpan.FromHours(6));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        github.Requests.Should().HaveCount(2);
+
+        await stop.CancelAsync();
+        (await run).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TheLoop_WhileUpdatesAreOff_ChecksNothing_AndChecksOnceTheyAreOnAgain()
+    {
+        new SettingsFile(services).Set("updates.enabled", "false");
+        ServeReleases();
+        using var stop = new CancellationTokenSource();
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(stop.Token);
+
+        for (int wait = 0; wait < 3; wait++)
+        {
+            (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+            clock.Advance(TimeSpan.FromHours(6));
+        }
+
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        github.Requests.Should().BeEmpty();
+        new SettingsFile(services).Set("updates.enabled", "true");
+        clock.Advance(TimeSpan.FromHours(6));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        github.Requests.Should().ContainSingle();
+
+        await stop.CancelAsync();
+        (await run).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TheLoop_TakesAChangedIntervalAtTheNextWait()
+    {
+        ServeReleases();
+        using var stop = new CancellationTokenSource();
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(stop.Token);
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+
+        new SettingsFile(services).Set("updates.checkIntervalHours", "1");
+        clock.Advance(TimeSpan.FromHours(1));
+        github.Requests.Should().BeEmpty("the wait under way keeps the interval it started with");
+        clock.Advance(TimeSpan.FromHours(5));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(1));
+        github.Requests.Should().ContainSingle();
+        clock.Advance(TimeSpan.FromHours(1));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(1));
+        github.Requests.Should().HaveCount(2);
+
+        await stop.CancelAsync();
+        (await run).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TheLoop_EndsWhenANewerVersionIsInstalled_WithTheRestartExitCode()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        ServeReleases();
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(CancellationToken.None);
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        clock.Advance(TimeSpan.FromHours(6));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6), "nothing newer yet");
+
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        clock.Advance(TimeSpan.FromHours(6));
+
+        (await NextWaitAsync(run)).Should().BeNull("the loop ends instead of waiting again");
+        NewerVersionReady? ready = await run;
+        ready.Should().NotBeNull();
+        ready!.Version.Should().Be(version);
+        ready.ExitCode.Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion).And.Be(75);
+        Installed(version).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheLoop_KeepsGoingAfterAFailedCheck()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, () => throw new HttpRequestException("No such host is known."));
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(CancellationToken.None);
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        clock.Advance(TimeSpan.FromHours(6));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6), "a failed check is retried at the next interval");
+        github.Requests.Should().ContainSingle();
+
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        clock.Advance(TimeSpan.FromHours(6));
+
+        (await NextWaitAsync(run)).Should().BeNull();
+        (await run)!.Version.Should().Be(version);
+    }
+
+    [Fact]
+    public async Task TheLoop_WithAnInvalidSettingsFile_WaitsTheDefaultIntervalAndKeepsGoing()
+    {
+        string settings = new SettingsFile(services).FilePath;
+        services.FileSystem.GetDirectoryWriter().CreateDirectory(Path.GetDirectoryName(settings)!);
+        services.FileSystem.GetFileWriter().WriteAllText(settings, "updates.checkIntervalHours: soon\n");
+        ServeReleases();
+        using var stop = new CancellationTokenSource();
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(stop.Token);
+
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        clock.Advance(TimeSpan.FromHours(6));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+        github.Requests.Should().BeEmpty("the check fails on the settings file before it reaches GitHub");
+
+        await stop.CancelAsync();
+        (await run).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task TheLoop_CancelledWhileWaiting_EndsWithoutAVersion()
+    {
+        using var stop = new CancellationTokenSource();
+        Task<NewerVersionReady?> run = new UpdateLoop(services, Service).RunUntilNewerVersionAsync(stop.Token);
+
+        await stop.CancelAsync();
+
+        (await run).Should().BeNull();
+        github.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task TheLoop_CancelledDuringACheck_EndsWithoutAVersionAndInstallsNothing()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        using var stop = new CancellationTokenSource();
+        github.BeforeAnswer = request =>
+        {
+            if (request.RequestUri!.AbsoluteUri.EndsWith(".zip", StringComparison.Ordinal))
+            {
+                stop.Cancel();
+            }
+        };
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(stop.Token);
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+
+        clock.Advance(TimeSpan.FromHours(6));
+
+        (await NextWaitAsync(run)).Should().BeNull();
+        (await run).Should().BeNull();
+        NothingInstalledOrRecorded(version);
+    }
+
+    [Fact]
+    public void TheLoop_RejectsMissingArguments()
+    {
+        Action noServices = () => _ = new UpdateLoop(null!, Service);
+        Action noUpdates = () => _ = new UpdateLoop(services, null!);
+
+        noServices.Should().Throw<ArgumentNullException>();
+        noUpdates.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]
@@ -572,6 +789,17 @@ public sealed class UpdateServiceTests : IDisposable
             ["prerelease"] = prerelease,
             ["assets"] = assets,
         });
+    }
+
+    // An update loop over the fake GitHub that reports each wait once it is on the fake clock.
+    private UpdateLoop Loop() => new(services, Service, interval => waits.Writer.TryWrite(interval));
+
+    // The interval of the loop's next wait once that wait is on the fake clock (so moving the clock on reaches it), or
+    // null when the loop ends instead of waiting again.
+    private async Task<TimeSpan?> NextWaitAsync(Task loop)
+    {
+        Task<TimeSpan> wait = waits.Reader.ReadAsync().AsTask();
+        return await Task.WhenAny(wait, loop).ConfigureAwait(false) == wait ? await wait.ConfigureAwait(false) : null;
     }
 
     private void ServeReleases() => github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, JsonSerializer.Serialize(releases));

@@ -16,7 +16,7 @@ namespace Denice.Updates;
 /// <summary>
 /// Finds and installs a newer Denice from the GitHub Releases of denice-aios/denice (Tim: "Source: GitHub Releases of
 /// denice-aios/denice. Channel set in Denice's Settings"; "The .NET DLL performs the downloading"). One call checks once:
-/// it honours the update settings and the check interval, picks the highest version on the channel, downloads this
+/// it honours the off switch, picks the highest version on the channel, downloads this
 /// platform's release file, checks it against its <c>.zip.sha256</c>, and hands it to <see cref="VersionInstaller"/>,
 /// which does the release's own checks and the one-step install. When a check runs is the caller's decision.
 /// </summary>
@@ -57,19 +57,13 @@ public sealed class UpdateService : IDisposable
         _http = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: true);
     }
 
-    /// <inheritdoc cref="CheckAndInstallAsync(UpdateRequest, IProgress{DownloadProgress}?, CancellationToken)"/>
-    public Task<UpdateOutcome> CheckAndInstallAsync(CancellationToken ct) =>
-        CheckAndInstallAsync(UpdateRequest.Scheduled, null, ct);
-
-    /// <inheritdoc cref="CheckAndInstallAsync(UpdateRequest, IProgress{DownloadProgress}?, CancellationToken)"/>
-    public Task<UpdateOutcome> CheckAndInstallAsync(IProgress<DownloadProgress>? progress, CancellationToken ct) =>
-        CheckAndInstallAsync(UpdateRequest.Scheduled, progress, ct);
-
     /// <summary>
     /// Checks once for a newer version on the chosen channel and installs it. Only a completed check (nothing newer, or
-    /// installed) is recorded as the last check; a failed or cancelled one records nothing, so the next start tries again.
+    /// installed) is recorded as the last check; a failed or cancelled one records nothing. The last check is kept for
+    /// information only: it never holds a check back, because Denice checks at every start and the caller decides when
+    /// to check while running.
     /// </summary>
-    /// <param name="request">A scheduled check honours the off switch and the interval; a manual one checks now.</param>
+    /// <param name="request">A check at start or while running honours the off switch; a manual one checks now.</param>
     /// <param name="progress">Receives the release file's bytes downloaded so far and its size, when given.</param>
     /// <param name="ct">Cancels the check; a cancelled install leaves no version behind.</param>
     /// <returns>What the check did. Network errors and refused downloads are <see cref="UpdateResult.Failed"/>.</returns>
@@ -112,13 +106,6 @@ public sealed class UpdateService : IDisposable
         }
 
         var lastCheck = new LastUpdateCheck(_services);
-        DateTimeOffset now = _services.Clock.GetUtcNow();
-        DateTimeOffset? last = lastCheck.Read();
-        if (!manual && last is { } previous && previous <= now && now - previous < settings.CheckInterval)
-        {
-            return UpdateOutcome.NotDue;
-        }
-
         string running = _services.BuildInfo.SemVer;
         DeniceVersion runningVersion = DeniceVersion.Parse(running)
             ?? throw new InvalidDataException($"The running version '{running}' is not a Denice version.");
@@ -133,6 +120,14 @@ public sealed class UpdateService : IDisposable
 
         string version = newest.Version.Text;
         string installed = Path.Combine(handshake.InstallRoot, LoaderProtocol.VersionsDirectory, version);
+
+        // A newer version the loader marked as failing to start is not offered again (it would restart every interval).
+        if (_services.FileSystem.GetFileReader().Exists(Path.Combine(installed, LoaderProtocol.BadMarker)))
+        {
+            lastCheck.Record(_services.Clock.GetUtcNow());
+            return UpdateOutcome.NoNewerVersion;
+        }
+
         if (!_services.FileSystem.GetDirectoryReader().DirectoryExists(installed))
         {
             byte[] zip = await DownloadCheckedAsync(newest, progress, ct).ConfigureAwait(false);

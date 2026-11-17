@@ -13,9 +13,6 @@ public enum UpdateResult
     /// <summary>This version was not started by a loader (a developer run), so there is nothing to update.</summary>
     NotInstalledByLoader,
 
-    /// <summary>The last completed check is newer than the check interval; nothing was checked.</summary>
-    NotDue,
-
     /// <summary>The channel has no version newer than the running one.</summary>
     NoNewerVersion,
 

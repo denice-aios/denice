@@ -16,9 +16,6 @@ public sealed record UpdateOutcome(UpdateResult Result, string? Version, string?
     /// <summary>Gets the outcome of a check in a version no loader started.</summary>
     public static UpdateOutcome NotInstalledByLoader { get; } = new(UpdateResult.NotInstalledByLoader, null, null);
 
-    /// <summary>Gets the outcome of a check before the interval has passed.</summary>
-    public static UpdateOutcome NotDue { get; } = new(UpdateResult.NotDue, null, null);
-
     /// <summary>Gets the outcome of a check that found nothing newer.</summary>
     public static UpdateOutcome NoNewerVersion { get; } = new(UpdateResult.NoNewerVersion, null, null);
 

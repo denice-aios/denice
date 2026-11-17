@@ -19,7 +19,9 @@ namespace Denice.Tests;
 /// </summary>
 public sealed class SettingsFileTests : IDisposable
 {
-    private static readonly UpdateSettings Defaults = new(true, UpdateChannel.PreRelease, TimeSpan.FromHours(6));
+    private const string ChannelDefault = "pre-release while no stable release exists, then stable";
+
+    private static readonly UpdateSettings Defaults = new(true, UpdateChannel.PreReleaseUntilStable, TimeSpan.FromHours(6));
 
     private readonly ISystemServices real;
     private readonly string home;
@@ -50,10 +52,11 @@ public sealed class SettingsFileTests : IDisposable
     {
         settings.List().Should().Equal(
             new SettingState("updates.enabled", "true", "true"),
-            new SettingState("updates.channel", "pre-release", "pre-release"),
+            new SettingState("updates.channel", ChannelDefault, ChannelDefault),
             new SettingState("updates.checkIntervalHours", "6", "6"));
         settings.ReadUpdateSettings().Should().Be(Defaults);
         UpdateSettings.Read(services).Should().Be(Defaults);
+        UpdateSettings.Defaults.Should().Be(Defaults);
         Exists(settings.FilePath).Should().BeFalse("listing never creates the file");
     }
 
@@ -82,6 +85,26 @@ public sealed class SettingsFileTests : IDisposable
         settings.Set("updates.checkIntervalHours", "24");
 
         UpdateSettings.Read(services).Should().Be(new UpdateSettings(false, UpdateChannel.Stable, TimeSpan.FromHours(24)));
+    }
+
+    [Theory]
+    [InlineData("pre-release", UpdateChannel.PreRelease)]
+    [InlineData("stable", UpdateChannel.Stable)]
+    public void AChosenChannel_AlwaysWinsOverTheDefault(string value, UpdateChannel expected)
+    {
+        settings.Set("updates.channel", value);
+
+        settings.ReadUpdateSettings().Channel.Should().Be(expected);
+        settings.List().Single(state => string.Equals(state.Name, "updates.channel", StringComparison.Ordinal))
+            .Should().Be(new SettingState("updates.channel", value, ChannelDefault));
+    }
+
+    [Fact]
+    public void TheChannelDefault_IsNotAValueTheSettingAccepts()
+    {
+        Action act = () => settings.Set("updates.channel", ChannelDefault);
+
+        act.Should().Throw<InvalidSettingException>();
     }
 
     [Theory]
@@ -123,7 +146,7 @@ public sealed class SettingsFileTests : IDisposable
 
         SettingState state = settings.Reset("updates.channel");
 
-        state.Should().Be(new SettingState("updates.channel", "pre-release", "pre-release"));
+        state.Should().Be(new SettingState("updates.channel", ChannelDefault, ChannelDefault));
         settings.ReadUpdateSettings().Should().Be(Defaults with { CheckInterval = TimeSpan.FromHours(12) });
         Read().Should().NotContain("updates.channel:").And.Contain("\nupdates.checkIntervalHours: 12\n");
     }

@@ -29,6 +29,13 @@ internal sealed class SettingDefinition
     internal const string Stable = "stable";
 
     /// <summary>
+    /// What <c>updates.channel</c> does when nothing sets it (<see cref="UpdateChannel.PreReleaseUntilStable"/>), as
+    /// <c>denice settings</c> shows it. Tim: "default pre-release while no stable release exists". It describes a
+    /// behaviour, not a value the setting accepts: the setting is either set to one of its values or left to this.
+    /// </summary>
+    internal const string ChannelDefault = "pre-release while no stable release exists, then stable";
+
+    /// <summary>
     /// The most hours <c>updates.checkIntervalHours</c> accepts: 720 hours is 30 days. A longer wait is in practice
     /// "never check", which <c>updates.enabled: false</c> already says plainly, and a bound keeps the value far from
     /// any overflow when it becomes a <see cref="TimeSpan"/>.
@@ -52,7 +59,7 @@ internal sealed class SettingDefinition
     internal static IReadOnlyList<SettingDefinition> All { get; } =
     [
         new(EnabledName, True, $"{True} or {False}", value => value is True or False),
-        new(ChannelName, PreRelease, $"{PreRelease} or {Stable}", value => value is PreRelease or Stable),
+        new(ChannelName, ChannelDefault, $"{PreRelease} or {Stable}", value => value is PreRelease or Stable),
         new(
             CheckIntervalHoursName,
             "6",
@@ -63,7 +70,7 @@ internal sealed class SettingDefinition
     /// <summary>Gets the setting's name, as written in <c>settings.yaml</c> and on the command line.</summary>
     internal string Name { get; }
 
-    /// <summary>Gets the value the setting has when nothing sets it.</summary>
+    /// <summary>Gets the value the setting has when nothing sets it, or for <c>updates.channel</c> what it does then.</summary>
     internal string DefaultValue { get; }
 
     /// <summary>Gets a description of the values the setting accepts, for messages.</summary>

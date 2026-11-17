@@ -51,8 +51,7 @@ public sealed class SettingsFile
     /// <summary>Reads the typed update settings.</summary>
     /// <returns>The update settings, each set value or else its default.</returns>
     /// <exception cref="InvalidDataException">The settings file is not valid; the message names the line.</exception>
-    public UpdateSettings ReadUpdateSettings() =>
-        UpdateSettings.From(List().ToDictionary(state => state.Name, state => state.Value, StringComparer.Ordinal));
+    public UpdateSettings ReadUpdateSettings() => UpdateSettings.From(ReadSetValues());
 
     /// <summary>Changes one setting, after checking the name and the value.</summary>
     /// <param name="name">The setting's name.</param>

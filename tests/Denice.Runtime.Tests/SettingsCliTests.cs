@@ -35,7 +35,7 @@ public sealed class SettingsCliTests : IDisposable
         result.StandardOutput.Should().Contain($"Settings file: {home}")
             .And.Contain("settings.yaml")
             .And.Contain("updates.enabled: true (default: true)")
-            .And.Contain("updates.channel: pre-release (default: pre-release)")
+            .And.Contain("updates.channel: pre-release while no stable release exists, then stable (default: pre-release while no stable release exists, then stable)")
             .And.Contain("updates.checkIntervalHours: 6 (default: 6)");
     }
 
@@ -47,7 +47,7 @@ public sealed class SettingsCliTests : IDisposable
 
         set.ExitCode.Should().Be(0, set.StandardError);
         set.StandardOutput.Should().Contain("updates.channel: stable (saved to ");
-        list.StandardOutput.Should().Contain("updates.channel: stable (default: pre-release)");
+        list.StandardOutput.Should().Contain("updates.channel: stable (default: pre-release while no stable release exists, then stable)");
     }
 
     [Fact]
