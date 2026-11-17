@@ -41,6 +41,8 @@ ok=1
     "${unpack[@]}" || { echo "unzip FAIL: $rid"; ok=0; continue; }
     vdir="$work/versions/$DENICE_ASSET_VERSION"
     ( cd "$vdir" && "${SUM[@]}" -c --quiet SHA256SUMS ) 2>&1 && echo "SHA256SUMS PASS: $rid" || { echo "SHA256SUMS FAIL: $rid"; ok=0; }
+    # sha256sum -c also accepts binary-mode "<hash> *<name>" lines; Denice Runtime reads only "<hash>  <name>".
+    if grep -qvE '^[0-9a-f]{64}  [^ *]' "$vdir/SHA256SUMS"; then echo "SHA256SUMS FORMAT FAIL: $rid (a line is not '<hash>  <name>')"; ok=0; fi
     if cosign verify-blob --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" \
          --bundle "$vdir/SHA256SUMS.cosign.bundle" "$vdir/SHA256SUMS" 2>&1; then echo "cosign PASS: $rid"; else echo "cosign FAIL: $rid"; ok=0; fi
     case "$rid" in osx-*) LOADER="Denice.app" ;; *) LOADER="denice$EXE" ;; esac

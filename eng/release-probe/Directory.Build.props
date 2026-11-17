@@ -1,0 +1,5 @@
+<Project>
+  <!-- Stops the repository's Directory.Build.props from applying: the release probe is compiled against the Denice
+       assemblies a published release ships (eng/check-release-install.sh), not against this checkout's projects, and
+       carries no version stamp or strong-name key of its own. -->
+</Project>
