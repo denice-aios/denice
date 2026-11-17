@@ -3,6 +3,8 @@
 #
 # Tests eng/install/install.sh without the network and without touching the real home folder: every run gets a
 # temporary HOME (and TMPDIR), the release zips are fakes built here, and the "GitHub" release list is a file:// URL.
+# The release signature is checked by the test-only fake cosign (eng/install/fake-cosign/cosign) put first on PATH; the
+# real cosign check of a published release is eng/install/test-real-install.sh --release=<tag>.
 # The macOS branch runs natively on a Mac; the Linux branch runs everywhere through the test-only DENICE_INSTALL_OS.
 # Each scenario runs under every POSIX shell found (/bin/sh, and /bin/dash when present).
 #
@@ -11,6 +13,10 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 INSTALL="$HERE/install.sh"
+FAKE_COSIGN_DIR="$HERE/fake-cosign"
+WRITE_SUMS="$HERE/../write-sha256sums.sh"
+RELEASE_SIGNATURE="$HERE/../../src/Denice.Updates/ReleaseSignature.cs"
+CI_YML="$HERE/../../.github/workflows/ci.yml"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
@@ -40,6 +46,12 @@ finds() {
 HAVE_ZSH=no; PATH="$TEST_PATH" command -v zsh >/dev/null 2>&1 && HAVE_ZSH=yes
 HAVE_FISH=no; command -v fish >/dev/null 2>&1 && HAVE_FISH=yes
 
+# sign_version <version-dir>: writes its SHA256SUMS and the fake cosign's signature over it, as CI staging does.
+sign_version() {
+    "$WRITE_SUMS" "$1" > /dev/null
+    "$FAKE_COSIGN_DIR/cosign" sign-blob --yes --bundle "$1/SHA256SUMS.cosign.bundle" "$1/SHA256SUMS"
+}
+
 # make_zip <os> <version> <out-dir>: a fake release zip and its .zip.sha256, in the CI layout.
 make_zip() {
     local os="$1" version="$2" out="$3" rid="$1-$ARCH" stage loader
@@ -58,8 +70,7 @@ make_zip() {
     chmod 755 "$stage/versions/$version/denice-v$version-$rid"
     echo "runtime $version" > "$stage/versions/$version/runtime/Denice.Runtime.dll"
     if [ "$os" = osx ]; then cp -Rp "$stage/Denice.app" "$stage/versions/$version/"; else cp -p "$loader" "$stage/versions/$version/"; fi
-    echo "sums" > "$stage/versions/$version/SHA256SUMS"
-    echo "bundle" > "$stage/versions/$version/SHA256SUMS.cosign.bundle"
+    sign_version "$stage/versions/$version"
     local name="denice-v$version-$rid.zip" top
     if [ "$os" = osx ]; then top="Denice.app"; else top="denice"; fi
     rm -f "$out/$name"
@@ -70,7 +81,10 @@ make_zip() {
 
 # The environment install.sh sees: a minimal PATH plus the test-only overrides that are set.
 envs() {
-    ENVS=(PATH="$TEST_PATH")
+    if [ -n "${NO_COSIGN:-}" ]; then ENVS=(PATH="$TEST_PATH"); else ENVS=(PATH="$FAKE_COSIGN_DIR:$TEST_PATH"); fi
+    [ -n "${FAKE_COSIGN_VERSION:-}" ] && ENVS+=(FAKE_COSIGN_VERSION="$FAKE_COSIGN_VERSION")
+    [ -n "${FAKE_COSIGN_LOG:-}" ] && ENVS+=(FAKE_COSIGN_LOG="$FAKE_COSIGN_LOG")
+    [ -n "${COSIGN_URL:-}" ] && ENVS+=(DENICE_INSTALL_COSIGN_URL="$COSIGN_URL")
     [ -n "${XDG:-}" ] && ENVS+=(XDG_DATA_HOME="$XDG")
     [ -n "${TEST_OS:-}" ] && ENVS+=(DENICE_INSTALL_OS="$TEST_OS")
     [ -n "${API:-}" ] && ENVS+=(DENICE_INSTALL_API_URL="$API")
@@ -97,6 +111,21 @@ check "sh -n install.sh" sh -n "$INSTALL"
 check "no bash-only [[ in install.sh" not grep -n '\[\[' "$INSTALL"
 check "--help exits 0" bash -c "sh '$INSTALL' --help | grep -q 'Usage: install.sh'"
 
+echo "== one signer rule (pkg-3480bb950ef7): install.sh pins what Denice Runtime pins, and the cosign CI uses"
+CS_IDENTITY="$(grep -A1 'DeniceWorkflowPattern =' "$RELEASE_SIGNATURE" | sed -n 's/.*@"\(.*\)";.*/\1/p')"
+CS_ISSUER="$(sed -n 's/.*GitHubActionsIssuer = "\(.*\)";.*/\1/p' "$RELEASE_SIGNATURE")"
+SH_IDENTITY="$(sed -n "s/^SIGNER_IDENTITY='\(.*\)'\$/\1/p" "$INSTALL")"
+SH_ISSUER="$(sed -n "s/^SIGNER_ISSUER='\(.*\)'\$/\1/p" "$INSTALL")"
+SH_COSIGN="$(sed -n 's/^COSIGN_VERSION="\(.*\)"$/\1/p' "$INSTALL")"
+check "ReleaseSignature.cs's identity pattern is found" test -n "$CS_IDENTITY"
+check "ReleaseSignature.cs's issuer is found" test -n "$CS_ISSUER"
+check "install.sh's signer identity equals ReleaseSignature.DeniceWorkflowPattern" test "$SH_IDENTITY" = "$CS_IDENTITY"
+check "install.sh's issuer equals ReleaseSignature.GitHubActionsIssuer" test "$SH_ISSUER" = "$CS_ISSUER"
+check "every cosign-release in ci.yml is install.sh's COSIGN_VERSION (v$SH_COSIGN)" \
+    test "$(grep -o "cosign-release: '[^']*'" "$CI_YML" | sort -u)" = "cosign-release: 'v$SH_COSIGN'"
+check "install.sh pins a SHA-256 for each cosign it may download" \
+    test "$(grep -cE '^ +cosign-(darwin|linux)-(arm64|amd64)\) +echo "[0-9a-f]{64} [0-9]+" ;;$' "$INSTALL")" = 4
+
 SHELLS=(/bin/sh)
 [ -x /bin/dash ] && SHELLS+=(/bin/dash)
 
@@ -113,6 +142,8 @@ test_osx() {
     [ "$(uname -s)" = Darwin ] || TEST_OS=osx
     out="$(run_install "$shell" "$H" --from "$ZIPS/denice-v$V1-osx-$ARCH.zip" --no-run)"
     check "first install reports a verified checksum" contains <(echo "$out") "checksum verified"
+    check "first install checks every file against SHA256SUMS" contains <(echo "$out") "files match versions/$V1/SHA256SUMS"
+    check "first install verifies the cosign signature" contains <(echo "$out") "signature verified: signed by Denice's release workflow"
     check "Denice.app is in ~/Applications" test -d "$APP"
     check "the loader program is executable" test -x "$PROG"
     check "app is the one from the zip" contains "$APP/Contents/Info.plist" "$V1"
@@ -354,6 +385,7 @@ test_lookup() {
     check "newest non-draft release with a checksum is chosen" test -d "$H/.local/share/denice/versions/$V2"
     check "the draft release is not installed" not test -e "$H/.local/share/denice/versions/$V3"
     check "the download's checksum is verified" contains <(echo "$out") "checksum verified"
+    check "the download's signature is verified" contains <(echo "$out") "signature verified"
 
     H="$WORK/home-lookup-v-$(basename "$shell")"
     run_install "$shell" "$H" --version "${V0%%+*}" --no-run >/dev/null
@@ -374,7 +406,116 @@ test_lookup() {
     unset API
 }
 
+# ---------------------------------------------------------------- download verification (pkg-3480bb950ef7 "Always verify")
+# variant <os> <name> <change> [args...]: the V1 zip of <os>, unpacked, changed by `<change> <version-dir> [args...]`
+# run in the unpacked folder, zipped again with a fresh .zip.sha256 (as someone replacing both release files would),
+# so only the signed contents can tell. Prints the new zip's path.
+variant() {
+    local os="$1" name="$2" change="$3"; shift 3
+    local dir="$WORK/variant-$os-$name" out="$WORK/variants/$os-$name" zip="denice-v$V1-$os-$ARCH.zip" top
+    rm -rf "$dir" "$out"; mkdir -p "$dir" "$out"
+    unzip -q "$ZIPS/$zip" -d "$dir"
+    (cd "$dir" && "$change" "versions/$V1" "$@") > /dev/null
+    if [ "$os" = osx ]; then top="Denice.app"; else top="denice"; fi
+    (cd "$dir" && zip -q -r -X -y "$out/$zip" "$top" versions)
+    (cd "$out" && "${SUM[@]}" "$zip" > "$zip.sha256")
+    echo "$out/$zip"
+}
+change_byte() { printf 'X' | dd of="$1/runtime/Denice.Runtime.dll" bs=1 seek=0 conv=notrunc 2>/dev/null; }
+forge_sums() {   # the changed file with a SHA256SUMS rewritten to match it; the old signature kept
+    change_byte "$1"; cp "$1/SHA256SUMS.cosign.bundle" bundle.keep
+    "$WRITE_SUMS" "$1"; mv bundle.keep "$1/SHA256SUMS.cosign.bundle"
+}
+forge_bundle() { echo "a signature by someone else" > "$1/SHA256SUMS.cosign.bundle"; }
+drop() { rm -f "$1/$2"; }
+add_file() { echo "planted" > "$1/planted.dll"; }
+star_form() { sed '1s/^\([0-9a-f]\{64\}\)  /\1 */' "$1/SHA256SUMS" > s.tmp && mv s.tmp "$1/SHA256SUMS"; }
+escape_line() { echo "$(printf '%064d' 0)  ../../escaped" >> "$1/SHA256SUMS"; }
+change_root_loader() { if [ -d Denice.app ]; then echo "# changed" >> Denice.app/Contents/MacOS/denice; else echo "# changed" >> denice; fi; }
+
+# refused <what> <home> <expected message> <install args...>: install.sh refuses with that message and leaves nothing.
+refused() {
+    local what="$1" home="$2" message="$3" out; shift 3
+    if out="$(run_install "$VSHELL" "$home" "$@" --no-run 2>&1)"; then die "$what: install.sh did not refuse"; fi
+    contains <(echo "$out") "$message" || printf '%s\n' "$out" | sed 's/^/       | /' >&2
+    check "$what: refused" contains <(echo "$out") "$message"
+    check "$what: says nothing was installed" contains <(echo "$out") "nothing was installed"
+    check "$what: nothing left in HOME" test "$(tree_of "$home")" = "."
+    check "$what: temporary folder (and any downloaded cosign) removed" test -z "$(ls -A "$home/tmp")"
+}
+
+test_verify() {
+    local os="$2" D="$WORK/verify-$2-$(basename "$1")" zip out
+    VSHELL="$1"; unset API XDG TEST_OS COSIGN_URL NO_COSIGN FAKE_COSIGN_VERSION FAKE_COSIGN_LOG
+    [ "$os" = osx ] && [ "$(uname -s)" = Darwin ] || TEST_OS="$os"
+    zip="$ZIPS/denice-v$V1-$os-$ARCH.zip"
+    echo "== download verification, $os branch under $VSHELL (fake cosign; HOME under $D)"
+    mkdir -p "$D"
+
+    FAKE_COSIGN_LOG="$D/cosign.log"
+    out="$(run_install "$VSHELL" "$D/ok" --from "$zip" --no-run)"
+    check "a signed release installs" contains <(echo "$out") "Denice $V1 is installed"
+    check "cosign is asked for Denice Runtime's signer identity" contains "$D/cosign.log" "--certificate-identity-regexp $CS_IDENTITY "
+    check "cosign is asked for Denice Runtime's issuer" contains "$D/cosign.log" "--certificate-oidc-issuer $CS_ISSUER "
+    local blob; blob="$(sed 's/.* //' "$D/cosign.log")"
+    check "cosign checks the version's SHA256SUMS" test "${blob%/versions/$V1/SHA256SUMS}" != "$blob"
+    check "...against the bundle beside it" contains "$D/cosign.log" "--bundle $blob.cosign.bundle $blob"
+    unset FAKE_COSIGN_LOG
+
+    refused "a changed byte in a file" "$D/byte" "does not match its SHA256SUMS" --from "$(variant "$os" byte change_byte)"
+    refused "a changed file with SHA256SUMS rewritten to match" "$D/sums" "not a valid signature by Denice's release workflow" \
+        --from "$(variant "$os" sums forge_sums)"
+    refused "a bundle that is not Denice's signature" "$D/bundle" "not a valid signature by Denice's release workflow" \
+        --from "$(variant "$os" bundle forge_bundle)"
+    refused "a missing cosign bundle" "$D/nobundle" "has no versions/$V1/SHA256SUMS.cosign.bundle" \
+        --from "$(variant "$os" nobundle drop SHA256SUMS.cosign.bundle)"
+    refused "a missing SHA256SUMS" "$D/nosums" "has no versions/$V1/SHA256SUMS" --from "$(variant "$os" nosums drop SHA256SUMS)"
+    refused "a file not listed in SHA256SUMS" "$D/planted" "'planted.dll' in the release is not listed" \
+        --from "$(variant "$os" planted add_file)"
+    refused "a listed file that is missing" "$D/missing" "'runtime/Denice.Runtime.dll' is listed in the release's SHA256SUMS but missing" \
+        --from "$(variant "$os" missing drop runtime/Denice.Runtime.dll)"
+    refused "a binary-mode '<hash> *<name>' line" "$D/star" "SHA256SUMS has a malformed line" --from "$(variant "$os" star star_form)"
+    refused "a SHA256SUMS name outside the version folder" "$D/escape" "names a file outside the version folder" \
+        --from "$(variant "$os" escape escape_line)"
+    refused "a top-level loader that differs from the version's" "$D/loader" "differs from the one in versions/$V1" \
+        --from "$(variant "$os" loader change_root_loader)"
+
+    # No usable cosign: install.sh downloads Sigstore's cosign, here from a file:// stand-in whose bytes do not match the
+    # SHA-256 pinned in install.sh, so it must refuse before running it.
+    if PATH="$TEST_PATH" command -v cosign >/dev/null 2>&1; then
+        echo "  skip the cosign download checks: a cosign is installed in $TEST_PATH"
+    else
+        local FAKE_REL="$D/fake-cosign-release" name
+        mkdir -p "$FAKE_REL"
+        for name in cosign-darwin-arm64 cosign-darwin-amd64 cosign-linux-arm64 cosign-linux-amd64; do
+            printf '#!/bin/sh\necho "not Sigstore'"'"'s cosign"\n' > "$FAKE_REL/$name"
+        done
+        NO_COSIGN=1; COSIGN_URL="file://$FAKE_REL"
+        refused "no cosign installed: a download not matching the pinned SHA-256" "$D/dl-bad" \
+            "the downloaded cosign does not match the SHA-256 written in this script" --from "$zip"
+        out="$(run_install "$VSHELL" "$D/dl-bad" --from "$zip" --no-run 2>&1 || true)"
+        check "...after saying what it downloads, its size and why" contains <(echo "$out") "downloading Sigstore's cosign 3.1.3 (cosign-"
+        COSIGN_URL="file://$D/no-such-place"
+        refused "no cosign installed and the download fails (offline)" "$D/dl-none" "cannot download cosign" --from "$zip"
+        refused "a changed file is refused before any cosign download" "$D/dl-tamper" "does not match its SHA256SUMS" \
+            --from "$(variant "$os" byte change_byte)"
+        unset NO_COSIGN
+        COSIGN_URL="file://$FAKE_REL"
+        for FAKE_COSIGN_VERSION in 2.4.2 3.0.3; do
+            refused "an installed cosign $FAKE_COSIGN_VERSION (too old) is not used; Sigstore's is downloaded instead" \
+                "$D/old-$FAKE_COSIGN_VERSION" "is not cosign 3.0.4 or a newer 3.x" --from "$zip"
+        done
+        FAKE_COSIGN_VERSION=3.0.4
+        out="$(run_install "$VSHELL" "$D/new" --from "$zip" --no-run)"
+        check "an installed cosign 3.0.4 is used" contains <(echo "$out") "with the installed cosign 3.0.4"
+        unset COSIGN_URL FAKE_COSIGN_VERSION
+    fi
+    unset TEST_OS
+}
+
 for shell in "${SHELLS[@]}"; do
+    test_verify "$shell" osx
+    test_verify "$shell" linux
     test_osx "$shell"
     test_linux "$shell" unset
     test_linux "$shell" set

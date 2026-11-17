@@ -1,0 +1,37 @@
+#!/bin/sh
+# Copyright (c) Denice.ai. All rights reserved.
+#
+# TEST ONLY: a stand-in for Sigstore's cosign, put first on PATH by eng/install/test-install.sh (and by
+# eng/install/test-real-install.sh for a locally built layout, which CI signs only later). It never proves anything.
+#   cosign version     prints "GitVersion: v$FAKE_COSIGN_VERSION" (default 3.1.3)
+#   cosign sign-blob --yes --bundle <bundle> <blob>
+#                      writes "fake signature over <sha256 of blob>" to <bundle>
+#   cosign verify-blob --certificate-identity-regexp <re> --certificate-oidc-issuer <issuer> --bundle <bundle> <blob>
+#                      appends its arguments to $FAKE_COSIGN_LOG (when set) and accepts only when <bundle> holds the
+#                      fake signature over <blob>; so a SHA256SUMS changed after "signing" is refused, as real cosign
+#                      refuses it.
+set -eu
+case "${1:-}" in
+    version) printf 'GitVersion:    v%s\n' "${FAKE_COSIGN_VERSION:-3.1.3}"; exit 0 ;;
+    verify-blob|sign-blob) command="$1"; shift ;;
+    *) echo "fake cosign: unsupported command: $*" >&2; exit 2 ;;
+esac
+[ "$command" = sign-blob ] || [ -z "${FAKE_COSIGN_LOG:-}" ] || printf '%s\n' "$*" >> "$FAKE_COSIGN_LOG"
+identity="" issuer="" bundle="" blob=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --certificate-identity-regexp) identity="$2"; shift 2 ;;
+        --certificate-oidc-issuer) issuer="$2"; shift 2 ;;
+        --bundle) bundle="$2"; shift 2 ;;
+        --yes) shift ;;
+        -*) echo "fake cosign: unexpected option $1" >&2; exit 2 ;;
+        *) blob="$1"; shift ;;
+    esac
+done
+[ -n "$bundle" ] && [ -f "$blob" ] || { echo "fake cosign: missing arguments" >&2; exit 2; }
+if command -v sha256sum >/dev/null 2>&1; then sum="$(sha256sum "$blob" | cut -d' ' -f1)"; else sum="$(shasum -a 256 "$blob" | cut -d' ' -f1)"; fi
+if [ "$command" = sign-blob ]; then printf 'fake signature over %s\n' "$sum" > "$bundle"; exit 0; fi
+[ -n "$identity" ] && [ -n "$issuer" ] && [ -f "$bundle" ] || { echo "fake cosign: missing arguments" >&2; exit 2; }
+if [ "$(cat "$bundle")" = "fake signature over $sum" ]; then echo "Verified OK"; exit 0; fi
+echo "Error: none of the expected identities matched what was in the certificate" >&2
+exit 1

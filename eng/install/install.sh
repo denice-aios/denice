@@ -23,6 +23,19 @@
 #          does not, else ~/.zshenv)
 #   $XDG_CONFIG_HOME/fish/conf.d/denice.fish  (default ~/.config)   when fish is here
 #
+# Every download is verified before anything is installed (owner decision pkg-3480bb950ef7 download-verification,
+# "Always verify"), with the rule Denice Runtime applies to every update:
+#   - the zip matches its .zip.sha256 (always for a download; for --from when that file is beside the zip);
+#   - versions/<version>/SHA256SUMS lists every file of the version, each `<hash>  <name>`, and every file matches;
+#   - its cosign signature, versions/<version>/SHA256SUMS.cosign.bundle, was made by Denice's release workflow
+#     (ci.yml on dev or main, signed keyless through GitHub Actions; Sigstore's public transparency log);
+#   - the loader at the top of the zip equals the loader the version carries (so it is covered by SHA256SUMS too).
+# The signature check uses `cosign` from PATH when it is version 3.0.4 or newer (older ones accept forged bundles,
+# GHSA-whqx-f9j3-ch6m). Otherwise it downloads Sigstore's own cosign v3.1.3 for this computer from GitHub (about
+# 133-149 MB), checks it against the SHA-256 written below, uses it once from the temporary folder and deletes it.
+# Without a usable cosign (none installed and the download fails, e.g. offline with --from) nothing is installed.
+# Any failed check refuses the install and leaves nothing behind.
+#
 # Denice updates itself afterwards: it downloads new versions into versions/ and can replace the loader.
 # --uninstall removes exactly the items above (the whole versions/ folder, the marked profile lines and the line
 # break or file added with them) and never settings.yaml.
@@ -30,12 +43,33 @@
 # Test-only environment overrides (not for users):
 #   DENICE_INSTALL_OS=osx|linux   pretend to run on that OS (lets the Linux branch be tested on a Mac)
 #   DENICE_INSTALL_API_URL=<url>  the GitHub releases API URL to read (tests point it at a file:// URL)
+#   DENICE_INSTALL_COSIGN_URL=<url>  where to download cosign-<os>-<arch> from (tests point it at a file:// URL; the
+#                                 download must still match the SHA-256 written in this script)
 #
 # POSIX sh only: it runs piped into `sh`, which is dash on many Linux systems.
 set -eu
 
 REPO="denice-aios/denice"
 API_URL="${DENICE_INSTALL_API_URL:-https://api.github.com/repos/$REPO/releases?per_page=100}"
+
+# The release signer, exactly as Denice Runtime pins it (src/Denice.Updates/ReleaseSignature.cs DeniceWorkflowPattern
+# and GitHubActionsIssuer; eng/install/test-install.sh checks the two stay equal).
+SIGNER_IDENTITY='^https://github\.com/denice-aios/denice/\.github/workflows/ci\.yml@refs/heads/(dev|main)$'
+SIGNER_ISSUER='https://token.actions.githubusercontent.com'
+# The cosign CI signs with (.github/workflows/ci.yml cosign-release), downloaded when no usable cosign is installed.
+COSIGN_VERSION="3.1.3"
+COSIGN_URL="${DENICE_INSTALL_COSIGN_URL:-https://github.com/sigstore/cosign/releases/download/v$COSIGN_VERSION}"
+# <sha256> <bytes> of each cosign v3.1.3 binary, from that release's official checksum file
+# https://github.com/sigstore/cosign/releases/download/v3.1.3/cosign_checksums.txt (sizes from the release's assets).
+cosign_pin() {
+    case "$1" in
+        cosign-darwin-arm64) echo "5cf948c2f4dfe59687bdd0b8523709067383e03982cc543475c8a7dc70e92a76 139618946" ;;
+        cosign-darwin-amd64) echo "2347488e5d5b25336644024dfeca5601b190e91197a71a917bda44744aff106c 148611192" ;;
+        cosign-linux-arm64)  echo "c5d324e091826b0d7a78eb16fef316450b4eb9aaec045611c08ba06f5e73220a 132747403" ;;
+        cosign-linux-amd64)  echo "4629c757b7618056f8ddd7e2625ae9fdd94c0372a65049520bc7d9df9efc7f71 141178250" ;;
+        *) return 1 ;;
+    esac
+}
 
 say() { printf 'denice-install: %s\n' "$*"; }
 fail() { printf 'denice-install: error: %s\n' "$*" >&2; exit 1; }
@@ -46,7 +80,10 @@ Usage: install.sh [--version <version>] [--from <zip>] [--no-run] [--no-modify-p
        install.sh --uninstall
        install.sh --help
 
-Installs Denice for the current user (no administrator rights needed).
+Installs Denice for the current user (no administrator rights needed). Every download (and every --from zip) is
+verified first: the checksums of all its files and their cosign signature by Denice's release workflow. This uses
+cosign 3.0.4 or newer when installed; otherwise it downloads Sigstore's cosign (about 140 MB) for this one check and
+deletes it. Nothing is installed when a check fails or cosign is unavailable.
 
   (no option)          install the newest Denice release (pre-releases included)
   --version <version>  install that version, e.g. 0.1.108520000-pre-release or 0.1.108520000-pre-release+abc1234
@@ -237,9 +274,11 @@ fi
 # ---------------------------------------------------------------- tools
 need() { command -v "$1" >/dev/null 2>&1 || fail "'$1' is needed but not found; install it and run this again"; }
 need unzip
-if command -v sha256sum >/dev/null 2>&1; then sha256_of() { sha256sum "$1" | cut -d' ' -f1; }
-elif command -v shasum >/dev/null 2>&1; then sha256_of() { shasum -a 256 "$1" | cut -d' ' -f1; }
+need diff
+if command -v sha256sum >/dev/null 2>&1; then sha256_tool="sha256sum"
+elif command -v shasum >/dev/null 2>&1; then sha256_tool="shasum -a 256"
 else fail "'sha256sum' or 'shasum' is needed to check the download but neither was found"; fi
+sha256_of() { $sha256_tool "$1" | cut -d' ' -f1; }
 
 tmp="$(mktemp -d 2>/dev/null || mktemp -d -t denice-install)" || fail "cannot create a temporary folder"
 trap 'rm -rf "$tmp"' EXIT
@@ -255,12 +294,98 @@ check_sum() {
     say "checksum verified ($actual)"
 }
 
+# Refuses the install: nothing has been installed yet, and the temporary folder goes at exit.
+refuse() { fail "$1; nothing was installed"; }
+
+# Checks <version-dir>/SHA256SUMS the way Denice Runtime does (VersionInstaller.ChecksumProblem): every line is
+# `<hash>  <name>`, every file of the version is listed and matches, every listed file is there.
+check_version_sums() {
+    sums="$1/SHA256SUMS"
+    [ -f "$sums" ] || refuse "the release has no versions/$version/SHA256SUMS"
+    [ -f "$sums.cosign.bundle" ] || refuse "the release has no versions/$version/SHA256SUMS.cosign.bundle (its signature)"
+    bad="$(grep -nvE '^[0-9a-f]{64}  [^ ]' "$sums" | head -n 1)" || true
+    [ -z "$bad" ] || refuse "versions/$version/SHA256SUMS has a malformed line ($bad)"
+    cut -c67- "$sums" | LC_ALL=C sort > "$tmp/listed"
+    bad="$(grep -E '^/|(^|/)\.\.(/|$)' "$tmp/listed" | head -n 1)" || true
+    [ -z "$bad" ] || refuse "versions/$version/SHA256SUMS names a file outside the version folder ($bad)"
+    (cd "$1" && find . -type f ! -path ./SHA256SUMS ! -path ./SHA256SUMS.cosign.bundle) | sed 's#^\./##' \
+        | LC_ALL=C sort > "$tmp/present"
+    bad="$(LC_ALL=C comm -13 "$tmp/listed" "$tmp/present" | head -n 1)"
+    [ -z "$bad" ] || refuse "'$bad' in the release is not listed in its SHA256SUMS"
+    bad="$(LC_ALL=C comm -23 "$tmp/listed" "$tmp/present" | head -n 1)"
+    [ -z "$bad" ] || refuse "'$bad' is listed in the release's SHA256SUMS but missing"
+    (cd "$1" && $sha256_tool -c SHA256SUMS) > "$tmp/sums.log" 2>&1 || {
+        bad="$(grep -v ': OK$' "$tmp/sums.log" | head -n 1)"
+        refuse "a file of the release does not match its SHA256SUMS ($bad)"
+    }
+    say "all $(wc -l < "$tmp/listed" | tr -d ' ') files match versions/$version/SHA256SUMS"
+}
+
+# Prints the version of cosign <program> when it is 3.0.4 or newer (3.x); fails otherwise.
+cosign_usable() {
+    cv="$("$1" version 2>/dev/null | sed -n 's/^GitVersion: *v\{0,1\}\([0-9][0-9.]*\).*/\1/p' | head -n 1)" || true
+    case "$cv" in [0-9]*.[0-9]*.[0-9]*) ;; *) return 1 ;; esac
+    major="${cv%%.*}"; rest="${cv#*.}"; minor="${rest%%.*}"; patch="${rest#*.}"; patch="${patch%%.*}"
+    [ "$major" = 3 ] && { [ "$minor" -gt 0 ] || [ "$patch" -ge 4 ]; } || return 1
+    printf '%s\n' "$cv"
+}
+
+# Sets $cosign to a cosign that can check Denice's signature: the installed one when it is new enough, otherwise
+# Sigstore's own release binary, downloaded into the temporary folder and checked against the pin above.
+find_cosign() {
+    cosign_home=""
+    if command -v cosign >/dev/null 2>&1; then
+        if found="$(cosign_usable cosign)"; then
+            cosign="cosign"; say "checking the signature with the installed cosign $found ($(command -v cosign))"; return 0
+        fi
+        say "the installed cosign ($(command -v cosign)) is not cosign 3.0.4 or a newer 3.x, which this check needs"
+    fi
+    case "$(uname -s)" in Darwin) c_os=darwin ;; Linux) c_os=linux ;; *) refuse "no cosign for $(uname -s)" ;; esac
+    case "$arch" in arm64) c_arch=arm64 ;; *) c_arch=amd64 ;; esac
+    c_name="cosign-$c_os-$c_arch"
+    pin="$(cosign_pin "$c_name")" || refuse "no pinned cosign for $c_name"
+    c_sum="${pin% *}"; c_size="${pin#* }"
+    command -v curl >/dev/null 2>&1 || refuse "cosign is needed to check the release's signature and neither cosign nor curl (to download it) is installed"
+    say "downloading Sigstore's cosign $COSIGN_VERSION ($c_name, $((c_size / 1000000)) MB) to check the release's signature; it is used for this check only and deleted afterwards"
+    mkdir "$tmp/cosign-home"
+    curl -fSL --progress-bar -o "$tmp/cosign" "$COSIGN_URL/$c_name" \
+        || refuse "cannot download cosign from $COSIGN_URL/$c_name, and it is needed to check the release's signature (install cosign 3.0.4 or newer, https://docs.sigstore.dev/cosign/system_config/installation/, and run this again)"
+    actual="$(sha256_of "$tmp/cosign")"
+    [ "$actual" = "$c_sum" ] || refuse "the downloaded cosign does not match the SHA-256 written in this script (expected $c_sum, got $actual)"
+    chmod 755 "$tmp/cosign"
+    say "cosign download verified ($actual)"
+    cosign="$tmp/cosign"; cosign_home="$tmp/cosign-home"
+}
+
+# Runs $cosign; the downloaded one keeps its Sigstore trust data and any cache in the temporary folder.
+run_cosign() {
+    if [ -n "$cosign_home" ]; then HOME="$cosign_home" TUF_ROOT="$cosign_home/sigstore" "$cosign" "$@"
+    else "$cosign" "$@"; fi
+}
+
+# Checks the unpacked release <root> holding versions/$version: SHA256SUMS, its cosign signature, the loader copy.
+verify_release() {
+    vdir="$1/versions/$version"
+    check_version_sums "$vdir"
+    diff -r "$1/$loader_name" "$vdir/$loader_name" > /dev/null 2>&1 \
+        || refuse "the loader $loader_name at the top of the release differs from the one in versions/$version"
+    find_cosign
+    run_cosign verify-blob --certificate-identity-regexp "$SIGNER_IDENTITY" \
+        --certificate-oidc-issuer "$SIGNER_ISSUER" --bundle "$vdir/SHA256SUMS.cosign.bundle" "$vdir/SHA256SUMS" \
+        > "$tmp/cosign.log" 2>&1 || {
+        sed 's/^/  cosign: /' "$tmp/cosign.log" >&2
+        refuse "the release's cosign signature is not a valid signature by Denice's release workflow"
+    }
+    rm -rf "$tmp/cosign" "$tmp/cosign-home"
+    say "signature verified: signed by Denice's release workflow ($SIGNER_IDENTITY)"
+}
+
 # ---------------------------------------------------------------- get the release zip
 if [ -n "$from_zip" ]; then
     [ -f "$from_zip" ] || fail "no such file: $from_zip"
     zip="$from_zip"
     if [ -f "$from_zip.sha256" ]; then check_sum "$zip" "$from_zip.sha256"
-    else say "no $(basename "$from_zip").sha256 beside the zip: installing without a checksum check"; fi
+    else say "no $(basename "$from_zip").sha256 beside the zip: checking its signed contents only"; fi
 else
     need curl
     say "looking up Denice releases for $rid"
@@ -307,6 +432,7 @@ src_loader="$tmp/x/$loader_name"
 if [ "$os" = osx ]; then src_program="$src_loader/Contents/MacOS/denice"; else src_program="$src_loader"; fi
 [ -f "$src_program" ] || fail "$zip is not a $rid release: it has no $loader_name loader"
 [ -x "$src_program" ] || fail "the loader in $zip is not executable"
+verify_release "$tmp/x"
 say "installing Denice $version ($rid)"
 
 # ---------------------------------------------------------------- version folder
