@@ -45,8 +45,9 @@ VERSION_ARGS="-p:DeniceDay=$DENICE_DAY -p:DeniceTime=$DENICE_TIME -p:DeniceCombi
 # Linux Rust programs link against glibc 2.17 through cargo-zigbuild (Tim, pkg-2a7c75112d13: "build-with-cargo-zigbuild"),
 # so they run on every Linux Denice Runtime's .NET runs on (eng/check-glibc.sh enforces it). BUILD/RUSTC pick the cargo
 # subcommands; GLIBC is the target suffix cargo-zigbuild reads.
-BUILD="build"; RUSTC="rustc"; GLIBC=""
-case "$RID" in linux-*) BUILD="zigbuild"; RUSTC="zigbuild rustc"; GLIBC=".2.17" ;; esac
+# `cargo zigbuild` builds; the rustc form is the cargo-zigbuild program itself (`cargo-zigbuild rustc`).
+BUILD="build"; RUSTC_CMD="$CARGO rustc"; GLIBC=""
+case "$RID" in linux-*) BUILD="zigbuild"; RUSTC_CMD="cargo-zigbuild rustc"; GLIBC=".2.17" ;; esac
 case "$RID" in
   osx-arm64)   TARGET=aarch64-apple-darwin;      EXE="" ;;
   osx-x64)     TARGET=x86_64-apple-darwin;       EXE="" ;;
@@ -74,7 +75,7 @@ mkdir -p "$VERSION_DIR"
 # 2. The versioned entry: the build itself writes the versioned file name (tested 15 November 2026; one program per
 #    invocation, version passed in before the build).
 # shellcheck disable=SC2086
-( cd "$REPO_ROOT/rust" && DENICE_VERSION="$VERSION" "$CARGO" $RUSTC --release --locked --target "$TARGET$GLIBC" \
+( cd "$REPO_ROOT/rust" && DENICE_VERSION="$VERSION" $RUSTC_CMD --release --locked --target "$TARGET$GLIBC" \
     -p denice-entry --bin denice-entry -- --emit=link="$ENTRY" )
 
 # 3. The loader, built once, placed at the root and carried inside the version folder. On macOS it is the app
