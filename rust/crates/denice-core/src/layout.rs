@@ -20,6 +20,16 @@ pub struct RunningLock {
     _file: std::fs::File,
 }
 
+/// What [`InstalledVersion::hold_for_start`] found.
+#[derive(Debug)]
+pub enum StartHold {
+    /// The version is still installed and is marked as running while this lives (`None`: the lock could not be
+    /// taken, and the version runs unmarked).
+    Installed(Option<RunningLock>),
+    /// Another Denice removed the version after it was chosen; choose again.
+    Removed,
+}
+
 /// One installed version folder.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstalledVersion {
@@ -67,10 +77,29 @@ impl InstalledVersion {
     /// when it cannot be taken, in which case the version simply runs unmarked.
     #[must_use]
     pub fn running_lock_in(dir: &Path) -> Option<RunningLock> {
-        let file =
-            std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(dir.join(RUNNING_LOCK)).ok()?;
+        let file = open_running_lock(dir).ok()?;
         file.lock_shared().ok()?;
         Some(RunningLock { _file: file })
+    }
+
+    /// Marks this version as running before it is started, then confirms it is still installed. A Denice removing a
+    /// version holds this lock exclusively while it deletes the entry, so either the removal waits for this run, or
+    /// this finds the entry gone and the loader chooses again.
+    #[must_use]
+    pub fn hold_for_start(&self) -> StartHold {
+        let lock = self.hold_running().ok();
+        if self.entry_path().is_file() { StartHold::Installed(lock) } else { StartHold::Removed }
+    }
+
+    /// Takes this version for removal: its running lock, exclusively, so no Denice can start it meanwhile. `None` when
+    /// a Denice is running it.
+    fn take_for_removal(&self) -> io::Result<Option<RunningLock>> {
+        let file = open_running_lock(&self.dir)?;
+        match file.try_lock() {
+            Ok(()) => Ok(Some(RunningLock { _file: file })),
+            Err(std::fs::TryLockError::WouldBlock) => Ok(None),
+            Err(std::fs::TryLockError::Error(e)) => Err(e),
+        }
     }
 
     /// Whether any process is running this version now.
@@ -92,7 +121,15 @@ impl InstalledVersion {
     /// # Errors
     /// Returns the file system error if the marker cannot be written.
     pub fn mark_bad(&self) -> io::Result<()> {
-        std::fs::write(self.dir.join(BAD_MARKER), b"")
+        let marker = self.dir.join(BAD_MARKER);
+        std::fs::write(&marker, b"")?;
+        // A version another Denice has started meanwhile is not bad. The marker is written before `.started` is read,
+        // and the removal of older versions reads `.bad` after `.started` was written, so of two Denice racing on one
+        // version, either this takes the marker back or that removal keeps the older versions.
+        if self.has_started() {
+            remove_file_if_present(&marker)?;
+        }
+        Ok(())
     }
 }
 
@@ -179,19 +216,25 @@ impl InstallLayout {
         Ok(self.usable_versions()?.into_iter().next())
     }
 
-    /// Once `current` has started successfully, removes every version folder older than it
-    /// (pkg-a0206b25f619: the previous version is kept until the new one has started once).
-    /// Returns the folders it removed.
+    /// Once `current` has started successfully (and is not marked bad), removes every version folder older than it
+    /// (pkg-a0206b25f619: the previous version is kept until the new one has started once). Returns the folders it
+    /// removed.
     ///
     /// # Errors
     /// Returns the first file system error; folders removed before it stay removed.
     pub fn remove_versions_older_than(&self, current: &InstalledVersion) -> io::Result<Vec<PathBuf>> {
-        if !current.has_started() {
+        if !current.has_started() || current.is_bad() {
             return Ok(Vec::new());
         }
         let mut removed = Vec::new();
-        // A version another Denice is still running is kept; a later start removes it.
-        for older in self.complete_versions()?.into_iter().filter(|v| v.version < current.version && !v.is_running()) {
+        // Incomplete folders too, so a removal cut short is finished by a later start.
+        for older in self.version_folders()?.into_iter().filter(|v| v.version < current.version) {
+            // A version another Denice is running is kept; a later start removes it.
+            let Some(lock) = older.take_for_removal()? else { continue };
+            // The entry goes first, under the lock: without it the folder is no longer a version, so no Denice can
+            // start it while the rest is deleted (see `hold_for_start`).
+            remove_file_if_present(&older.entry_path())?;
+            drop(lock);
             std::fs::remove_dir_all(&older.dir)?;
             removed.push(older.dir);
         }
@@ -199,6 +242,11 @@ impl InstallLayout {
     }
 
     fn complete_versions(&self) -> io::Result<Vec<InstalledVersion>> {
+        Ok(self.version_folders()?.into_iter().filter(|v| v.entry_path().is_file()).collect())
+    }
+
+    /// Every folder named after a version, complete or not (never a `.partial` download).
+    fn version_folders(&self) -> io::Result<Vec<InstalledVersion>> {
         let dir = self.versions_dir();
         let entries = match std::fs::read_dir(&dir) {
             Ok(entries) => entries,
@@ -217,12 +265,20 @@ impl InstallLayout {
             let Ok(version) = name.parse::<Version>() else {
                 continue;
             };
-            let candidate = InstalledVersion { version, dir: entry.path() };
-            if candidate.entry_path().is_file() {
-                found.push(candidate);
-            }
+            found.push(InstalledVersion { version, dir: entry.path() });
         }
         Ok(found)
+    }
+}
+
+fn open_running_lock(dir: &Path) -> io::Result<std::fs::File> {
+    std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(dir.join(RUNNING_LOCK))
+}
+
+fn remove_file_if_present(path: &Path) -> io::Result<()> {
+    match std::fs::remove_file(path) {
+        Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
+        _ => Ok(()),
     }
 }
 

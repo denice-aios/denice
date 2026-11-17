@@ -7,7 +7,7 @@
 
 pub mod launcher;
 
-use denice_core::layout::{InstallLayout, InstalledVersion};
+use denice_core::layout::{InstallLayout, InstalledVersion, StartHold};
 use denice_core::protocol::{
     ENV_INSTALL_ROOT, ENV_LOADER_PATH, ENV_LOADER_VERSION, ENV_VERSION_DIR, EXIT_LOADER_REPLACED,
     EXIT_RESTART_INTO_NEWER_VERSION,
@@ -88,7 +88,11 @@ impl<L: Launcher> Loader<'_, L> {
             }
             self.remove_older_than(&current);
 
-            let code = match self.launcher.run(&current.entry_path(), args, &self.environment(&current)) {
+            // Marked as running from before it starts until it exits, so another Denice never removes it meanwhile.
+            let StartHold::Installed(running) = current.hold_for_start() else { continue };
+            let started = self.launcher.run(&current.entry_path(), args, &self.environment(&current));
+            drop(running);
+            let code = match started {
                 Ok(code) => code,
                 Err(e) => {
                     self.launcher.report(&format!("cannot start {}: {e}", current.entry_path().display()));
