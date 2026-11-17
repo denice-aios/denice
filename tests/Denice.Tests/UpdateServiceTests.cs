@@ -462,13 +462,16 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task AnInvalidSettingsFile_Fails()
+    public async Task ABrokenSettingsFile_IsRestoredToTheLastKnownGood_AndTheCheckGoesOn()
     {
-        string settings = new SettingsFile(services).FilePath;
-        services.FileSystem.GetDirectoryWriter().CreateDirectory(Path.GetDirectoryName(settings)!);
-        services.FileSystem.GetFileWriter().WriteAllText(settings, "updates.enabled: maybe\n");
+        var settingsFile = new SettingsFile(services);
+        services.FileSystem.GetDirectoryWriter().CreateDirectory(Path.GetDirectoryName(settingsFile.FilePath)!);
+        services.FileSystem.GetFileWriter().WriteAllText(settingsFile.FilePath, "updates.enabled: maybe\n");
+        ServeReleases();
 
-        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None)).Result.Should().Be(UpdateResult.Failed);
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None)).Result.Should().Be(UpdateResult.NoNewerVersion);
+        services.FileSystem.GetFileReader().ReadAllText(settingsFile.BrokenFilePath).Should().Be("updates.enabled: maybe\n");
+        settingsFile.ReadUpdateSettings().Should().Be(UpdateSettings.Defaults);
     }
 
     [Fact]
@@ -623,7 +626,7 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task TheLoop_WithAnInvalidSettingsFile_WaitsTheDefaultIntervalAndKeepsGoing()
+    public async Task TheLoop_WithABrokenSettingsFile_RestoresItAndKeepsGoing()
     {
         string settings = new SettingsFile(services).FilePath;
         services.FileSystem.GetDirectoryWriter().CreateDirectory(Path.GetDirectoryName(settings)!);
@@ -635,7 +638,8 @@ public sealed class UpdateServiceTests : IDisposable
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
         clock.Advance(TimeSpan.FromHours(6));
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
-        github.Requests.Should().BeEmpty("the check fails on the settings file before it reaches GitHub");
+        github.Requests.Should().NotBeEmpty("the broken file is restored to version 0, every default, and the checks go on");
+        services.FileSystem.GetFileReader().Exists(settings + ".broken").Should().BeTrue();
 
         await stop.CancelAsync();
         (await run).Should().BeNull();

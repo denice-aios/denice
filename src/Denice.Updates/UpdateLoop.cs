@@ -77,8 +77,9 @@ public sealed class UpdateLoop
         }
     }
 
-    // The interval as Settings now say; a settings file that cannot be read means the default, and the check itself then
-    // fails with the reason and is retried at the next interval.
+    // The interval as Settings now say (a broken settings file is restored to the last known good as it is read); a
+    // settings folder that cannot be read means the default, and the check itself then fails with the reason and is
+    // retried at the next interval.
     private TimeSpan Interval()
     {
         try

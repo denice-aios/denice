@@ -32,6 +32,8 @@ internal static class SettingsYaml
         "#   denice settings                       lists every setting with its value and default",
         "#   denice settings set <name> <value>    changes one",
         "#   denice settings reset <name>          returns one to its default",
+        "#   denice settings history               lists earlier settings that loaded, newest first",
+        "#   denice settings restore <number>      brings one of them back (0 is every default)",
         "# Only settings that were set are listed here; every other setting has its default.",
         "# Denice rewrites this file on every change, so comments added by hand are not kept.",
     ];

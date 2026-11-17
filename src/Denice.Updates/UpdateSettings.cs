@@ -23,11 +23,11 @@ public sealed record UpdateSettings(bool Enabled, UpdateChannel Channel, TimeSpa
     public static UpdateSettings Defaults { get; } = From(new Dictionary<string, string>(StringComparer.Ordinal));
 
     /// <summary>
-    /// Reads the update settings from the per-user <c>settings.yaml</c>; a missing file means every default.
+    /// Reads the update settings from the per-user <c>settings.yaml</c>; a missing file means every default, and a broken
+    /// file is replaced by the last known good settings (<see cref="SettingsFile"/>).
     /// </summary>
     /// <param name="services">The owned services the settings folder and file are reached through.</param>
     /// <returns>The update settings.</returns>
-    /// <exception cref="System.IO.InvalidDataException">The settings file is not valid; the message names the line.</exception>
     public static UpdateSettings Read(ISystemServices services) => new SettingsFile(services).ReadUpdateSettings();
 
     /// <summary>Builds the typed settings from the values the settings file sets, each already validated.</summary>

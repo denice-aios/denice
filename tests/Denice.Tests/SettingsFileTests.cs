@@ -15,7 +15,8 @@ namespace Denice.Tests;
 /// <summary>
 /// The per-user <c>settings.yaml</c> through <see cref="SettingsFile"/> and the typed <see cref="UpdateSettings"/>, on
 /// the real file system under a temporary home (never the real user folder): defaults with no file, validated changes,
-/// resets, and a replace-in-one-step write that never leaves a temporary file behind.
+/// resets, and a replace-in-one-step write that never leaves a temporary file behind. A broken file and the history of
+/// settings that loaded are covered by <see cref="SettingsHistoryTests"/>.
 /// </summary>
 public sealed class SettingsFileTests : IDisposable
 {
@@ -179,21 +180,7 @@ public sealed class SettingsFileTests : IDisposable
     }
 
     [Fact]
-    public void AnInvalidFile_IsRefusedNamingTheFileAndLine_AndSetLeavesItUntouched()
-    {
-        const string Invalid = "updates.enabled: true\nupdates:\n  channel: stable\n";
-        Write(Invalid);
-
-        Action list = () => settings.List();
-        Action set = () => settings.Set("updates.enabled", "false");
-
-        list.Should().Throw<InvalidDataException>().WithMessage($"{settings.FilePath}, line 2: updates has no value*");
-        set.Should().Throw<InvalidDataException>();
-        Read().Should().Be(Invalid);
-    }
-
-    [Fact]
-    public void Write_LeavesOnlyTheSettingsFileInItsFolder()
+    public void Write_LeavesOnlyTheSettingsFileAndItsHistoryInItsFolder()
     {
         settings.Set("updates.channel", "stable");
         settings.Set("updates.channel", "pre-release");
@@ -201,7 +188,9 @@ public sealed class SettingsFileTests : IDisposable
         string folder = Path.GetDirectoryName(settings.FilePath)!;
         real.FileSystem.GetDirectoryReader().EnumerateChildren(folder)
             .Select(child => Path.GetFileName(child.FullPath))
-            .Should().Equal("settings.yaml");
+            .Should().BeEquivalentTo("settings.yaml", "settings-history");
+        real.FileSystem.GetDirectoryReader().EnumerateChildren(Path.Combine(folder, "settings-history"))
+            .Should().ContainSingle().Which.FullPath.Should().EndWith(".yaml");
     }
 
     [Fact]
