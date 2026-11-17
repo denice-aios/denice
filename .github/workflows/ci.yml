@@ -986,3 +986,111 @@ jobs:
             evidence.zip \
             ${CERTS[@]+"${CERTS[@]}"} \
             ${TRUST[@]+"${TRUST[@]}"}
+
+  # Proves the rows only a PUBLISHED release can prove (rust/REQUIREMENTS.md F9 F10 F11 F14 E3, and the real-download
+  # halves of E1 I5 I6), from the release the job above just published, downloaded from GitHub as a user gets it. They run
+  # after publishing, so they cannot stop a release; a failure here is a defect in the published release.
+  release-proof-macos:
+    needs: [version, release]
+    if: github.event_name == 'push'
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install cosign (for verify-blob)
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
+        with:
+          cosign-release: 'v3.1.3'
+      - name: Install pinned .NET SDK (official script, same as local)
+        run: |
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
+          echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/dotnet/dotnet" --version
+      - name: The published release holds all six layouts, every checksum and cosign bundle verifies, every Denice executable is signed (rust/REQUIREMENTS.md F9 F10 F11 F14)
+        run: eng/check-release.sh "$TAG" "$RUNNER_TEMP/release-check"
+      - name: Denice Runtime from the release accepts the genuine osx-arm64 release and refuses altered copies (rust/REQUIREMENTS.md E3)
+        if: ${{ !cancelled() }}
+        run: eng/check-release-runtime.sh osx-arm64 "$RUNNER_TEMP/release-check/assets" "$RUNNER_TEMP/release-runtime"
+      - name: First install from the release with `curl … install.sh | sh`, run, denice update, uninstall (rust/REQUIREMENTS.md I5 I6)
+        if: ${{ !cancelled() }}
+        run: eng/install/test-real-install.sh osx-arm64 "--release=$TAG" "$RUNNER_TEMP/release-install"
+      - name: Install the previous release and let Denice update itself to this one through GitHub Releases (rust/REQUIREMENTS.md E1)
+        if: ${{ !cancelled() }}
+        run: eng/install/test-release-update.sh osx-arm64 "$TAG" "$RUNNER_TEMP/release-update"
+      - name: Upload the release check result
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-proof-macos
+          path: ${{ runner.temp }}/release-check/check-release.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  release-proof-linux:
+    needs: [version, release]
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rid: linux-x64, runner: ubuntu-latest }
+          - { rid: linux-arm64, runner: ubuntu-24.04-arm }
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pinned .NET SDK (official script, same as local)
+        run: |
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
+          echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/dotnet/dotnet" --version
+      - name: Download this platform's release file (and another platform's, for its genuine cosign bundle)
+        run: gh release download "$TAG" --repo "${{ github.repository }}" --dir "$RUNNER_TEMP/assets" --pattern 'denice-v*-linux-*.zip' --pattern 'denice-v*-osx-x64.zip'
+      - name: Denice Runtime from the release accepts the genuine ${{ matrix.rid }} release and refuses altered copies (rust/REQUIREMENTS.md E3)
+        run: eng/check-release-runtime.sh ${{ matrix.rid }} "$RUNNER_TEMP/assets" "$RUNNER_TEMP/release-runtime"
+      - name: First install from the release with `curl … install.sh | sh`, run, denice update, uninstall (rust/REQUIREMENTS.md I5 I6)
+        if: ${{ !cancelled() }}
+        run: eng/install/test-real-install.sh ${{ matrix.rid }} "--release=$TAG" "$RUNNER_TEMP/release-install"
+      - name: Install the previous release and let Denice update itself to this one through GitHub Releases (rust/REQUIREMENTS.md E1)
+        if: ${{ !cancelled() }}
+        run: eng/install/test-release-update.sh ${{ matrix.rid }} "$TAG" "$RUNNER_TEMP/release-update"
+
+  release-proof-windows:
+    needs: [version, release]
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pinned .NET SDK (official script, same as local)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP/dotnet-install.ps1"
+          & "$env:RUNNER_TEMP/dotnet-install.ps1" -JSonFile "$env:GITHUB_WORKSPACE/global.json" -InstallDir "$env:RUNNER_TEMP/dotnet"
+          "$env:RUNNER_TEMP/dotnet" | Out-File -FilePath $env:GITHUB_PATH -Append
+          & "$env:RUNNER_TEMP/dotnet/dotnet" --version
+      - name: Windows' own verifier on the setup programs and every signed Denice file; install from the release's setup, run, denice update, uninstall; update from the previous release (rust/REQUIREMENTS.md F9 F14 I5 I6 E1)
+        shell: pwsh
+        run: ./eng/windows/test-release-install.ps1 -Tag $env:TAG -Work (Join-Path $env:RUNNER_TEMP 'release-install')
+      - name: Download the win-x64 release file (and another platform's, for its genuine cosign bundle)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: gh release download "$TAG" --repo "${{ github.repository }}" --dir "$RUNNER_TEMP/assets" --pattern 'denice-v*-win-x64.zip' --pattern 'denice-v*-linux-x64.zip'
+      - name: Denice Runtime from the release accepts the genuine win-x64 release and refuses altered copies (rust/REQUIREMENTS.md E3)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: eng/check-release-runtime.sh win-x64 "$RUNNER_TEMP/assets" "$RUNNER_TEMP/release-runtime"

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Drives Denice Runtime's own install path (Denice.Updates.VersionInstaller with Denice's production trust) from the
+       assemblies a PUBLISHED release ships, for rust/REQUIREMENTS.md E3. Build with
+       -p:DeniceReleaseVersionDir=<unpacked release>/versions/<version>; eng/check-release-install.sh does this. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Private=false: nothing is copied; at run time the probe loads these from the release itself (Program.cs). -->
+    <Reference Include="Denice.Abstractions" HintPath="$(DeniceReleaseVersionDir)/Denice.Abstractions.dll" Private="false" />
+    <Reference Include="Denice.Updates" HintPath="$(DeniceReleaseVersionDir)/Denice.Updates.dll" Private="false" />
+  </ItemGroup>
+
+</Project>
