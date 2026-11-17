@@ -48,8 +48,9 @@ public sealed class UpdateLoop
     }
 
     /// <summary>
-    /// Checks every <c>updates.checkIntervalHours</c> until a check installs a newer version. A failed check is retried
-    /// at the next interval; while updates are switched off nothing is checked.
+    /// Checks every <c>updates.checkIntervalHours</c> until a check installs a newer version. A failed check is reported
+    /// on standard error with its reason and retried at the next interval; while updates are switched off nothing is
+    /// checked.
     /// </summary>
     /// <param name="ct">Ends the loop, including a check under way.</param>
     /// <returns>The installed version and the exit code the session ends with, or <see langword="null"/> when
@@ -68,6 +69,11 @@ public sealed class UpdateLoop
                 if (outcome is { Result: UpdateResult.Installed, Version: { } version })
                 {
                     return new NewerVersionReady(version);
+                }
+
+                if (outcome.Result == UpdateResult.Failed)
+                {
+                    _services.Console.ErrorWriteLine($"The update check failed; Denice checks again at the next interval. {outcome.Reason}");
                 }
             }
         }
