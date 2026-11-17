@@ -25,7 +25,8 @@ fn main() {
     if std::env::var_os(ROLE).is_some() {
         std::process::exit(act_as_version());
     }
-    let tests: [(&str, fn()); 6] = [
+    #[cfg_attr(not(unix), allow(unused_mut))]
+    let mut tests: Vec<(&str, fn())> = vec![
         ("runs the highest version with the arguments and returns its code", runs_highest_with_arguments),
         ("passes the protocol environment", passes_protocol_environment),
         ("restarts into a newer version", restarts_into_newer_version),
@@ -33,11 +34,16 @@ fn main() {
         ("hands over to the replaced loader", hands_over_to_replaced_loader),
         ("reports when nothing is installed", reports_nothing_installed),
     ];
+    // macOS and Linux users start Denice through the ~/.local/bin/denice link; Windows users through a Start Menu
+    // shortcut, which runs denice.exe itself.
+    #[cfg(unix)]
+    tests.push(("finds its install when started through a link", started_through_a_link));
+    let count = tests.len();
     for (name, test) in tests {
         test();
         println!("test {name} ... ok");
     }
-    println!("test result: ok. {} passed", tests.len());
+    println!("test result: ok. {count} passed");
 }
 
 /// The stand-in version's behaviour, read from `behaviour` in its own folder.
@@ -175,4 +181,15 @@ fn reports_nothing_installed() {
     let out = run_loader(&i, &[]);
     assert_eq!(out.status.code(), Some(denice_loader::EXIT_NO_USABLE_VERSION));
     assert!(String::from_utf8_lossy(&out.stderr).contains("no usable Denice version"));
+}
+
+#[cfg(unix)]
+fn started_through_a_link() {
+    let i = fresh_install();
+    let _ = install(&i.root, A, "run 5");
+    let link = i.home.join(".local").join("bin").join("denice");
+    std::fs::create_dir_all(link.parent().unwrap()).unwrap();
+    std::os::unix::fs::symlink(&i.program, &link).unwrap();
+    let out = Command::new(&link).env(ROLE, "1").env("HOME", &i.home).output().unwrap();
+    assert_eq!(out.status.code(), Some(5), "the loader started through a link found its versions: {out:?}");
 }

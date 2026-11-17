@@ -146,6 +146,8 @@ jobs:
         run: eng/coverage-gate.sh . Denice.CrossPlatform.MacOS
       - name: End-to-end loader test on osx-arm64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
         run: eng/loader-e2e-test.sh osx-arm64 "$RUNNER_TEMP/e2e"
+      - name: Install script tests (macOS and the Linux branch; temporary HOME, no network; rust/REQUIREMENTS.md I3 I4 I6)
+        run: eng/install/test-install.sh
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -314,6 +316,34 @@ jobs:
       - name: End-to-end loader test on win-x64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
         shell: bash
         run: eng/loader-e2e-test.sh win-x64 "$RUNNER_TEMP/e2e"
+      - name: Build both per-user Inno Setup installers (pkg-494745156d56 windows-install; rust/REQUIREMENTS.md I2)
+        shell: pwsh
+        run: |
+          foreach ($rid in 'win-x64','win-arm64') {
+            ./eng/windows/build-installer.ps1 -Rid $rid -Version $env:DENICE_VERSION -Layout "layouts/$rid" -Out installers
+          }
+      - name: Install, run and uninstall the win-x64 setup silently as this user (no admin; rust/REQUIREMENTS.md I1 I2)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Get-ChildItem installers -Filter "denice-setup-v*-win-x64.exe" | Select-Object -First 1 -ExpandProperty FullName
+          $p = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "setup exited with $($p.ExitCode)" }
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\Denice'
+          $exe = Join-Path $app 'denice.exe'
+          if (-not (Test-Path $exe)) { throw "denice.exe is not in $app" }
+          $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Denice\Denice.lnk'
+          if (-not (Test-Path $shortcut)) { throw "no Start Menu shortcut at $shortcut" }
+          & $exe settings set updates.enabled false
+          $out = & $exe version
+          if ($LASTEXITCODE -ne 0 -or -not ($out -match [regex]::Escape("SemVer: $env:DENICE_VERSION"))) { throw "denice version failed: $out" }
+          $uninstaller = Get-ChildItem $app -Filter 'unins*.exe' | Select-Object -First 1 -ExpandProperty FullName
+          $u = Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "uninstall exited with $($u.ExitCode)" }
+          Start-Sleep -Seconds 3
+          if (Test-Path $exe) { throw "uninstall left $exe" }
+          if (Test-Path $shortcut) { throw "uninstall left the Start Menu shortcut" }
+          Write-Host "installed, ran ($out), uninstalled"
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -378,6 +408,43 @@ jobs:
               }
             }
           }
+      - name: Rebuild the installers from the signed layouts, then sign the installers (push only)
+        if: github.event_name == 'push'
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.DENICE_WINDOWS_PFX }}
+          PFX_PW: ${{ secrets.DENICE_WINDOWS_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Remove-Item -Recurse -Force installers -ErrorAction SilentlyContinue
+          foreach ($rid in 'win-x64','win-arm64') {
+            ./eng/windows/build-installer.ps1 -Rid $rid -Version $env:DENICE_VERSION -Layout "layouts/$rid" -Out installers
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP 'winsign\cert.pfx'
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          foreach ($setup in Get-ChildItem installers -Filter 'denice-setup-*.exe' | ForEach-Object FullName) {
+            & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $setup
+            if ($LASTEXITCODE -ne 0) {
+              & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.sectigo.com /td sha256 $setup
+              if ($LASTEXITCODE -ne 0) { Write-Error "signtool sign failed for $setup on both timestamp servers." }
+            }
+          }
+      - name: Checksum, cosign and verify the installers (push only)
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          IDENTITY="https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}"
+          mkdir -p dist
+          for setup in installers/denice-setup-*.exe; do
+            name="$(basename "$setup")"
+            cp "$setup" "dist/$name"
+            ( cd dist && sha256sum "$name" > "$name.sha256" && sha256sum -c "$name.sha256" )
+            cosign sign-blob --yes --bundle "dist/$name.cosign.bundle" "dist/$name"
+            cosign verify-blob --certificate-identity "$IDENTITY" --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+              --bundle "dist/$name.cosign.bundle" "dist/$name"
+          done
       - name: Stage, checksum, and cosign the windows layouts
         if: github.event_name == 'push'
         shell: bash
@@ -484,6 +551,8 @@ jobs:
         run: eng/coverage-gate.sh . aggregate Denice.CrossPlatform.Linux
       - name: End-to-end loader test on linux-arm64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
         run: eng/loader-e2e-test.sh linux-arm64 "$RUNNER_TEMP/e2e"
+      - name: Install script tests on Linux (temporary HOME, no network; rust/REQUIREMENTS.md I4 I6)
+        run: eng/install/test-install.sh
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -640,8 +709,8 @@ jobs:
           }
           export_cer "$MAC_P12_B64" "$MAC_P12_PW" dist/denice-macos-public.cer
           export_cer "$WIN_PFX_B64" "$WIN_PFX_PW" dist/denice-windows-public.cer
-      - name: Stage the tester trust scripts
-        run: cp eng/signing/trust-cert.sh eng/signing/trust-cert.ps1 dist/
+      - name: Stage the tester trust scripts and the macOS/Linux install script
+        run: cp eng/signing/trust-cert.sh eng/signing/trust-cert.ps1 eng/install/install.sh dist/
       - name: Package the evidence zip (release-zip-layout)
         # release-zip-layout: the per-OS jobs already produced one denice-v<version>-<rid>.zip per platform (the install
         # layout, with versions/<version>/SHA256SUMS and its cosign bundle inside, the zip's own .zip.sha256 beside it).
@@ -691,6 +760,10 @@ jobs:
             $PRERELEASE \
             "denice-v${DENICE_ASSET_VERSION}"-{osx-arm64,osx-x64,win-x64,win-arm64,linux-arm64,linux-x64}.zip \
             "denice-v${DENICE_ASSET_VERSION}"-{osx-arm64,osx-x64,win-x64,win-arm64,linux-arm64,linux-x64}.zip.sha256 \
+            "denice-setup-v${DENICE_ASSET_VERSION}"-{win-x64,win-arm64}.exe \
+            "denice-setup-v${DENICE_ASSET_VERSION}"-{win-x64,win-arm64}.exe.sha256 \
+            "denice-setup-v${DENICE_ASSET_VERSION}"-{win-x64,win-arm64}.exe.cosign.bundle \
+            install.sh \
             evidence.zip \
             denice-macos-public.cer denice-windows-public.cer \
             trust-cert.sh trust-cert.ps1

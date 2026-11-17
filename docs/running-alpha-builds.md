@@ -132,3 +132,63 @@ unzip denice-v<version>-linux-x64.zip -d denice && ./denice/denice version
 These steps are only needed for the self-signed alpha builds. Once Denice ships with a notarized Apple
 identity and an EV/OV Windows certificate, Gatekeeper and SmartScreen will accept the binaries without any of
 the trust steps above.
+
+---
+
+## Installing Denice
+
+Instead of unzipping by hand, install Denice for your user account. Nothing needs administrator rights and nothing
+runs in the background. After the first install Denice updates itself: it downloads new versions into its
+`versions` folder and can replace its own loader.
+
+### macOS and Linux
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/denice-aios/denice/dev/eng/install/install.sh | sh
+```
+
+The script finds the newest release for your machine (pre-releases included), downloads the zip and its
+`.zip.sha256`, refuses the zip if the checksum does not match, installs it, and runs `denice version` to show it
+works. Options go after `sh -s --`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/denice-aios/denice/dev/eng/install/install.sh | sh -s -- --version <version>
+sh install.sh --from denice-v<version>-<rid>.zip     # install a zip you already downloaded (offline)
+```
+
+Where everything goes:
+
+| | macOS | Linux |
+|---|---|---|
+| Loader | `~/Applications/Denice.app` | `~/.local/share/denice/denice` |
+| Versions | `~/Library/Application Support/Denice/versions/<version>/` | `~/.local/share/denice/versions/<version>/` |
+| Terminal command | `~/.local/bin/denice` → `~/Applications/Denice.app/Contents/MacOS/denice` | `~/.local/bin/denice` → the loader |
+| Menu entry | — | `~/.local/share/applications/denice.desktop` |
+
+On Linux `~/.local/share` is `$XDG_DATA_HOME` when that is set. If `~/.local/bin` is not on your `PATH`, the script
+says so; add it to type `denice` from anywhere.
+
+macOS stays on this script until Denice is notarized: files curl downloads carry no quarantine flag, so the
+self-signed build runs without the Gatekeeper steps above (the script also clears the flag from a zip you downloaded
+in a browser and install with `--from`). Once Denice is notarized, macOS gets a DMG to drag into Applications.
+
+Uninstall:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/denice-aios/denice/dev/eng/install/install.sh | sh -s -- --uninstall
+```
+
+This removes the loader (`Denice.app` on macOS), the whole `versions` folder, the `~/.local/bin/denice` link and the
+Linux menu entry. It keeps your settings (`settings.yaml`) and Denice's other data.
+
+### Windows
+
+Download `denice-setup-v<version>-<rid>.exe` (`win-x64` or `win-arm64`) from the release page and run it. It asks for
+no administrator rights and installs into `%LOCALAPPDATA%\Programs\Denice` (`denice.exe` and
+`versions\<version>\`), adds a **Denice** Start Menu shortcut and an entry in **Settings → Apps → Installed apps**.
+Running a newer setup over an existing install keeps the versions Denice downloaded itself.
+
+Uninstall from **Installed apps**: it removes `%LOCALAPPDATA%\Programs\Denice` entirely, including downloaded
+versions. Your settings in `%LOCALAPPDATA%\Denice` stay.
+
+The setup file is not yet signed with a recognised certificate, so SmartScreen may warn as described above.
