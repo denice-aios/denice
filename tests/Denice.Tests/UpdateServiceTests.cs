@@ -14,6 +14,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Denice.Abstractions.Contracts;
 using Denice.TestHelpers;
+using Denice.Tests.Shared;
 using Denice.Updates;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
@@ -24,7 +25,8 @@ namespace Denice.Tests;
 /// <summary>
 /// Finding and installing a newer Denice from GitHub Releases: the off switch, a check at every start, the channel, the
 /// version order, this platform's release file, its <c>.zip.sha256</c>, what is recorded as the last check, and the
-/// checks a long-running session makes every interval (<see cref="UpdateLoop"/>). GitHub
+/// checks a long-running session makes every interval (<see cref="UpdateLoop"/>), and the long-running host that runs a
+/// command alongside them and restarts into a ready newer version (<see cref="LongRunningHost"/>, D6). GitHub
 /// is a fake handler (no network), the disk is simulated, the clock is fake, and the cosign check is stood in for; the
 /// installer's own checks are proven in <see cref="VersionInstallerTests"/>.
 /// </summary>
@@ -38,6 +40,7 @@ public sealed class UpdateServiceTests : IDisposable
 
     private readonly FakeGitHub github = new();
     private readonly FakeTimeProvider clock = new(Start);
+    private readonly RecordingConsole console = new();
     private readonly List<object> releases = [];
     private readonly Channel<TimeSpan> waits = Channel.CreateUnbounded<TimeSpan>();
     private readonly ISystemServices services;
@@ -295,6 +298,33 @@ public sealed class UpdateServiceTests : IDisposable
         await windows.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         github.WasRequested(ZipUrl("0.1.300-pre-release+ccccccc", "win-x64")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AFileSharingTheEntrysPrefix_DoesNotNameThePlatform()
+    {
+        ISystemServices windowsServices = Services(LoaderVariables(), entry: $"denice-v{Running}-win-x64.exe");
+        windowsServices.FileSystem.GetFileWriter().WriteAllText(Path.Combine(versionDirectory, $"denice-v{Running}-win-x64.pdb"), "debug");
+        using var windows = new UpdateService(windowsServices, github, AcceptingCosign);
+        AddRelease("0.1.300-pre-release+ccccccc", prerelease: true, rids: [Rid, "win-x64"]);
+        ServeReleases();
+
+        await windows.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
+
+        github.WasRequested(ZipUrl("0.1.300-pre-release+ccccccc", "win-x64")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AVersionFolderWithOnlyADebugFileSharingTheEntrysPrefix_Fails()
+    {
+        using var broken = new UpdateService(Services(LoaderVariables(), entry: $"denice-v{Running}-win-x64.pdb"), github, AcceptingCosign);
+        ServeReleases();
+
+        UpdateOutcome outcome = await broken.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
+
+        outcome.Result.Should().Be(UpdateResult.Failed);
+        outcome.Reason.Should().Contain("<rid> entry");
+        github.Requests.Should().BeEmpty();
     }
 
     [Fact]
@@ -682,6 +712,244 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task TheLoop_ReportsAFailedCheckOnStandardError()
+    {
+        github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, () => throw new HttpRequestException("No such host is known."));
+        using var stop = new CancellationTokenSource();
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(stop.Token);
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+
+        clock.Advance(TimeSpan.FromHours(6));
+        (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
+
+        console.Error.TrimEnd().Should().Be("The update check failed; Denice checks again at the next interval. No such host is known.");
+        await stop.CancelAsync();
+        (await run).Should().BeNull();
+    }
+
+    // D6, the long-running host over the real update loop, update service, fake GitHub, simulated disk and fake clock, with
+    // the test-only long-running command (Denice ships none yet).
+    [Fact]
+    public async Task TheHost_AnIntervalCheckThatFindsNothing_KeepsTheCommandRunning()
+    {
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+        Task<int> session = Host().RunAsync(command.RunAsync, CancellationToken.None);
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+
+        clock.Advance(TimeSpan.FromHours(6));
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6), "nothing newer, so the checks go on");
+
+        github.Requests.Should().ContainSingle();
+        command.IsRunning.Should().BeTrue();
+        command.Finish(0);
+        (await session).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task TheHost_WhenANewerVersionIsReady_StopsTheCommandAndEndsWithTheRestartExitCode()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+        Task<int> session = Host().RunAsync(command.RunAsync, CancellationToken.None);
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+        command.IsRunning.Should().BeTrue();
+
+        clock.Advance(TimeSpan.FromHours(6));
+
+        (await session).Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion).And.Be(75);
+        command.WasStopped.Should().BeTrue();
+        Installed(version).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheCommandEndsFirst_ItsExitCodeWinsAndTheChecksStop()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+        Task<int> session = Host().RunAsync(command.RunAsync, CancellationToken.None);
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+
+        command.Finish(3);
+
+        (await session).Should().Be(3);
+        command.WasStopped.Should().BeFalse();
+        clock.Advance(TimeSpan.FromHours(12));
+        github.Requests.Should().BeEmpty("the checks stopped with the command");
+        Installed(version).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TheHost_WithUpdatesSwitchedOff_ChecksNothingAndTheCommandRunsToCompletion()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        new SettingsFile(services).Set("updates.enabled", "false");
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+        Task<int> session = Host().RunAsync(command.RunAsync, CancellationToken.None);
+
+        for (int interval = 0; interval < 3; interval++)
+        {
+            (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+            clock.Advance(TimeSpan.FromHours(6));
+        }
+
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+        github.Requests.Should().BeEmpty();
+        command.IsRunning.Should().BeTrue();
+        command.Finish(0);
+        (await session).Should().Be(0);
+        Installed(version).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TheHost_AfterAFailedCheck_ReportsItAndKeepsTheCommandRunning()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, () => throw new HttpRequestException("No such host is known."));
+        var command = new LongRunningTestCommand();
+        Task<int> session = Host().RunAsync(command.RunAsync, CancellationToken.None);
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+
+        clock.Advance(TimeSpan.FromHours(6));
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6), "a failed check is retried at the next interval");
+
+        console.Error.Should().Contain("The update check failed; Denice checks again at the next interval. No such host is known.");
+        command.IsRunning.Should().BeTrue();
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        clock.Advance(TimeSpan.FromHours(6));
+        (await session).Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion);
+        command.WasStopped.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheStartCheckInstallsANewerVersion_StopsTheCommandAndEndsWithTheRestartExitCodeAtOnce()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+
+        int exitCode = await HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
+
+        exitCode.Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion);
+        command.WasStopped.Should().BeTrue();
+        Installed(version).Should().BeTrue();
+        waits.Reader.TryRead(out _).Should().BeFalse("no interval passed: the session ended when the start check finished");
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheStartCheckFindsANewerVersionAlreadyInstalled_EndsWithTheRestartExitCodeAtOnce()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        services.FileSystem.GetDirectoryWriter().CreateDirectory(Path.Combine(root, LoaderProtocol.VersionsDirectory, version));
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+
+        int exitCode = await HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
+
+        exitCode.Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion);
+        command.WasStopped.Should().BeTrue();
+        github.WasRequested(ZipUrl(version)).Should().BeFalse("the version was already installed");
+        waits.Reader.TryRead(out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheStartCheckFindsNothing_TheIntervalChecksGoOn()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+        Task<int> session = HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
+
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+        github.Requests.Should().ContainSingle("the start check ran");
+        command.IsRunning.Should().BeTrue();
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+        clock.Advance(TimeSpan.FromHours(6));
+
+        (await session).Should().Be(LoaderProtocol.ExitRestartIntoNewerVersion);
+        command.WasStopped.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheStartCheckFails_ReportsItAndTheIntervalChecksGoOn()
+    {
+        github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, () => throw new HttpRequestException("No such host is known."));
+        var command = new LongRunningTestCommand();
+        Task<int> session = HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
+
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+
+        console.Error.Should().Contain("The update check failed; Denice checks again at the next interval. No such host is known.");
+        command.IsRunning.Should().BeTrue();
+        command.Finish(0);
+        (await session).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task TheLoop_CancelledWhileTheStartCheckRuns_EndsWithoutWaitingForIt()
+    {
+        var startCheck = new TaskCompletionSource<UpdateOutcome>();
+        using var stop = new CancellationTokenSource();
+        Task<NewerVersionReady?> run = Loop().RunUntilNewerVersionAsync(startCheck.Task, stop.Token);
+
+        await stop.CancelAsync();
+
+        (await run).Should().BeNull();
+        waits.Reader.TryRead(out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheSessionIsEnded_StopsTheCommandAndTheChecks()
+    {
+        ServeReleases();
+        var command = new LongRunningTestCommand();
+        using var stop = new CancellationTokenSource();
+        Task<int> session = Host().RunAsync(command.RunAsync, stop.Token);
+        (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
+
+        await stop.CancelAsync();
+
+        Func<Task> ended = () => session;
+        await ended.Should().ThrowAsync<OperationCanceledException>("the command's own answer to Ctrl-C stands");
+        command.WasStopped.Should().BeTrue();
+        clock.Advance(TimeSpan.FromHours(6));
+        github.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task TheHost_WhenTheCommandFailsAtOnce_StopsTheChecksAndRethrows()
+    {
+        Task<int> session = Host().RunAsync(_ => throw new InvalidOperationException("broken command"), CancellationToken.None);
+
+        Func<Task> ended = () => session;
+        await ended.Should().ThrowAsync<InvalidOperationException>().WithMessage("broken command");
+        clock.Advance(TimeSpan.FromHours(6));
+        github.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task TheHost_RejectsMissingArguments()
+    {
+        Action noLoop = () => _ = new LongRunningHost((UpdateLoop)null!);
+        Action noWatch = () => _ = new LongRunningHost((Func<CancellationToken, Task<NewerVersionReady?>>)null!);
+        Func<Task> noCommand = () => new LongRunningHost(new UpdateLoop(services, Service)).RunAsync(null!, CancellationToken.None);
+
+        noLoop.Should().Throw<ArgumentNullException>();
+        noWatch.Should().Throw<ArgumentNullException>();
+        await noCommand.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    [Fact]
     public void TheLoop_RejectsMissingArguments()
     {
         Action noServices = () => _ = new UpdateLoop(null!, Service);
@@ -746,6 +1014,7 @@ public sealed class UpdateServiceTests : IDisposable
             .With(FakeEnvironment.Create(home: root, variables: variables))
             .With(FixedBuildInfo.Create(Running))
             .With(clock)
+            .With(console.Console)
             .Build();
         built.FileSystem.GetDirectoryWriter().CreateDirectory(root);
         built.FileSystem.GetDirectoryWriter().CreateDirectory(versionDirectory);
@@ -797,6 +1066,20 @@ public sealed class UpdateServiceTests : IDisposable
 
     // An update loop over the fake GitHub that reports each wait once it is on the fake clock.
     private UpdateLoop Loop() => new(services, Service, interval => waits.Writer.TryWrite(interval));
+
+    // The long-running host over the update loop that reports each wait (see Loop).
+    private LongRunningHost Host() => new(Loop());
+
+    // The long-running host that first waits for the given start check, as Program wires it.
+    private LongRunningHost HostAfterStartCheck(Task<UpdateOutcome> startCheck)
+    {
+        UpdateLoop loop = Loop();
+        return new(ct => loop.RunUntilNewerVersionAsync(startCheck, ct));
+    }
+
+    // The check at this start, under way in the background as Program starts it.
+    private Task<UpdateOutcome> StartCheck() =>
+        Task.Run(() => Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None));
 
     // The interval of the loop's next wait once that wait is on the fake clock (so moving the clock on reaches it), or
     // null when the loop ends instead of waiting again.

@@ -77,6 +77,10 @@ mkdir -p "$VERSION_DIR"
 # shellcheck disable=SC2086
 ( cd "$REPO_ROOT/rust" && DENICE_VERSION="$VERSION" $RUSTC_CMD --release --locked --target "$TARGET$GLIBC" \
     -p denice-entry --bin denice-entry -- --emit=link="$ENTRY" )
+# Debug symbols do not ship in the user's install. On Windows the MSVC linker writes the entry's debug file beside it
+# (denice-v<version>-<rid>.pdb); it shipped in 0.1.108558692, whose installed Denice Runtime code-signature checks every
+# denice-v* file of a new version and so refuses any release that carries one.
+case "$RID" in win-*) rm -f "${ENTRY%.exe}.pdb" ;; esac
 
 # 3. The loader, built once, placed at the root and carried inside the version folder. On macOS it is the app
 #    Denice.app holding the loader program (pkg-697310396f74 macos-bundle).
@@ -97,11 +101,17 @@ place_loader() { # place_loader <folder>
 place_loader "$OUT"
 place_loader "$VERSION_DIR"
 
-# 4. Nothing else ships: no .NET executable, and the entry carries exactly the requested name.
+# 4. Nothing else ships: no .NET executable, and the entry carries exactly the requested name and is the only denice-v*
+#    file (Denice Runtime 0.1.108558692 code-signature checks every denice-v* file of a new version).
 if [ -e "$VERSION_DIR/Denice.Runtime$EXE" ]; then
   echo "build-install-layout: a .NET executable is in the version folder; Denice Runtime must ship only as a DLL" >&2
   exit 1
 fi
 [ -f "$ENTRY" ] || { echo "build-install-layout: the entry was not written as $ENTRY" >&2; exit 1; }
+others="$(find "$VERSION_DIR" -maxdepth 1 -name 'denice-v*' ! -name "$(basename "$ENTRY")")"
+if [ -n "$others" ]; then
+  echo "build-install-layout: the entry must be the only denice-v* file in the version folder; also found: $others" >&2
+  exit 1
+fi
 echo "build-install-layout: $OUT ($RID, $VERSION)"
 echo "version=$VERSION"

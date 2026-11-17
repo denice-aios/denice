@@ -1,5 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System;
+
 namespace Denice.Updates;
 
 /// <summary>
@@ -46,4 +48,47 @@ public static class LoaderProtocol
 
     /// <summary>The Denice Runtime assembly file the entry runs.</summary>
     public const string RuntimeAssembly = "Denice.Runtime.dll";
+
+    /// <summary>The start of the versioned entry's file name; <see cref="EntryFileName"/> builds the whole name.</summary>
+    public const string EntryPrefix = "denice-v";
+
+    private const string WindowsRidPrefix = "win-";
+    private const string WindowsExecutableSuffix = ".exe";
+
+    /// <summary>
+    /// The versioned entry's file name, <c>denice-v&lt;version&gt;-&lt;rid&gt;</c> with <c>.exe</c> for a Windows rid: the
+    /// name the Rust build gives the entry (<c>platform::entry_file_name</c>) and the one file of a version the loader runs.
+    /// </summary>
+    /// <param name="version">The version the entry belongs to.</param>
+    /// <param name="rid">The .NET runtime identifier of its platform, e.g. <c>win-x64</c>.</param>
+    /// <returns>The entry's file name.</returns>
+    public static string EntryFileName(string version, string rid)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(version);
+        ArgumentException.ThrowIfNullOrEmpty(rid);
+        string suffix = rid.StartsWith(WindowsRidPrefix, StringComparison.Ordinal) ? WindowsExecutableSuffix : string.Empty;
+        return EntryPrefix + version + "-" + rid + suffix;
+    }
+
+    /// <summary>
+    /// The runtime identifier a versioned entry's file name carries, or null when <paramref name="fileName"/> is not
+    /// exactly <see cref="EntryFileName"/> of <paramref name="version"/> for some rid (a rid has no dot, so a debug file
+    /// such as <c>denice-v&lt;version&gt;-win-x64.pdb</c> is not an entry).
+    /// </summary>
+    /// <param name="fileName">A file name in the version's folder.</param>
+    /// <param name="version">The version whose entry is sought.</param>
+    /// <returns>The rid, or null.</returns>
+    public static string? EntryRid(string fileName, string version)
+    {
+        ArgumentNullException.ThrowIfNull(fileName);
+        ArgumentException.ThrowIfNullOrEmpty(version);
+        string prefix = EntryPrefix + version + "-";
+        if (!fileName.StartsWith(prefix, StringComparison.Ordinal) || fileName.Length == prefix.Length)
+        {
+            return null;
+        }
+
+        string rid = fileName[prefix.Length..].Split('.')[0];
+        return rid.Length > 0 && string.Equals(EntryFileName(version, rid), fileName, StringComparison.Ordinal) ? rid : null;
+    }
 }

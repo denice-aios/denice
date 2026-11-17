@@ -22,4 +22,9 @@
     <ProjectReference Include="..\Denice.TestHelpers\Denice.TestHelpers.csproj" />
   </ItemGroup>
 
+  <!-- Shared test-support source, linked (one owner) into each test project that needs it. -->
+  <ItemGroup>
+    <Compile Include="../Shared/LongRunningTestCommand.cs" Link="Shared/LongRunningTestCommand.cs" />
+  </ItemGroup>
+
 </Project>
