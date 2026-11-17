@@ -336,16 +336,48 @@ jobs:
           if (-not (Test-Path $exe)) { throw "denice.exe is not in $app" }
           $shortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'Denice.lnk'
           if (-not (Test-Path $shortcut)) { throw "no Start Menu shortcut at $shortcut" }
+          # Installed apps entry: per user (HKCU), never machine-wide (HKLM).
+          $key = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{7CE66CF4-3F91-454E-8A78-85E7192786D9}_is1'
+          if (-not (Test-Path "HKCU:\$key")) { throw "no per-user Installed apps entry at HKCU:\$key" }
+          if (Test-Path "HKLM:\$key") { throw "the Installed apps entry is machine-wide" }
           & $exe settings set updates.enabled false
           $out = & $exe version
           if ($LASTEXITCODE -ne 0 -or -not ($out -match [regex]::Escape("SemVer: $env:DENICE_VERSION"))) { throw "denice version failed: $out" }
+          # A version Denice downloaded after setup must go too (pkg-494745156d56 option text).
+          $later = Join-Path $app 'versions\0.9.9-pre-release+downloaded'
+          New-Item -ItemType Directory -Force -Path $later | Out-Null
+          Set-Content -Path (Join-Path $later 'Denice.Runtime.dll') -Value 'downloaded later'
           $uninstaller = Get-ChildItem $app -Filter 'unins*.exe' | Select-Object -First 1 -ExpandProperty FullName
           $u = Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($u.ExitCode -ne 0) { throw "uninstall exited with $($u.ExitCode)" }
           Start-Sleep -Seconds 3
           if (Test-Path $exe) { throw "uninstall left $exe" }
           if (Test-Path $shortcut) { throw "uninstall left the Start Menu shortcut" }
+          if (Test-Path $app) { throw "uninstall left $app (including versions downloaded after setup)" }
+          if (Test-Path "HKCU:\$key") { throw "uninstall left the Installed apps entry" }
           Write-Host "installed, ran ($out), uninstalled"
+      - name: Install and run the win-x64 setup as a standard (non-administrator) user (rust/REQUIREMENTS.md I1 I10)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Get-ChildItem installers -Filter "denice-setup-v*-win-x64.exe" | Select-Object -First 1 -ExpandProperty FullName
+          $copy = Join-Path $env:PUBLIC 'denice-setup.exe'
+          Copy-Item $setup $copy
+          $plain = 'Dn-' + [guid]::NewGuid().ToString('N').Substring(0, 16) + '!a1'
+          $password = ConvertTo-SecureString $plain -AsPlainText -Force
+          New-LocalUser -Name 'denicestd' -Password $password -AccountNeverExpires | Out-Null
+          if ((Get-LocalGroupMember -Group 'Administrators' | Where-Object Name -like '*\denicestd')) { throw 'the test user is an administrator' }
+          Start-Service seclogon
+          $cred = New-Object System.Management.Automation.PSCredential('denicestd', $password)
+          $p = Start-Process -FilePath $copy -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Credential $cred -LoadUserProfile -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "setup as a standard user exited with $($p.ExitCode)" }
+          $exe = 'C:\Users\denicestd\AppData\Local\Programs\Denice\denice.exe'
+          if (-not (Test-Path $exe)) { throw "no denice.exe for the standard user at $exe" }
+          $out = Join-Path $env:PUBLIC 'denice-std-version.txt'
+          $r = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', "`"$exe`" settings set updates.enabled false && `"$exe`" version > `"$out`" 2>&1" -Credential $cred -LoadUserProfile -Wait -PassThru
+          $text = Get-Content $out -Raw
+          if ($r.ExitCode -ne 0 -or -not ($text -match [regex]::Escape("SemVer: $env:DENICE_VERSION"))) { throw "denice version as a standard user failed: $text" }
+          Write-Host "installed and ran as a standard user: $text"
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
