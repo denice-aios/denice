@@ -1,10 +1,14 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System.IO;
+using Denice.Abstractions.Contracts;
+
 namespace Denice.CrossPlatform.Posix;
 
 /// <summary>
-/// The macOS-only fragment of the POSIX file system (os-specific-file-naming-convention): the native
-/// case-sensitivity query the shared source declares as a partial method. It is compiled ONLY into the macOS project
+/// The macOS-only fragment of the POSIX file system (os-specific-file-naming-convention): the per-user data folder
+/// (<c>~/Library/Application Support/Denice/</c>) and the native case-sensitivity query the shared source declares as a
+/// partial method. It is compiled ONLY into the macOS project
 /// — it is never link-shared into the Linux build (which would compile the macOS <c>pathconf</c> query in as
 /// permanently-dead, uncoverable code and drop the leg below the coverage floor). Because this file runs only on
 /// macOS, the query needs no OS branch; the macOS project selecting it is what makes it macOS-specific. The
@@ -18,6 +22,12 @@ internal sealed partial class PosixFileSystem
     // It is a macOS-specific constant; Linux has no such query, which is why this const and its P/Invoke live in the
     // macOS-only fragments rather than the link-shared source.
     private const int PosixCaseSensitiveName = 11;
+
+    /// <inheritdoc />
+    // macOS keeps per-user application data under ~/Library/Application Support (the owner's choice for Denice's
+    // settings folder), so the base is the home directory.
+    public UserDataFolder UserDataFolder { get; } =
+        new(EnvironmentVariable: null, RelativePath: Path.Combine("Library", "Application Support", "Denice"));
 
     // The macOS body of the native case-sensitivity query the shared PosixFileSystem declares. macOS answers directly
     // with pathconf(path, _PC_CASE_SENSITIVE): 1 (case-sensitive) or 0 (not). When pathconf cannot answer (returns -1)

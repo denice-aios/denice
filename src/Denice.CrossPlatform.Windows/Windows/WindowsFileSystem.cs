@@ -62,6 +62,10 @@ internal sealed partial class WindowsFileSystem : PlatformFileSystemBase, IPlatf
     // (DN0020 owner: the IPlatformFileSystem implementers), not a hardcode.
     public char DirectorySeparator => Path.DirectorySeparatorChar;
 
+    /// <inheritdoc/>
+    // Windows keeps per-user, machine-local application data under %LOCALAPPDATA%, so the base is that variable.
+    public UserDataFolder UserDataFolder { get; } = new(EnvironmentVariable: "LOCALAPPDATA", RelativePath: "Denice");
+
     /// <inheritdoc />
     // The wrapper factory this per-OS class injects directly (fileinfo-factory-breaks-the-cycle); the shared base reads
     // the OS-uniform symlink target through it, so IsLinkTarget/ReadLinkTarget live once on the base, not here.

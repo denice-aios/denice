@@ -28,6 +28,13 @@ public interface IPlatformFileSystem
     CodeSignatureFormat CodeSignatureFormat { get; }
 
     /// <summary>
+    /// Gets where this OS keeps Denice's per-user data folder (the folder <c>settings.yaml</c> lives in): Windows
+    /// <c>%LOCALAPPDATA%\Denice\</c>, macOS <c>~/Library/Application Support/Denice/</c>, Linux <c>~/.config/denice/</c>.
+    /// It is a description resolved by the caller through <see cref="IEnvironment"/>, so it reads nothing itself.
+    /// </summary>
+    UserDataFolder UserDataFolder { get; }
+
+    /// <summary>
     /// Gets a value indicating whether the path is a symlink.
     /// </summary>
     /// <param name="linkPath">The path to test.</param>

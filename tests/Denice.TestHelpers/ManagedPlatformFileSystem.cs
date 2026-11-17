@@ -36,6 +36,9 @@ internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
     public CodeSignatureFormat CodeSignatureFormat => CodeSignatureFormat.None;
 
     /// <inheritdoc />
+    public UserDataFolder UserDataFolder => _store.UserDataFolder;
+
+    /// <inheritdoc />
     public bool IsLinkTarget(string linkPath) => _store.IsLinkTarget(linkPath);
 
     /// <inheritdoc />

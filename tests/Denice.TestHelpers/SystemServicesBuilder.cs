@@ -487,6 +487,19 @@ public sealed class SystemServicesBuilder
             _parent.RequireStore().SetCaseSensitive(caseSensitive);
             return this;
         }
+
+        /// <summary>
+        /// Sets the value the platform fake's <c>UserDataFolder</c> returns (copy-on-write-simulator-design), overriding
+        /// the default that follows the running OS through the real platform — so a unit test can resolve the Windows,
+        /// macOS, or Linux per-user data folder on any OS. Requires a simulated or fake filesystem.
+        /// </summary>
+        /// <param name="userDataFolder">The simulated per-user data folder.</param>
+        /// <returns>This sub-builder, for chaining.</returns>
+        public PlatformBuilder SimulateUserDataFolder(UserDataFolder userDataFolder)
+        {
+            _parent.RequireStore().SetUserDataFolder(userDataFolder);
+            return this;
+        }
     }
 
     /// <summary>

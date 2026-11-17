@@ -35,6 +35,7 @@ internal sealed class InMemoryFileSystemStore
     private Dictionary<string, PathHandler> _handlers;
     private IEqualityComparer<string> _comparer;
     private bool? _executableOverride;
+    private UserDataFolder? _userDataFolderOverride;
     private int _tempCounter;
 
     /// <summary>
@@ -90,6 +91,17 @@ internal sealed class InMemoryFileSystemStore
     /// </summary>
     internal bool NeedsExecutableFlag => _executableOverride ?? (_basePlatform?.NeedsExecutableFlag() ?? false);
 
+    /// <summary>
+    /// Gets where this simulated OS keeps Denice's per-user data folder — the value the platform fake's
+    /// <c>UserDataFolder</c> returns. It defaults to the real platform's answer (following the running OS through the
+    /// injected base, never a raw OS branch) and is overridden by <see cref="SetUserDataFolder"/> so a unit test can
+    /// simulate another OS's layout. With no base and no override there is no answer, so it throws, naming the fix.
+    /// </summary>
+    internal UserDataFolder UserDataFolder =>
+        _userDataFolderOverride ?? _basePlatform?.UserDataFolder ?? throw new InvalidOperationException(
+            "The fake platform has no per-user data folder; call OnPlatform().SimulateUserDataFolder(...) or start from "
+            + "SystemServicesBuilder.Real().SimulateFileSystem().");
+
     /// <summary>Installs a per-path handler — the first link in the resolution chain for that path.</summary>
     /// <param name="path">The path the handler takes control of.</param>
     /// <param name="handler">The handler invoked first for every operation on <paramref name="path"/>.</param>
@@ -123,6 +135,13 @@ internal sealed class InMemoryFileSystemStore
     /// </summary>
     /// <param name="needsExecutableFlag">The simulated executable-bit support.</param>
     internal void SetNeedsExecutableFlag(bool needsExecutableFlag) => _executableOverride = needsExecutableFlag;
+
+    /// <summary>
+    /// Sets the value the platform fake's <c>UserDataFolder</c> returns, overriding the default that follows the running
+    /// OS through the injected base — so a unit test can simulate the Windows, macOS, or Linux per-user data folder.
+    /// </summary>
+    /// <param name="userDataFolder">The simulated per-user data folder.</param>
+    internal void SetUserDataFolder(UserDataFolder userDataFolder) => _userDataFolderOverride = userDataFolder;
 
     /// <summary>
     /// Switches the simulator's case mode, keeping the platform fake's <c>IsCaseSensitive</c> and this overlay's path

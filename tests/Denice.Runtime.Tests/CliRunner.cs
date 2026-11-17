@@ -1,5 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System;
+using System.Collections.Generic;
 using Denice.Abstractions.Contracts;
 using Denice.TestHelpers;
 
@@ -16,12 +18,26 @@ internal static class CliRunner
     /// </summary>
     /// <param name="args">The command-line arguments.</param>
     /// <returns>The captured exit code and console output.</returns>
-    public static CliResult Run(params string[] args)
+    public static CliResult Run(params string[] args) => Run(SystemServicesBuilder.Real(), args);
+
+    /// <summary>
+    /// Invokes the CLI with the given arguments in a fake environment whose home directory — and <c>LOCALAPPDATA</c>, so
+    /// the per-user Denice folder is inside it on every OS — is <paramref name="home"/>, never the real user folder.
+    /// </summary>
+    /// <param name="home">The temporary folder that stands in for the user's home.</param>
+    /// <param name="args">The command-line arguments.</param>
+    /// <returns>The captured exit code and console output.</returns>
+    public static CliResult RunInHome(string home, params string[] args) =>
+        Run(
+            SystemServicesBuilder.Real().With(FakeEnvironment.Create(
+                home: home,
+                variables: new Dictionary<string, string>(StringComparer.Ordinal) { ["LOCALAPPDATA"] = home })),
+            args);
+
+    private static CliResult Run(SystemServicesBuilder builder, string[] args)
     {
         var recorder = new RecordingConsole(string.Empty);
-        ISystemServices services = SystemServicesBuilder.Real()
-            .With(recorder.Console)
-            .Build();
+        ISystemServices services = builder.With(recorder.Console).Build();
 
         int exitCode = new Program(args).Run(services).GetAwaiter().GetResult();
         return new CliResult(exitCode, recorder.Output, recorder.Error);
