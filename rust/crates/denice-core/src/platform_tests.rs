@@ -46,7 +46,10 @@ fn a_path_that_is_not_a_loader_program_has_no_loader_artifact() {
     let root = Path::new("/tmp/x/Denice");
     assert_eq!(loader_artifact_of(&root.join("Denice.app")), None);
     assert_eq!(loader_artifact_of(&root.join("something-else")), None);
-    assert_eq!(loader_artifact_of(Path::new("/var/folders/T/x/y/denice")).is_some(), !cfg!(target_os = "macos"));
+    assert_eq!(
+        loader_artifact_of(&Path::new("/var/folders/T/x/y").join(loader_program_name())).is_some(),
+        !cfg!(target_os = "macos")
+    );
     assert!(is_loader_artifact(&root.join(loader_artifact_name())));
     assert!(!is_loader_artifact(Path::new("/var/folders/T")));
 }

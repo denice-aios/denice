@@ -15,7 +15,10 @@ os_branching_allowed = [
 ]
 # R4 (C# DN0011): the single owners of processes and environment variables.
 process_allowed = ["crates/denice-loader/src/launcher.rs"]
-env_read_allowed = ["crates/denice-entry/src/loader_swap.rs"]
+env_read_allowed = [
+  "crates/denice-entry/src/loader_swap.rs",   # the loader protocol variables
+  "crates/denice-core/src/platform.rs",       # HOME, for the macOS versions folder
+]
 # R5 (C# DN0020): only the programs' entry points ask for their own path.
 current_exe_allowed = ["crates/*/src/main.rs"]
 
