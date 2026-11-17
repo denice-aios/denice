@@ -20,7 +20,7 @@ env_read_allowed = [
   "crates/denice-core/src/platform.rs",       # HOME, for the macOS versions folder
 ]
 # R5 (C# DN0020): only the programs' entry points ask for their own path.
-current_exe_allowed = ["crates/*/src/main.rs"]
+current_exe_allowed = ["crates/*/src/main.rs", "crates/denice-core/src/platform.rs"]
 
 # R11 (C# DN0023/DN0029/DN0040/DN0041): crate direction.
 [[denice_rules.crate_dependencies]]

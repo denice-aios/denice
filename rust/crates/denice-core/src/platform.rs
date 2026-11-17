@@ -89,6 +89,17 @@ pub fn loader_artifact_of(loader_program: &Path) -> Option<PathBuf> {
     (macos.file_name()? == "MacOS" && contents.file_name()? == "Contents" && is_app).then(|| app.to_path_buf())
 }
 
+/// The running program's real path. On macOS and Linux it resolves links (on macOS `current_exe()` returns the
+/// `~/.local/bin/denice` link it was started through). On Windows it is left as is: Windows starts Denice through a
+/// Start Menu shortcut, and resolving would turn the path into the `\\?\C:\...` form that .NET and users see.
+///
+/// # Errors
+/// Returns the error if the program's own path cannot be found or resolved.
+pub fn running_program() -> std::io::Result<PathBuf> {
+    let path = std::env::current_exe()?;
+    if cfg!(windows) { Ok(path) } else { std::fs::canonicalize(path) }
+}
+
 /// Whether `path` names a loader artifact: an `.app` on macOS, a file named `denice` / `denice.exe` elsewhere.
 #[must_use]
 pub fn is_loader_artifact(path: &Path) -> bool {

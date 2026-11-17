@@ -16,9 +16,7 @@ fn main() {
 
 fn run(args: &[OsString]) -> i32 {
     let launcher = ProcessLauncher;
-    // Resolve links: on macOS current_exe() returns the path it was started through, and the Terminal link
-    // ~/.local/bin/denice must still lead to the loader inside Denice.app.
-    let loader_path = match std::env::current_exe().and_then(std::fs::canonicalize) {
+    let loader_path = match denice_core::platform::running_program() {
         Ok(path) => path,
         Err(e) => {
             eprintln!("denice: cannot find this program's own path: {e}");
