@@ -4,6 +4,13 @@
 # shell profiles the script changed (pkg-d4e90c3ce176 install-path), then uninstalls and checks nothing it installed
 # remains (rust/REQUIREMENTS.md I3 I4 I5 I6). Updates are switched off through Denice's own Settings, so nothing reaches the
 # network.
+# Release checks a clean machine can prove without a person (rust/REQUIREMENTS.md I10; the rest is docs/release-checks.md):
+#   macOS  the zip carries com.apple.quarantine, as a browser download does; nothing installed keeps it (so Gatekeeper
+#          never asks about the installed copy and the app is never translocated); Gatekeeper's verdict on the app is
+#          printed, and must be "accepted" once the build is Developer ID signed (DENICE_MACOS_SIGNING=developer-id).
+#   Linux  the menu entry is where GNOME and KDE read it ($XDG_DATA_HOME/applications, default ~/.local/share), passes
+#          desktop-file-validate when the machine has it, and its Exec program runs.
+# CI runs it as a new standard (non-administrator) user too.
 # A locally built layout is not signed yet (CI signs it later, on a push only), so this mode writes its SHA256SUMS and
 # lets the test-only fake cosign (eng/install/fake-cosign/cosign) "sign" and check it; the real signature check is the
 # --release mode.
@@ -62,6 +69,15 @@ case "$RID" in
 esac
 mkdir -p "$SETTINGS" && printf 'updates.enabled: false\n' > "$SETTINGS/settings.yaml"
 
+if [ -z "$TAG" ]; then
+  case "$RID" in osx-*)
+    # As a browser download: Safari's quarantine record (flags;time;agent;id).
+    xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");Safari;$(uuidgen)" "$ZIP"
+    xattr -p com.apple.quarantine "$ZIP" >/dev/null || fail "the test zip carries no quarantine attribute"
+    echo "real-install: ok: the zip carries com.apple.quarantine, as a browser download" ;;
+  esac
+fi
+
 install_denice 2>&1 | tee "$WORK/install.log" || fail "the install failed"
 grep -qF "signature verified: signed by Denice's release workflow" "$WORK/install.log" \
   || fail "the install did not report a verified release signature"
@@ -77,6 +93,38 @@ if [ -n "$TAG" ]; then
     *) fail "unexpected denice update answer: $out" ;; esac
   echo "real-install: ok: denice update checked GitHub Releases: $out"
 fi
+
+case "$RID" in
+  osx-*)
+    APP="$HOME/Applications/Denice.app"
+    for item in "$APP" "$SETTINGS/versions"; do
+      case "$(xattr -r -l "$item")" in *com.apple.quarantine*) fail "$item keeps com.apple.quarantine after install" ;; esac
+    done
+    echo "real-install: ok: nothing installed is quarantined, so Gatekeeper never asks and the app is never translocated"
+    verdict="$(spctl --assess --type execute -vv "$APP" 2>&1)" && accepted=yes || accepted=no
+    echo "real-install: Gatekeeper on the installed app: $verdict"
+    if [ "${DENICE_MACOS_SIGNING:-test}" = developer-id ]; then
+      [ "$accepted" = yes ] || fail "Gatekeeper rejects the Developer ID signed app: $verdict"
+      echo "real-install: ok: Gatekeeper accepts the Developer ID signed app"
+    else
+      echo "real-install: not Developer ID signed (F13): Gatekeeper would block a quarantined copy (docs/release-checks.md)"
+    fi ;;
+  *)
+    # GNOME and KDE read menu entries from $XDG_DATA_HOME/applications (unset here, so ~/.local/share).
+    DESK="$HOME/.local/share/applications/denice.desktop"
+    [ -f "$DESK" ] || fail "no menu entry at $DESK"
+    if command -v desktop-file-validate >/dev/null; then
+      desktop-file-validate "$DESK" || fail "desktop-file-validate rejects $DESK"
+      echo "real-install: ok: desktop-file-validate accepts the menu entry"
+    else
+      echo "real-install: skip desktop-file-validate: not on this machine"
+    fi
+    exec_program="$(sed -n 's/^Exec="\(.*\)"$/\1/p' "$DESK")"
+    [ "$exec_program" = "$HOME/.local/share/denice/denice" ] || fail "the menu entry runs '$exec_program', not the loader"
+    out="$("$exec_program" version)" || fail "the menu entry's program did not run"
+    case "$out" in *"SemVer: $VERSION"*) ;; *) fail "the menu entry's program printed: $out" ;; esac
+    echo "real-install: ok: the menu entry is where GNOME and KDE read it, and its program runs" ;;
+esac
 
 # A new login shell, given only HOME and a minimal PATH, finds denice through the profile and runs it.
 for login in sh bash zsh; do

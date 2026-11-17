@@ -18,6 +18,9 @@ use std::process::Command;
 
 const ROLE: &str = "DENICE_TEST_ROLE_FAKE_VERSION";
 const BEHAVIOUR_FILE: &str = "behaviour";
+/// A waiting stand-in version writes `ready.<pid>` once it runs, and exits when `go` appears beside it.
+const READY: &str = "ready.";
+const GO: &str = "go";
 const A: &str = "0.1.100-pre-release+aaaaaaa";
 const B: &str = "0.1.200-pre-release+bbbbbbb";
 
@@ -33,6 +36,8 @@ fn main() {
         ("falls back from a version that fails to start", falls_back_from_failed_start),
         ("hands over to the replaced loader", hands_over_to_replaced_loader),
         ("reports when nothing is installed", reports_nothing_installed),
+        ("two Denice run one version at once", two_denice_run_one_version_at_once),
+        ("keeps a version another Denice still runs", keeps_a_version_another_denice_runs),
     ];
     // macOS and Linux users start Denice through the ~/.local/bin/denice link; Windows users through a Start Menu
     // shortcut, which runs denice.exe itself.
@@ -65,6 +70,13 @@ fn act_as_version() -> i32 {
             words.next().unwrap().parse().unwrap()
         }
         Some("fail") => words.next().unwrap().parse().unwrap(),
+        Some("wait") => {
+            // Starts, says so, and runs until the test creates `go` in its folder.
+            started(dir);
+            std::fs::write(dir.join(format!("{READY}{}", std::process::id())), b"").unwrap();
+            until(|| dir.join(GO).exists());
+            words.next().unwrap().parse().unwrap()
+        }
         Some("install-then-restart") => {
             started(dir);
             let newer = words.next().unwrap();
@@ -192,4 +204,55 @@ fn started_through_a_link() {
     std::os::unix::fs::symlink(&i.program, &link).unwrap();
     let out = Command::new(&link).env(ROLE, "1").env("HOME", &i.home).output().unwrap();
     assert_eq!(out.status.code(), Some(5), "the loader started through a link found its versions: {out:?}");
+}
+
+/// Waits up to a minute for `condition`.
+fn until(condition: impl Fn() -> bool) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    while !condition() {
+        assert!(std::time::Instant::now() < deadline, "timed out");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+fn running_copies(dir: &Path) -> usize {
+    std::fs::read_dir(dir)
+        .unwrap()
+        .filter(|e| e.as_ref().unwrap().file_name().to_string_lossy().starts_with(READY))
+        .count()
+}
+
+fn start_loader(install: &Install) -> std::process::Child {
+    Command::new(&install.program).env(ROLE, "1").env("HOME", &install.home).spawn().unwrap()
+}
+
+fn two_denice_run_one_version_at_once() {
+    let i = fresh_install();
+    let a = install(&i.root, A, "run 0");
+    let b = install(&i.root, B, "wait 0");
+    let first = start_loader(&i);
+    let second = start_loader(&i);
+    until(|| running_copies(&b) == 2);
+    assert!(!b.join(BAD_MARKER).exists(), "neither marks the version the other runs as bad");
+    std::fs::write(b.join(GO), b"").unwrap();
+    for mut loader in [first, second] {
+        assert_eq!(loader.wait().unwrap().code(), Some(0));
+    }
+    assert!(b.join(STARTED_MARKER).exists() && !b.join(BAD_MARKER).exists(), "the version is kept and not bad");
+    assert!(!a.exists(), "the older version is removed once the shared version has started");
+}
+
+fn keeps_a_version_another_denice_runs() {
+    let i = fresh_install();
+    let a = install(&i.root, A, "wait 0");
+    let mut first = start_loader(&i);
+    until(|| running_copies(&a) == 1);
+    // A newer version arrives and a second Denice starts it while the first still runs the older one.
+    let _ = install(&i.root, B, "run 0");
+    assert_eq!(run_loader(&i, &[]).status.code(), Some(0));
+    assert!(a.join(entry_file_name(A)).is_file(), "the version another Denice runs is kept whole");
+    std::fs::write(a.join(GO), b"").unwrap();
+    assert_eq!(first.wait().unwrap().code(), Some(0));
+    assert_eq!(run_loader(&i, &[]).status.code(), Some(0));
+    assert!(!a.exists(), "a later start removes it once nobody runs it");
 }
