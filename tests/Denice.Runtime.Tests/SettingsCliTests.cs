@@ -100,6 +100,6 @@ public sealed class SettingsCliTests : IDisposable
     // hidden ~/.config, so hidden folders are searched too).
     private string SettingsFilePath() =>
         real.FileSystem.GetDirectoryReader()
-            .EnumerateFiles(home, "settings.yaml", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0 })
+            .EnumerateFiles(home, "settings.yaml", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.None })
             .Should().ContainSingle().Subject;
 }
