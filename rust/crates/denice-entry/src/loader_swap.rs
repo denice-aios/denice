@@ -6,7 +6,7 @@
 //! (pkg-f543b9586645, "Hand over now").
 
 use denice_core::layout::{InstallLayout, InstalledVersion};
-use denice_core::protocol::{ENV_INSTALL_ROOT, ENV_LOADER_VERSION};
+use denice_core::protocol::{ENV_INSTALL_ROOT, ENV_LOADER_PATH, ENV_LOADER_VERSION};
 use denice_core::swap::{SwapError, swap_in_loader};
 use denice_core::version::{ParseVersionError, Version};
 use std::fmt;
@@ -46,8 +46,10 @@ impl fmt::Display for Error {
 
 /// What the loader told this entry through the environment.
 pub struct LoaderContext {
-    /// The install root.
+    /// The folder that holds `versions/`.
     pub install_root: PathBuf,
+    /// The running loader program.
+    pub loader_path: PathBuf,
     /// The running loader's version.
     pub loader_version: String,
 }
@@ -57,8 +59,13 @@ impl LoaderContext {
     #[must_use]
     pub fn from_environment() -> Option<Self> {
         let install_root = std::env::var_os(ENV_INSTALL_ROOT)?;
+        let loader_path = std::env::var_os(ENV_LOADER_PATH)?;
         let loader_version = std::env::var(ENV_LOADER_VERSION).ok()?;
-        Some(Self { install_root: PathBuf::from(install_root), loader_version })
+        Some(Self {
+            install_root: PathBuf::from(install_root),
+            loader_path: PathBuf::from(loader_path),
+            loader_version,
+        })
     }
 }
 
@@ -84,7 +91,11 @@ fn decide_and_swap(context: &LoaderContext, this_version: &Version, version_dir:
     if !carried.exists() {
         return Err(Error::MissingCarriedLoader(carried));
     }
-    swap_in_loader(&InstallLayout::new(&context.install_root), &carried).map_err(Error::Swap)?;
+    let Some(installed_loader) = denice_core::platform::loader_artifact_of(&context.loader_path) else {
+        return Err(Error::MissingCarriedLoader(context.loader_path.clone()));
+    };
+    swap_in_loader(&InstallLayout::with_loader(&context.install_root, installed_loader), &carried)
+        .map_err(Error::Swap)?;
     Ok(Outcome::Replaced)
 }
 

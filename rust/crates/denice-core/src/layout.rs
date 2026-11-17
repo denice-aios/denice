@@ -61,16 +61,32 @@ impl InstalledVersion {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstallLayout {
     root: PathBuf,
+    loader: PathBuf,
 }
 
 impl InstallLayout {
     /// The layout rooted at `root` (the folder holding the loader and `versions`).
     #[must_use]
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
+        let root = root.into();
+        let loader = root.join(platform::loader_artifact_name());
+        Self { root, loader }
     }
 
-    /// The install root.
+    /// The layout whose versions live in `root` and whose loader artifact is `loader` (on macOS `Denice.app` lives
+    /// wherever the user put it, and the versions in `~/Library/Application Support/Denice`).
+    #[must_use]
+    pub fn with_loader(root: impl Into<PathBuf>, loader: impl Into<PathBuf>) -> Self {
+        Self { root: root.into(), loader: loader.into() }
+    }
+
+    /// The layout of the running loader program: its artifact, and the folder that holds `versions/`.
+    #[must_use]
+    pub fn of_loader_program(program: &Path) -> Option<Self> {
+        Some(Self::with_loader(platform::data_root_of(program)?, platform::loader_artifact_of(program)?))
+    }
+
+    /// The folder that holds `versions/` (the install folder on Windows and Linux).
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
@@ -79,7 +95,7 @@ impl InstallLayout {
     /// The installed loader as a whole, the thing a swap replaces: `denice` / `denice.exe`, or `Denice.app` on macOS.
     #[must_use]
     pub fn loader_path(&self) -> PathBuf {
-        self.root.join(platform::loader_artifact_name())
+        self.loader.clone()
     }
 
     /// The installed loader program, the thing that is run (inside `Denice.app` on macOS).

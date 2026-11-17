@@ -68,12 +68,57 @@ pub fn loader_program_in(artifact: &Path) -> PathBuf {
         .map_or_else(|| artifact.to_path_buf(), |_| artifact.join(BUNDLE_PROGRAM_DIR).join(loader_program_name()))
 }
 
-/// The install root that holds the loader artifact the running loader program belongs to.
+/// The loader artifact (what a swap replaces) the running loader program belongs to: `Denice.app` on macOS, the
+/// program itself elsewhere.
 #[must_use]
-pub fn install_root_of(loader_program: &Path) -> Option<PathBuf> {
-    let levels = if LOADER_ARTIFACT.is_some() { 4 } else { 1 };
-    loader_program.ancestors().nth(levels).map(Path::to_path_buf)
+///
+/// Returns `None` unless the path really is a loader program: named `denice` (`denice.exe` on Windows) and, on macOS,
+/// inside an app's `Contents/MacOS`. The swap renames this artifact, so a wrong path must never reach it (a wrong
+/// path once made a test rename the system temp folder).
+pub fn loader_artifact_of(loader_program: &Path) -> Option<PathBuf> {
+    if loader_program.file_name()? != loader_program_name().as_str() {
+        return None;
+    }
+    if LOADER_ARTIFACT.is_none() {
+        return Some(loader_program.to_path_buf());
+    }
+    let macos = loader_program.parent()?;
+    let contents = macos.parent()?;
+    let app = contents.parent()?;
+    let is_app = app.extension().is_some_and(|extension| extension == "app");
+    (macos.file_name()? == "MacOS" && contents.file_name()? == "Contents" && is_app).then(|| app.to_path_buf())
 }
+
+/// Whether `path` names a loader artifact: an `.app` on macOS, a file named `denice` / `denice.exe` elsewhere.
+#[must_use]
+pub fn is_loader_artifact(path: &Path) -> bool {
+    if LOADER_ARTIFACT.is_some() {
+        path.extension().is_some_and(|extension| extension == "app")
+    } else {
+        path.file_name().is_some_and(|name| name == loader_program_name().as_str())
+    }
+}
+
+/// The folder that holds `versions/` for the running loader program. On macOS it is
+/// `~/Library/Application Support/Denice` (Tim, pkg-494745156d56 macos-versions: "Application Support"), so `Denice.app`
+/// can live anywhere; elsewhere it is the loader's own folder (the per-user install folder).
+#[must_use]
+pub fn data_root_of(loader_program: &Path) -> Option<PathBuf> {
+    data_root_for(loader_program, std::env::var_os("HOME").map(PathBuf::from).as_deref())
+}
+
+/// [`data_root_of`] with the home folder given (macOS only reads it).
+#[must_use]
+pub fn data_root_for(loader_program: &Path, home: Option<&Path>) -> Option<PathBuf> {
+    if LOADER_ARTIFACT.is_some() {
+        home.map(|home| home.join(MAC_DATA_FOLDER))
+    } else {
+        loader_program.parent().map(Path::to_path_buf)
+    }
+}
+
+/// Where macOS keeps Denice's versions, under the home folder.
+const MAC_DATA_FOLDER: &str = "Library/Application Support/Denice";
 
 #[cfg(target_os = "macos")]
 const LOADER_ARTIFACT: Option<&str> = Some("Denice.app");

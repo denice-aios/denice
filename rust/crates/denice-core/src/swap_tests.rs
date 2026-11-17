@@ -198,3 +198,21 @@ fn previous_loader_is_removed_once_it_is_not_running() {
     assert!(!f.layout.loader_backup_path().exists());
     assert!(!remove_previous_loader(&f.layout));
 }
+
+#[test]
+fn a_target_that_is_not_a_loader_is_never_touched() {
+    let dir = tempfile::tempdir().unwrap_or_else(|e| unreachable!("{e}"));
+    let precious = dir.path().join("T");
+    std::fs::create_dir_all(precious.join("keep")).unwrap_or_else(|e| unreachable!("{e}"));
+    let new_loader = dir.path().join("carried");
+    std::fs::write(&new_loader, b"carried loader").unwrap_or_else(|e| unreachable!("{e}"));
+
+    let err = swap_in_loader(&InstallLayout::with_loader(dir.path(), &precious), &new_loader)
+        .err()
+        .unwrap_or_else(|| unreachable!());
+
+    assert_eq!(err.step, SwapStep::NotALoader);
+    assert!(precious.join("keep").is_dir());
+    assert!(!dir.path().join("T.old").exists());
+    assert!(!dir.path().join("T.ver").exists());
+}

@@ -23,7 +23,7 @@ fn run(args: &[OsString]) -> i32 {
             return denice_loader::EXIT_NO_USABLE_VERSION;
         }
     };
-    let Some(root) = denice_core::platform::install_root_of(&loader_path) else {
+    let Some(layout) = InstallLayout::of_loader_program(&loader_path) else {
         eprintln!("denice: this program is not inside a Denice install");
         return denice_loader::EXIT_NO_USABLE_VERSION;
     };
@@ -34,6 +34,6 @@ fn run(args: &[OsString]) -> i32 {
             return denice_loader::EXIT_NO_USABLE_VERSION;
         }
     };
-    let loader = Loader { layout: InstallLayout::new(root), loader_path, loader_version, launcher: &launcher };
+    let loader = Loader { layout, loader_path, loader_version, launcher: &launcher };
     loader.run(args)
 }

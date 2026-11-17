@@ -30,40 +30,56 @@ unset DENICE_DAY DENICE_TIME DENICE_COMBINED DENICE_HASH DENICE_CHANNEL DENICE_T
 
 rm -rf "$WORK"
 mkdir -p "$WORK"
+# The loader lives in INSTALL; the versions live in VROOT. On macOS they differ (pkg-494745156d56 macos-versions:
+# "Application Support"), under a temporary HOME so the real one is never touched.
 INSTALL="$WORK/install"
+TEST_HOME="$WORK/home"
+TEST_LOCALAPPDATA="$WORK/localappdata"
+case "$RID" in osx-*) VROOT="$TEST_HOME/Library/Application Support/Denice" ;; *) VROOT="$INSTALL" ;; esac
+# Denice runs with the temporary home (and Windows' per-user data folder), with its background update check switched off
+# through its own Settings, so the test never reaches the network.
+for settings in "$TEST_HOME/Library/Application Support/Denice" "$TEST_HOME/.config/denice" "$TEST_LOCALAPPDATA/Denice"; do
+  mkdir -p "$settings" && printf 'updates.enabled: false\n' > "$settings/settings.yaml"
+done
+run_denice() { HOME="$TEST_HOME" LOCALAPPDATA="$TEST_LOCALAPPDATA" "$INSTALL/$PROGRAM" "$@"; }
+install_from() { # install_from <layout>: the loader into INSTALL, its versions into VROOT
+  mkdir -p "$INSTALL" "$VROOT/versions"
+  cp -R "$1/$LOADER" "$INSTALL/"
+  cp -R "$1/versions/." "$VROOT/versions/"
+}
 
 # 1. Version A.
 A=$(build "$WORK/A")
-cp -R "$WORK/A" "$INSTALL"
-out=$("$INSTALL/$PROGRAM" version) || fail "A did not run"
+install_from "$WORK/A"
+out=$(run_denice version) || fail "A did not run"
 [ "$(semver_of_run "$out")" = "$A" ] || fail "expected A ($A), got: $out"
-[ -f "$INSTALL/versions/$A/.started" ] || fail "A did not record that it started"
+[ -f "$VROOT/versions/$A/.started" ] || fail "A did not record that it started"
 pass "1: the loader started A ($A) and A recorded that it started"
 
 # 2. Version B arrives (built at least 2 s later, so its version is higher).
 sleep 3
 B=$(build "$WORK/B")
-cp -R "$WORK/B/versions/$B" "$INSTALL/versions/$B"
-out=$("$INSTALL/$PROGRAM" version) || fail "B did not run"
+cp -R "$WORK/B/versions/$B" "$VROOT/versions/$B"
+out=$(run_denice version) || fail "B did not run"
 [ "$(semver_of_run "$out")" = "$B" ] || fail "expected B ($B), got: $out"
 [ "$(hash_of "$INSTALL/$PROGRAM")" = "$(hash_of "$WORK/B/$PROGRAM")" ] || fail "the loader was not replaced by B's loader"
 [ ! -e "$INSTALL/$LOADER.ver" ] || fail "$LOADER.ver was left behind"
-[ ! -e "$INSTALL/versions/$A" ] || fail "A was not removed after B started"
+[ ! -e "$VROOT/versions/$A" ] || fail "A was not removed after B started"
 pass "2: B ($B) replaced the loader, the new loader took over at once, B ran, A was removed"
 
 # 3. Version C cannot start (its Denice Runtime is missing).
 C="${B%%-*}"; C="${C%.*}.$(( ${C##*.} + 1 ))-pre-release+0000000"
-cp -R "$INSTALL/versions/$B" "$INSTALL/versions/$C"
-rm -f "$INSTALL/versions/$C/.started" "$INSTALL/versions/$C/Denice.Runtime.dll"
-mv "$INSTALL/versions/$C/denice-v$B-$RID$EXE" "$INSTALL/versions/$C/denice-v$C-$RID$EXE"
-out=$("$INSTALL/$PROGRAM" version 2> "$WORK/fallback.err") || fail "the fallback run failed"
+cp -R "$VROOT/versions/$B" "$VROOT/versions/$C"
+rm -f "$VROOT/versions/$C/.started" "$VROOT/versions/$C/Denice.Runtime.dll"
+mv "$VROOT/versions/$C/denice-v$B-$RID$EXE" "$VROOT/versions/$C/denice-v$C-$RID$EXE"
+out=$(run_denice version 2> "$WORK/fallback.err") || fail "the fallback run failed"
 [ "$(semver_of_run "$out")" = "$B" ] || fail "expected the fallback to B, got: $out"
-[ -f "$INSTALL/versions/$C/.bad" ] || fail "C was not marked bad"
+[ -f "$VROOT/versions/$C/.bad" ] || fail "C was not marked bad"
 grep -q "failed to start" "$WORK/fallback.err" || fail "the fallback was not reported"
 pass "3: C ($C) failed to start, was marked bad, and the loader fell back to B"
 
 # 4. Again: C is skipped, B runs, and the previous loader is gone.
-out=$("$INSTALL/$PROGRAM" version 2> "$WORK/again.err") || fail "the run after the fallback failed"
+out=$(run_denice version 2> "$WORK/again.err") || fail "the run after the fallback failed"
 [ "$(semver_of_run "$out")" = "$B" ] || fail "expected B again, got: $out"
 ! grep -q "failed to start" "$WORK/again.err" || fail "C was tried again"
 [ ! -e "$INSTALL/$LOADER.old" ] || fail "$LOADER.old was not deleted"

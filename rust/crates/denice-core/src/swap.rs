@@ -29,6 +29,8 @@ pub enum SwapStep {
     BackUpCurrent,
     /// Renaming `denice.ver` to `denice`.
     Activate,
+    /// The target is not a loader (`denice` / `denice.exe`, or an `.app` on macOS); nothing was touched.
+    NotALoader,
 }
 
 impl fmt::Display for SwapError {
@@ -82,6 +84,12 @@ impl SwapFiles for RealFiles {
 
 fn swap_with(files: &dyn SwapFiles, layout: &InstallLayout, new_loader: &Path) -> Result<(), SwapError> {
     let current = layout.loader_path();
+    if !crate::platform::is_loader_artifact(&current) {
+        return Err(SwapError {
+            step: SwapStep::NotALoader,
+            source: io::Error::other(format!("{} is not a Denice loader", current.display())),
+        });
+    }
     let staging = layout.loader_staging_path();
     let backup = layout.loader_backup_path();
     let step = |step: SwapStep| move |source: io::Error| SwapError { step, source };

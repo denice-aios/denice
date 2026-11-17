@@ -8,9 +8,9 @@
 #![allow(clippy::unwrap_used, clippy::panic, clippy::print_stdout, missing_docs)]
 
 use denice_core::layout::InstallLayout;
-use denice_core::platform::{entry_file_name, loader_artifact_name};
+use denice_core::platform::{data_root_for, entry_file_name, loader_artifact_of};
 use denice_core::protocol::{
-    BAD_MARKER, ENV_INSTALL_ROOT, ENV_LOADER_VERSION, ENV_VERSION_DIR, EXIT_LOADER_REPLACED,
+    BAD_MARKER, ENV_INSTALL_ROOT, ENV_LOADER_PATH, ENV_LOADER_VERSION, ENV_VERSION_DIR, EXIT_LOADER_REPLACED,
     EXIT_RESTART_INTO_NEWER_VERSION, STARTED_MARKER, VERSIONS_DIR,
 };
 use std::path::{Path, PathBuf};
@@ -69,9 +69,11 @@ fn act_as_version() -> i32 {
         Some("replace-loader") => {
             started(dir);
             // Swap in a loader that is this same test program acting as a version marker writer.
-            let root = PathBuf::from(std::env::var_os(ENV_INSTALL_ROOT).unwrap());
-            let layout = InstallLayout::new(&root);
-            std::fs::rename(layout.loader_path(), root.join(format!("{}.old", loader_artifact_name()))).unwrap();
+            let running = PathBuf::from(std::env::var_os(ENV_LOADER_PATH).unwrap());
+            let artifact = loader_artifact_of(&running).unwrap();
+            let layout =
+                InstallLayout::with_loader(PathBuf::from(std::env::var_os(ENV_INSTALL_ROOT).unwrap()), &artifact);
+            std::fs::rename(layout.loader_path(), layout.loader_backup_path()).unwrap();
             let program = layout.loader_program_path();
             std::fs::create_dir_all(program.parent().unwrap()).unwrap();
             let _ = std::fs::copy(&me, &program).unwrap();
@@ -90,26 +92,36 @@ fn install(root: &Path, version: &str, behaviour: &str) -> PathBuf {
     dir
 }
 
-/// A fresh install with the real loader binary at its root.
-fn fresh_install() -> (tempfile::TempDir, PathBuf) {
-    let dir = tempfile::tempdir().unwrap();
-    let root = dir.path().join("Denice");
-    std::fs::create_dir_all(&root).unwrap();
-    let program = InstallLayout::new(&root).loader_program_path();
-    std::fs::create_dir_all(program.parent().unwrap()).unwrap();
-    let _ = std::fs::copy(env!("CARGO_BIN_EXE_denice"), &program).unwrap();
-    (dir, root)
+/// A fresh install: the real loader program in an app folder, and the folder that holds `versions/` where the loader
+/// looks for it (on macOS `~/Library/Application Support/Denice` under a temporary home; elsewhere the app folder).
+struct Install {
+    _dir: tempfile::TempDir,
+    root: PathBuf,
+    home: PathBuf,
+    program: PathBuf,
 }
 
-fn run_loader(root: &Path, args: &[&str]) -> std::process::Output {
-    Command::new(InstallLayout::new(root).loader_program_path()).args(args).env(ROLE, "1").output().unwrap()
+fn fresh_install() -> Install {
+    let dir = tempfile::tempdir().unwrap();
+    let home = dir.path().join("home");
+    let program = InstallLayout::new(dir.path().join("apps")).loader_program_path();
+    std::fs::create_dir_all(program.parent().unwrap()).unwrap();
+    let _ = std::fs::copy(env!("CARGO_BIN_EXE_denice"), &program).unwrap();
+    let root = data_root_for(&program, Some(&home)).unwrap();
+    std::fs::create_dir_all(&root).unwrap();
+    Install { _dir: dir, root, home, program }
+}
+
+fn run_loader(install: &Install, args: &[&str]) -> std::process::Output {
+    Command::new(&install.program).args(args).env(ROLE, "1").env("HOME", &install.home).output().unwrap()
 }
 
 fn runs_highest_with_arguments() {
-    let (_d, root) = fresh_install();
+    let i = fresh_install();
+    let root = i.root.clone();
     let _ = install(&root, A, "run 0");
     let b = install(&root, B, "run 7");
-    let out = run_loader(&root, &["version", "--two words"]);
+    let out = run_loader(&i, &["version", "--two words"]);
     assert_eq!(out.status.code(), Some(7), "{out:?}");
     assert_eq!(std::fs::read_to_string(b.join("args")).unwrap(), "version\n--two words");
     assert!(b.join(STARTED_MARKER).exists());
@@ -117,9 +129,10 @@ fn runs_highest_with_arguments() {
 }
 
 fn passes_protocol_environment() {
-    let (_d, root) = fresh_install();
+    let i = fresh_install();
+    let root = i.root.clone();
     let a = install(&root, A, "run 0");
-    let out = run_loader(&root, &[]);
+    let out = run_loader(&i, &[]);
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     let env = std::fs::read_to_string(a.join("env")).unwrap();
     assert!(env.contains(&format!("{ENV_INSTALL_ROOT}={}", root.display())), "{env}");
@@ -128,35 +141,38 @@ fn passes_protocol_environment() {
 }
 
 fn restarts_into_newer_version() {
-    let (_d, root) = fresh_install();
+    let i = fresh_install();
+    let root = i.root.clone();
     let _ = install(&root, A, &format!("install-then-restart {B}"));
-    let out = run_loader(&root, &[]);
+    let out = run_loader(&i, &[]);
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     assert!(root.join(VERSIONS_DIR).join(B).join(STARTED_MARKER).exists());
     assert!(!root.join(VERSIONS_DIR).join(A).exists());
 }
 
 fn falls_back_from_failed_start() {
-    let (_d, root) = fresh_install();
+    let i = fresh_install();
+    let root = i.root.clone();
     let _ = install(&root, A, "run 0");
     let b = install(&root, B, "fail 3");
-    let out = run_loader(&root, &[]);
+    let out = run_loader(&i, &[]);
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     assert!(b.join(BAD_MARKER).exists());
     assert!(String::from_utf8_lossy(&out.stderr).contains("failed to start"));
 }
 
 fn hands_over_to_replaced_loader() {
-    let (_d, root) = fresh_install();
+    let i = fresh_install();
+    let root = i.root.clone();
     let _ = install(&root, A, "replace-loader");
     // After the swap the "new loader" is this test program; it reads `behaviour` beside itself and exits 33.
-    let out = run_loader(&root, &[]);
+    let out = run_loader(&i, &[]);
     assert_eq!(out.status.code(), Some(33), "the old loader handed over to the new one at once: {out:?}");
 }
 
 fn reports_nothing_installed() {
-    let (_d, root) = fresh_install();
-    let out = run_loader(&root, &[]);
+    let i = fresh_install();
+    let out = run_loader(&i, &[]);
     assert_eq!(out.status.code(), Some(denice_loader::EXIT_NO_USABLE_VERSION));
     assert!(String::from_utf8_lossy(&out.stderr).contains("no usable Denice version"));
 }

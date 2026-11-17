@@ -51,7 +51,7 @@ fn run(install: &Install, loader_version: Option<&str>) -> Output {
     if let Some(loader_version) = loader_version {
         let _ = command
             .env(ENV_INSTALL_ROOT, &install.root)
-            .env(ENV_LOADER_PATH, install.root.join(loader_artifact_name()))
+            .env(ENV_LOADER_PATH, denice_core::layout::InstallLayout::new(&install.root).loader_program_path())
             .env(ENV_LOADER_VERSION, loader_version)
             .env(ENV_VERSION_DIR, &install.version_dir);
     }
