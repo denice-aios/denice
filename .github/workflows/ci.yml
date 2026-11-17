@@ -377,6 +377,18 @@ jobs:
             "`"$copy`" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER /LOG=`"$log`"",
             "`"$exe`" settings set updates.enabled false",
             "`"$exe`" version > `"$out`" 2>&1")
+          # Windows Server grants "log on as a batch job" to no new standard user; give exactly that right, nothing else.
+          $sid = (Get-LocalUser -Name 'denicestd').SID.Value
+          $cfg = Join-Path $env:RUNNER_TEMP 'secpol.inf'
+          secedit /export /cfg $cfg /areas USER_RIGHTS | Out-Null
+          $lines = Get-Content $cfg
+          if ($lines -match '^SeBatchLogonRight') {
+            $lines = $lines -replace '^(SeBatchLogonRight\s*=\s*.*)$', "`$1,*$sid"
+          } else {
+            $lines = $lines -replace '^\[Privilege Rights\]$', "[Privilege Rights]`r`nSeBatchLogonRight = *$sid"
+          }
+          Set-Content -Path $cfg -Value $lines -Encoding Unicode
+          secedit /configure /db (Join-Path $env:RUNNER_TEMP 'secpol.sdb') /cfg $cfg /areas USER_RIGHTS | Out-Null
           schtasks /Create /TN DeniceStdInstall /TR "cmd.exe /c `"$script`"" /SC ONCE /ST 23:59 /RU denicestd /RP $plain /RL LIMITED /F | Out-Null
           schtasks /Run /TN DeniceStdInstall | Out-Null
           $deadline = (Get-Date).AddMinutes(5)
