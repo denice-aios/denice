@@ -662,15 +662,24 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Every loader requirement is done with evidence (rust/REQUIREMENTS.md E2; nothing is dropped quietly)
-        run: eng/check-requirements.sh
       - name: Assert every OS job succeeded
         run: |
           echo "macos=${{ needs.macos.result }} windows=${{ needs.windows.result }} linux=${{ needs.linux.result }}"
           test "${{ needs.macos.result }}" = "success" \
             && test "${{ needs.windows.result }}" = "success" \
             && test "${{ needs.linux.result }}" = "success"
+
+  # The loader work's finish line (rust/REQUIREMENTS.md E2), as its own check (Tim, pkg-d4e90c3ce176 first-release:
+  # "Publish pre-release"): it stays red, visible on every run, until every requirement row has proof; neither the
+  # gate nor the release waits for it, because the release rows can only be proven from a published release.
+  requirements:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Every loader requirement is done with evidence (rust/REQUIREMENTS.md E2; nothing is dropped quietly)
+        run: eng/check-requirements.sh
 
   # Publishes ONE release from the six signed binaries — pre-release from dev, full release from main. Runs only
   # on a push (PRs publish nothing) and only after the gate is green (needs: gate). On macOS so it can re-verify
