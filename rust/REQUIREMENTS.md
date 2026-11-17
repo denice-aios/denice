@@ -63,8 +63,8 @@ Sources:
 ## Installation
 | ID | Requirement | Source | Status |
 |---|---|---|---|
-| I1 | Per-user install; no administrator rights, no service | P-install | open |
-| I2 | Windows: a per-user Inno Setup installer (no admin prompt) installs into `%LOCALAPPDATA%\Programs\Denice\`, adds the Start Menu shortcut to `denice.exe` and an Installed apps entry with uninstall, then leaves updating to Denice | P-install, T16, P-os | open |
+| I1 | Per-user install; no administrator rights, no service | P-install | done 0bce102 CI run 44020082695: a standard (non-administrator) Windows user installed with the setup and ran denice version; install.sh writes only under HOME (test-real-install) |
+| I2 | Windows: a per-user Inno Setup installer (no admin prompt) installs into `%LOCALAPPDATA%\Programs\Denice\`, adds the Start Menu shortcut to `denice.exe` and an Installed apps entry with uninstall, then leaves updating to Denice | P-install, T16, P-os | done 0bce102 CI run 44020082695: setup installs per-user into %LOCALAPPDATA%\Programs\Denice with Start Menu Denice.lnk and a per-user (HKCU) Installed apps entry; denice version runs; uninstall removes the folder, the shortcut and the entry |
 | I3 | macOS: `Denice.app` (only the loader) in `~/Applications/`; the versions in `~/Library/Application Support/Denice/versions/`; the loader swap replaces the whole app in Tim's order; installed by the install script (the notarized DMG is part of F13) | P-install, P-build macos-bundle, P-os | done 6e06e33 CI run 44009624784: eng/install/test-real-install.sh installed the real osx-arm64 layout, ran it through ~/.local/bin/denice, uninstalled; eng/loader-e2e-test.sh (app swap, versions in Application Support) |
 | I4 | Linux: the release tarball plus the shared install script installs into `~/.local/share/denice/`, links `~/.local/bin/denice`, adds a menu entry in `~/.local/share/applications`, and uninstalls with the script | P-install, P-os | done 6e06e33 CI run 44009624784: eng/install/test-real-install.sh installed the real linux-arm64 layout into ~/.local/share/denice, ran it through ~/.local/bin/denice, uninstalled; eng/install/test-install.sh (desktop entry, XDG_DATA_HOME) |
 | I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | open |
@@ -97,7 +97,7 @@ Sources:
 | S2 | A broken settings.yaml can be fixed through Denice, not by hand (rule 7) | R7, S1 (review finding) | blocked pending package |
 | I7 | `denice` works as a command after the macOS/Linux install without the user editing PATH (rule 7) | R7, P-os (review finding) | blocked pending package |
 | I8 | Double-clicking Denice.app (Finder, Dock, Launchpad) starts Denice ("App launch plus a Terminal link") | P-build macos-bundle | blocked pending package |
-| I9 | Uninstall removes versions Denice downloaded after setup, and the Installed apps entry exists (Windows) | P-os (option text: "Uninstall must explicitly remove versions added after installation") | open |
+| I9 | Uninstall removes versions Denice downloaded after setup, and the Installed apps entry exists (Windows) | P-os (option text: "Uninstall must explicitly remove versions added after installation") | done 0bce102 CI run 44020082695: a version folder added after setup is removed by uninstall with the install folder; the Installed apps entry is HKCU and removed |
 | I10 | Release checks on clean machines: macOS standard user (quarantine, translocation, app-management prompt), Windows standard user (SmartScreen, Smart App Control), Linux GNOME/KDE menu and PATH | P-os (option text) | open |
 | I11 | The install script verifies a download beyond a sha256 from the same source ("must verify downloads") | P-os (option text) | open |
 | C1 | Concurrent launches: one Denice removing an older version folder while another Denice still runs it, and two equal versions | P-store (open engineering detail) | open |
