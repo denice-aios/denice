@@ -21,6 +21,7 @@ Sources:
 - P-cosign: pkg-471f394bb261 cosign-checker = use-sigstore (the `Sigstore` NuGet package pinned to 1.1.1, MIT, github.com/mitchdenny/sigstore-dotnet; trust root shipped in Denice Runtime; identity pinned to Denice's CI workflow).
 - P-linux: pkg-2a7c75112d13 linux-build = build-with-cargo-zigbuild.
 - P-short: pkg-79dc8dd1e15d unfinished-update-at-exit = retry-next-launch, Tim's note: "We'll also add an "update" command to allow the user to manually override.  We'll be long running before this is a problem."
+- P-os: pkg-494745156d56 windows-install = inno; macos-install = script-then-dmg; macos-versions = application-support; code-signing = apple-and-signpath; linux-install = tarball-script (all the recommended options).
 - R7: global rule 7: "Settings must replace .env configuration. Nothing ships in this project unless it can be fixed in Settings."
 
 ## Components and names
@@ -63,11 +64,11 @@ Sources:
 | ID | Requirement | Source | Status |
 |---|---|---|---|
 | I1 | Per-user install; no administrator rights, no service | P-install | open |
-| I2 | Windows: `%LOCALAPPDATA%\Programs\Denice\` with Start Menu shortcut to `denice.exe` | P-install, T16 | open |
-| I3 | macOS: `~/Applications/Denice/Denice.app` holds only the loader (`Contents/MacOS/denice`), `versions/` beside it; Tim's swap order applies to the whole bundle (`Denice.app.ver` → `Denice.app`); a `~/.local/bin/denice` link to the loader | P-install, P-build macos-bundle | open |
-| I4 | Linux: `~/.local/share/denice/` with `~/.local/bin/denice` link | P-install | open |
+| I2 | Windows: a per-user Inno Setup installer (no admin prompt) installs into `%LOCALAPPDATA%\Programs\Denice\`, adds the Start Menu shortcut to `denice.exe` and an Installed apps entry with uninstall, then leaves updating to Denice | P-install, T16, P-os | open |
+| I3 | macOS: `Denice.app` (only the loader) in `~/Applications/`; the versions in `~/Library/Application Support/Denice/versions/`; the loader swap replaces the whole app in Tim's order; installed by the install script now, a notarized drag-to-Applications DMG once notarized | P-install, P-build macos-bundle, P-os | open |
+| I4 | Linux: the release tarball plus the shared install script installs into `~/.local/share/denice/`, links `~/.local/bin/denice`, adds a menu entry in `~/.local/share/applications`, and uninstalls with the script | P-install, P-os | open |
 | I5 | First install from a release download (the user gets Denice from a release and it installs into I2/I3/I4) | T14 "both update directions", P-install | open |
-| I6 | The first install works the way users expect on each OS (Tim: "We need to figure out how this would work for each OS and work as expected.  AN extera Installer may be needed for the right user expected behavior."); per-OS research, then a decision package | P-first first-install | blocked pending research and package |
+| I6 | The first install per OS as Tim chose: Windows Inno Setup installer, macOS and Linux one shared install script (`curl -fsSL …/install.sh | sh`), macOS DMG after notarization | P-first, P-os | open |
 
 ## Infrastructure parity (Rust aligned with .NET)
 | ID | Requirement | Source | Status |
@@ -80,6 +81,7 @@ Sources:
 | F6 | Each applicable C# custom rule has a Rust counterpart or a recorded reason it cannot apply to Rust (listed in rust/RULES.md) | T14 | done 25b0f06 rust/RULES.md maps all 38 C# rule ids: 12 Rust counterparts built, the rest with recorded reasons |
 | F7 | Unit and integration tests run in CI on every platform that runs tests today | T14 | done 9e5b07c CI run 43992165133: Rust and .NET tests on macOS, Windows and Linux |
 | F8 | Coverage gate at the same 75% threshold | T14 | done 9e5b07c CI run 43992165133: cargo-llvm-cov --fail-under-lines 75 on each OS; .NET coverage gate unchanged |
+| F13 | Real code signing: Apple Developer ID signing and notarization on macOS, SignPath Foundation signing on Windows, in CI (needs Tim's Apple Developer membership and SignPath approval) | P-os code-signing | blocked pending Tim's Apple Developer membership and SignPath Foundation approval |
 | F9 | Platform signing of the Rust executables (codesign hardened runtime / Authenticode) | T14 | open |
 | F10 | sha256 + cosign for release files, verified before publishing | T14 | open |
 | F11 | Release contains the new layout for all six platforms | T14 | open |
