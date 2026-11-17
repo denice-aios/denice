@@ -20,6 +20,7 @@ Sources:
 - P-settings: pkg-a372b9307553 denice-settings = denice-commands, Tim's note: "BUT we use YAML for the settings file not JSON.  And we minimize settings because we will later move them to the DB."
 - P-cosign: pkg-471f394bb261 cosign-checker = use-sigstore (the `Sigstore` NuGet package pinned to 1.1.1, MIT, github.com/mitchdenny/sigstore-dotnet; trust root shipped in Denice Runtime; identity pinned to Denice's CI workflow).
 - P-linux: pkg-2a7c75112d13 linux-build = build-with-cargo-zigbuild.
+- P-short: pkg-79dc8dd1e15d unfinished-update-at-exit = retry-next-launch, Tim's note: "We'll also add an "update" command to allow the user to manually override.  We'll be long running before this is a problem."
 - R7: global rule 7: "Settings must replace .env configuration. Nothing ships in this project unless it can be fixed in Settings."
 
 ## Components and names
@@ -43,12 +44,13 @@ Sources:
 ## Downloading (in .NET)
 | ID | Requirement | Source | Status |
 |---|---|---|---|
-| D1 | Denice Runtime performs the downloading; pre-download happens before loading | T14 | open |
+| D1 | Denice Runtime performs the downloading; pre-download happens before loading | T14 | done 33c2eda src/Denice.Updates/UpdateService.cs (Denice Runtime downloads and installs; checks before loading); UpdateServiceTests |
 | D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
 | D3 | Before use (cosign via the Sigstore package, P-cosign), Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | done ec2254e src/Denice.Updates/VersionInstaller.cs + ReleaseSignature.cs + platform CheckCodeSignature; ReleaseSignatureTests (genuine Sigstore bundle), VersionInstallerSignatureTests (genuinely signed fixtures), VersionInstallerTests |
-| D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | open |
+| D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | done 33c2eda UpdateService (GitHub Releases, channel, interval, off switch from Settings S1) + Program background check at launch + denice update; UpdateServiceTests, UpdateCliTests |
 | S1 | Settings: `settings.yaml` in the per-user Denice data folder (outside the install), changed through `denice settings` (list), `denice settings set <name> <value>`, `denice settings reset <name>`; only the three update settings (updates.enabled, updates.channel, updates.checkIntervalHours) | P-settings, R7 | done bd3016b src/Denice.Updates/SettingsFile.cs, SettingsYaml.cs; tests SettingsYamlTests, SettingsFileTests, SettingsFolderTests, SettingsCliTests (commands end to end) |
-| D5 | A one-shot command finishes once and is never re-run; the newer version is used from the next launch; only a long-running Denice session restarts into a ready newer version (exit 75) | P-first update-command-policy | open |
+| D6 | A long-running Denice session checks every interval while it runs and restarts into a ready newer version (exit 75) | P-build update-policy, P-first; Tim: "We'll be long running before this is a problem." | blocked pending a long-running Denice session (none exists yet) |
+| D5 | A one-shot command finishes once and is never re-run; the newer version is used from the next launch; only a long-running Denice session restarts into a ready newer version (exit 75) | P-first update-command-policy | done 33c2eda Program: one-shot commands are never re-run; the background check stops with the command; an installed version starts next launch; UpdateCliTests |
 
 ## Loader replacement
 | ID | Requirement | Source | Status |
@@ -72,20 +74,20 @@ Sources:
 |---|---|---|---|
 | F1 | Pinned Rust toolchain (as global.json pins the .NET SDK) | T14 | done 91d5e32 rust/rust-toolchain.toml (1.100.0, components, six targets) |
 | F2 | Version computed once (eng/compute-build-id.sh) and passed to both builds | T14 | done 7d1897f eng/build-install-layout.sh (one build id -> -p:Denice* and DENICE_VERSION; both halves print the same SemVer) |
-| F3 | Build for all six platforms: osx-arm64, osx-x64, win-x64, win-arm64, linux-x64, linux-arm64 | T14 | open |
-| F4 | Formatting and lint gate with warnings as errors (as TreatWarningsAsErrors + analyzers) | T14 | open |
+| F3 | Build for all six platforms: osx-arm64, osx-x64, win-x64, win-arm64, linux-x64, linux-arm64 | T14 | done 9e5b07c CI run 43992165133: install layouts for osx-arm64, osx-x64, win-x64, win-arm64, linux-arm64, linux-x64 |
+| F4 | Formatting and lint gate with warnings as errors (as TreatWarningsAsErrors + analyzers) | T14 | done 9e5b07c CI run 43992165133: eng/rust-checks.sh (rustfmt --check, clippy -D warnings, custom rules) on macOS, Windows, Linux |
 | F5 | Custom-rule management: Rust custom rules R1–R12 (rust/RULES.md) as dylint lints with their own tests, run in CI beside Clippy with warnings as errors, on a pinned nightly for the lint crate | T14, P-build rust-rules | done 25b0f06 rust/lints/denice_rules (R1-R12 dylint lints); ui fixtures + tests/fixture_workspace.rs; eng/rust-checks.sh step 4 runs the rules' tests and the rules over all targets |
 | F6 | Each applicable C# custom rule has a Rust counterpart or a recorded reason it cannot apply to Rust (listed in rust/RULES.md) | T14 | done 25b0f06 rust/RULES.md maps all 38 C# rule ids: 12 Rust counterparts built, the rest with recorded reasons |
-| F7 | Unit and integration tests run in CI on every platform that runs tests today | T14 | open |
-| F8 | Coverage gate at the same 75% threshold | T14 | open |
+| F7 | Unit and integration tests run in CI on every platform that runs tests today | T14 | done 9e5b07c CI run 43992165133: Rust and .NET tests on macOS, Windows and Linux |
+| F8 | Coverage gate at the same 75% threshold | T14 | done 9e5b07c CI run 43992165133: cargo-llvm-cov --fail-under-lines 75 on each OS; .NET coverage gate unchanged |
 | F9 | Platform signing of the Rust executables (codesign hardened runtime / Authenticode) | T14 | open |
 | F10 | sha256 + cosign for release files, verified before publishing | T14 | open |
 | F11 | Release contains the new layout for all six platforms | T14 | open |
-| F12 | The Linux Rust executables run on every Linux distribution Denice Runtime's .NET supports (linked against a glibc no newer than .NET's minimum) | T14 "align it with the existing .NET infrastructure"; P-linux | open |
+| F12 | The Linux Rust executables run on every Linux distribution Denice Runtime's .NET supports (linked against a glibc no newer than .NET's minimum) | T14 "align it with the existing .NET infrastructure"; P-linux | done 9e5b07c CI run 43992165133: eng/check-glibc.sh PASS (Rust needs glibc 2.17 arm64 / 2.16 x64; .NET 2.27) |
 
 ## Finish line
 | ID | Requirement | Source | Status |
 |---|---|---|---|
-| E1 | End-to-end test in CI on macOS, Windows and Linux: install version A; make version B available; loader updates to B (L4); B replaces the loader (U1-U3); a broken version C falls back (L5) | T16b | open |
+| E1 | End-to-end test in CI on macOS, Windows and Linux: install version A; make version B available; loader updates to B (L4); B replaces the loader (U1-U3); a broken version C falls back (L5) | T16b | done 9e5b07c CI run 43992165133: eng/loader-e2e-test.sh passed on osx-arm64, win-x64 and linux-arm64 |
 | E3 | Denice Runtime accepts a real release signed by Denice's own CI (its SHA256SUMS bundle and OS signatures) and refuses it when altered, end to end | T16b; P-build download-proof | open |
 | E2 | Every line above closed with evidence; independent review of this file against the source packages finds nothing missing | T16b | open |
