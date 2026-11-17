@@ -18,6 +18,7 @@ Sources:
 - P-build: pkg-697310396f74 macos-bundle = bundle-inside ("App beside versions"); download-proof = existing-proofs ("All proofs"); update-policy = scheduled; rust-rules = dylint.
 - P-first: pkg-189647304b25 first-install = none of the options, Tim's note: "We need to figure out how this would work for each OS and work as expected.  AN extera Installer may be needed for the right user expected behavior."; update-command-policy = finish-once.
 - P-settings: pkg-a372b9307553 denice-settings = denice-commands, Tim's note: "BUT we use YAML for the settings file not JSON.  And we minimize settings because we will later move them to the DB."
+- P-cosign: pkg-471f394bb261 cosign-checker = use-sigstore (the `Sigstore` NuGet package pinned to 1.1.1, MIT, github.com/mitchdenny/sigstore-dotnet; trust root shipped in Denice Runtime; identity pinned to Denice's CI workflow).
 - R7: global rule 7: "Settings must replace .env configuration. Nothing ships in this project unless it can be fixed in Settings."
 
 ## Components and names
@@ -43,7 +44,7 @@ Sources:
 |---|---|---|---|
 | D1 | Denice Runtime performs the downloading; pre-download happens before loading | T14 | open |
 | D2 | Download goes to `versions/<version>.partial/`, is checked, then renamed to `versions/<version>/` in one rename | P-store | done 55a4895 src/Denice.Updates/VersionInstaller.cs; tests/Denice.Tests/VersionInstallerTests.cs (13 tests: checked install, tamper/unlisted/missing/malformed refused and cleaned up, one rename) |
-| D3 | Before use, Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | open |
+| D3 | Before use (cosign via the Sigstore package, P-cosign), Denice Runtime checks the sha256 list, the cosign bundle against the Sigstore trust root pinned to Denice's release workflow identity, and on macOS/Windows the OS code signature pinned to Denice's signing identity | P-build download-proof | open |
 | D4 | Updates from GitHub Releases of denice-aios/denice; channel (pre-release / stable, default pre-release) in Settings; check at every start in the background (never delaying it) and every 6 hours while running; interval and off switch in Settings | P-build update-policy, R7 | open |
 | S1 | Settings: `settings.yaml` in the per-user Denice data folder (outside the install), changed through `denice settings` (list), `denice settings set <name> <value>`, `denice settings reset <name>`; only the three update settings (updates.enabled, updates.channel, updates.checkIntervalHours) | P-settings, R7 | open |
 | D5 | A one-shot command finishes once and is never re-run; the newer version is used from the next launch; only a long-running Denice session restarts into a ready newer version (exit 75) | P-first update-command-policy | open |
