@@ -17,4 +17,15 @@
     <ProjectReference Include="../Denice.Abstractions/Denice.Abstractions.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Sigstore" />
+  </ItemGroup>
+
+  <!-- Sigstore's public trusted root, shipped inside Denice Runtime so a release check never fetches trust material
+       (pkg-471f394bb261). Source: github.com/sigstore/root-signing targets/trusted_root.json, taken 16 November 2026;
+       a Denice release carries a newer copy when Sigstore rotates its keys. -->
+  <ItemGroup>
+    <EmbeddedResource Include="SigstoreTrustedRoot.json" LogicalName="Denice.Updates.SigstoreTrustedRoot.json" />
+  </ItemGroup>
+
 </Project>

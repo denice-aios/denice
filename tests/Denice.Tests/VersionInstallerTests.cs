@@ -20,7 +20,9 @@ namespace Denice.Tests;
 /// <summary>
 /// Installing a downloaded release (pkg-a0206b25f619): the version is unpacked to <c>.partial</c>, every file is checked
 /// against <c>SHA256SUMS</c>, and only a fully checked version is renamed into <c>versions/&lt;version&gt;</c>. A release
-/// that fails any check leaves neither a version nor a partial folder behind.
+/// that fails any check leaves neither a version nor a partial folder behind. These run on the simulated file system,
+/// whose platform has no OS code signature (as on Linux), with a stand-in cosign check; the real signature checks are
+/// proven in <see cref="VersionInstallerSignatureTests"/> and <see cref="ReleaseSignatureTests"/>.
 /// </summary>
 public sealed class VersionInstallerTests
 {
@@ -36,10 +38,13 @@ public sealed class VersionInstallerTests
     /// </summary>
     public VersionInstallerTests()
     {
-        services = SystemServicesBuilder.Real().Build();
+        services = SystemServicesBuilder.Real().SimulateFileSystem().Build();
         root = services.FileSystem.GetDirectoryWriter().CreateTempSubdirectory("denice-install-");
-        installer = new VersionInstaller(services, root);
+        installer = new VersionInstaller(services, root, AcceptingCosign);
     }
+
+    private static ReleaseTrust AcceptingCosign { get; } =
+        new((_, _, _) => Task.FromResult<string?>(null), DeniceSigningCertificates.Sha256Fingerprints.ToArray());
 
     private string Final => Path.Combine(root, LoaderProtocol.VersionsDirectory, Version);
 
@@ -185,17 +190,56 @@ public sealed class VersionInstallerTests
     }
 
     [Fact]
-    public async Task Install_OnTheSimulatedFileSystem_MovesTheWholeTreeAndLeavesTheRealDiskUntouched()
+    public async Task Install_WhoseCosignSignatureIsNotDenices_InstallsNothing()
     {
-        ISystemServices simulated = SystemServicesBuilder.Real().SimulateFileSystem().Build();
-        var simulatedInstaller = new VersionInstaller(simulated, root);
+        var refusing = new VersionInstaller(
+            services,
+            root,
+            new ReleaseTrust((_, _, _) => Task.FromResult<string?>("not Denice's release workflow"), []));
 
-        await simulatedInstaller.InstallAsync(Release(Files()), CancellationToken.None);
+        Func<Task> act = () => refusing.InstallAsync(Release(Files()), CancellationToken.None);
 
-        simulated.FileSystem.GetFileReader().ReadAllText(Path.Combine(Final, "de", "System.CommandLine.resources.dll"))
-            .Should().Be("german");
-        simulated.FileSystem.GetDirectoryReader().DirectoryExists(Partial).Should().BeFalse();
-        Directories().DirectoryExists(Final).Should().BeFalse("the overlay never writes to the real disk");
+        (await act.Should().ThrowAsync<InvalidDataException>()).WithMessage("*not Denice's release workflow*");
+        NothingInstalled();
+    }
+
+    [Fact]
+    public async Task Install_WithoutACosignBundle_InstallsNothing()
+    {
+        Dictionary<string, string> files = Files();
+        byte[] zip = Zip(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            [$"versions/{Version}/SHA256SUMS"] = Sums(files),
+            [$"versions/{Version}/Denice.Runtime.dll"] = files["Denice.Runtime.dll"],
+            [$"versions/{Version}/Denice.Updates.dll"] = files["Denice.Updates.dll"],
+            [$"versions/{Version}/denice-v{Version}-osx-arm64"] = files[$"denice-v{Version}-osx-arm64"],
+            [$"versions/{Version}/de/System.CommandLine.resources.dll"] = files["de/System.CommandLine.resources.dll"],
+        });
+
+        Func<Task> act = () => installer.InstallAsync(zip, CancellationToken.None);
+
+        (await act.Should().ThrowAsync<InvalidDataException>()).WithMessage("*no SHA256SUMS.cosign.bundle*");
+        NothingInstalled();
+    }
+
+    [Fact]
+    public async Task TheCosignCheck_IsGivenExactlyTheChecksumsFileAndBundle()
+    {
+        byte[]? seenChecksums = null;
+        string? seenBundle = null;
+        var recording = new VersionInstaller(services, root, new ReleaseTrust(
+            (checksums, bundle, _) =>
+            {
+                seenChecksums = checksums.ToArray();
+                seenBundle = bundle;
+                return Task.FromResult<string?>(null);
+            },
+            []));
+
+        await recording.InstallAsync(Release(Files()), CancellationToken.None);
+
+        Encoding.UTF8.GetString(seenChecksums!).Should().Be(Sums(Files()));
+        seenBundle.Should().Be("{}");
     }
 
     [Fact]
@@ -203,9 +247,11 @@ public sealed class VersionInstallerTests
     {
         Action noServices = () => _ = new VersionInstaller(null!, root);
         Action noRoot = () => _ = new VersionInstaller(services, string.Empty);
+        Action noTrust = () => _ = new VersionInstaller(services, root, null!);
 
         noServices.Should().Throw<ArgumentNullException>();
         noRoot.Should().Throw<ArgumentException>();
+        noTrust.Should().Throw<ArgumentNullException>();
     }
 
     private static Dictionary<string, string> Files() => new(StringComparer.Ordinal)

@@ -27,6 +27,7 @@ public sealed class VersionInstaller
 
     private readonly ISystemServices _services;
     private readonly string _installRoot;
+    private readonly ReleaseTrust _trust;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="VersionInstaller"/> class for one install root.
@@ -34,11 +35,25 @@ public sealed class VersionInstaller
     /// <param name="services">The owned services every file operation goes through.</param>
     /// <param name="installRoot">The install root (the folder holding the loader and <c>versions</c>).</param>
     public VersionInstaller(ISystemServices services, string installRoot)
+        : this(services, installRoot, ReleaseTrust.Denice)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="VersionInstaller"/> class that trusts the given signers (tests pin
+    /// their fixture signers; production always trusts <see cref="ReleaseTrust.Denice"/>).
+    /// </summary>
+    /// <param name="services">The owned services every file operation goes through.</param>
+    /// <param name="installRoot">The install root.</param>
+    /// <param name="trust">Who a release must come from.</param>
+    internal VersionInstaller(ISystemServices services, string installRoot, ReleaseTrust trust)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrEmpty(installRoot);
+        ArgumentNullException.ThrowIfNull(trust);
         _services = services;
         _installRoot = installRoot;
+        _trust = trust;
     }
 
     /// <summary>
@@ -70,11 +85,13 @@ public sealed class VersionInstaller
 
         directoryWriter.CreateDirectory(partial);
         await UnpackAsync(archive, version, partial, ct).ConfigureAwait(false);
-        string? problem = ChecksumProblem(partial);
+        string? problem = ChecksumProblem(partial)
+            ?? await CosignProblemAsync(partial, ct).ConfigureAwait(false)
+            ?? CodeSignatureProblem(partial);
         if (problem is not null)
         {
             directoryWriter.DeleteDirectory(partial, recursive: true);
-            throw new InvalidDataException($"Denice {version} failed its checksum check and was not installed: {problem}");
+            throw new InvalidDataException($"Denice {version} failed its download checks and was not installed: {problem}");
         }
 
         directoryWriter.MoveDirectory(partial, final);
@@ -140,6 +157,57 @@ public sealed class VersionInstaller
             }
         }
     }
+
+    /// <summary>The cosign signature over <c>SHA256SUMS</c> must be Denice's release workflow's.</summary>
+    private async Task<string?> CosignProblemAsync(string partial, CancellationToken ct)
+    {
+        IFileReader reader = _services.FileSystem.GetFileReader();
+        string bundlePath = Path.Combine(partial, ChecksumsSignatureFile);
+        if (!reader.Exists(bundlePath))
+        {
+            return "it has no SHA256SUMS.cosign.bundle";
+        }
+
+        byte[] checksums = reader.ReadAllBytes(Path.Combine(partial, ChecksumsFile));
+        return await _trust.CosignProblem(checksums, reader.ReadAllText(bundlePath), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Denice's own executables must carry an OS code signature by a pinned Denice certificate: on macOS the loader app
+    /// and the versioned entry; on Windows the loader, the entry and the Denice.*.dll assemblies (the files CI signs).
+    /// Platforms without OS code signatures (Linux) rely on the checksum and cosign checks.
+    /// </summary>
+    private string? CodeSignatureProblem(string partial)
+    {
+        IPlatformFileSystem platform = _services.Platform.FileSystem;
+        IReadOnlyList<string> signed = platform.CodeSignatureFormat switch
+        {
+            CodeSignatureFormat.AppleCodeSignature => [Path.Combine(partial, "Denice.app"), .. EntriesIn(partial)],
+            CodeSignatureFormat.Authenticode =>
+                [Path.Combine(partial, "denice.exe"), .. EntriesIn(partial), .. AssembliesIn(partial)],
+            _ => [],
+        };
+        foreach (string path in signed)
+        {
+            CodeSignatureCheck check = platform.CheckCodeSignature(path, _trust.PinnedSigners);
+            if (check.Status != CodeSignatureStatus.Valid)
+            {
+                return $"'{Path.GetFileName(path)}' is not signed by Denice ({check.Status}: {check.Detail})";
+            }
+        }
+
+        return null;
+    }
+
+    private IEnumerable<string> EntriesIn(string partial) => TopLevelFiles(partial)
+        .Where(path => Path.GetFileName(path).StartsWith("denice-v", StringComparison.Ordinal));
+
+    private IEnumerable<string> AssembliesIn(string partial) => TopLevelFiles(partial)
+        .Where(path => Path.GetFileName(path).StartsWith("Denice.", StringComparison.Ordinal)
+            && path.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<string> TopLevelFiles(string partial) => _services.FileSystem.GetDirectoryReader()
+        .EnumerateChildren(partial).Where(child => !child.IsDirectory).Select(child => child.FullPath);
 
     private string? ChecksumProblem(string partial)
     {

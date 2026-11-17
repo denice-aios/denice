@@ -849,6 +849,10 @@ internal sealed class InMemoryFileSystemStore
             else
             {
                 WriteFileCore(target, ReadAllBytesCore(child.FullPath));
+                if (_nodes.TryGetValue(Normalize(child.FullPath), out OverlayNode? node) && node.Executable)
+                {
+                    _nodes[Normalize(target)].Executable = true;
+                }
             }
         }
     }

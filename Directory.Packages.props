@@ -16,6 +16,9 @@
 
   <ItemGroup Label="CLI command surface and version handling">
     <PackageVersion Include="System.CommandLine" Version="2.0.0" />
+    <!-- Checks a downloaded release's cosign bundle (Tim, pkg-471f394bb261: "Use Sigstore"). MIT,
+         github.com/mitchdenny/sigstore-dotnet; brings Tuf and BouncyCastle.Cryptography. -->
+    <PackageVersion Include="Sigstore" Version="1.1.1" />
   </ItemGroup>
 
   <ItemGroup Label="Roslyn analyzer authoring and testing">
