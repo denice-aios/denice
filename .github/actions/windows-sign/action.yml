@@ -1,0 +1,139 @@
+# The Windows signing hand-off, in the shape SignPath works (docs/signing-switchover.md):
+#
+#   1. hand off  — the unsigned files are uploaded as one workflow artifact (SignPath reads it from GitHub by its id);
+#   2. sign      — test:     the artifact is downloaded and eng/windows/sign-with-test-cert.ps1 signs every file in it
+#                            with the self-signed CI certificate (secret DENICE_WINDOWS_PFX);
+#                  signpath: SignPath's action submits the artifact, SignPath signs it on its servers, and the action
+#                            downloads the signed artifact;
+#   3. take back — the signed files must be exactly the handed-off files, each one changed, and are copied over the
+#                  originals.
+#
+# Steps 1 and 3 are the same in both modes; only step 2 differs, and the repository variable DENICE_WINDOWS_SIGNING
+# (test | signpath, unset = test) picks it. ci.yml calls this twice: Denice's own files in the install layouts, then
+# the setup programs built from the signed layouts.
+name: Windows signing hand-off
+description: Upload unsigned files, sign them (test certificate or SignPath), and copy the signed files back.
+inputs:
+  artifact-name:
+    description: Name of the workflow artifact holding the unsigned files (unique within the run).
+    required: true
+  unsigned-dir:
+    description: Folder holding the unsigned files, laid out as they are to be restored (relative paths are kept).
+    required: true
+  signed-dir:
+    description: Empty folder the signed files are written to.
+    required: true
+  restore-to:
+    description: Folder the signed files are copied over, at the same relative paths they had in unsigned-dir.
+    required: true
+  mode:
+    description: test | signpath — from vars.DENICE_WINDOWS_SIGNING (unset = test).
+    required: true
+  pfx-base64:
+    description: test mode only — the base64 .pfx (secret DENICE_WINDOWS_PFX).
+    required: false
+    default: ''
+  pfx-password:
+    description: test mode only — its password (secret DENICE_WINDOWS_PFX_PASSWORD).
+    required: false
+    default: ''
+  signpath-api-token:
+    description: signpath mode only — secret SIGNPATH_API_TOKEN.
+    required: false
+    default: ''
+  signpath-organization-id:
+    description: signpath mode only — secret SIGNPATH_ORGANIZATION_ID.
+    required: false
+    default: ''
+  signpath-project-slug:
+    description: signpath mode only — the SignPath project slug.
+    required: false
+    default: ''
+  signpath-signing-policy-slug:
+    description: signpath mode only — the SignPath signing policy slug.
+    required: false
+    default: ''
+  signpath-artifact-configuration-slug:
+    description: signpath mode only — the SignPath artifact configuration that matches this artifact's files.
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Check the signing mode (test | signpath)
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+      run: |
+        case "$MODE" in
+          test) echo "::notice::Windows signing: TEST certificate (self-signed, untrusted). Set the repository variable DENICE_WINDOWS_SIGNING=signpath to sign through SignPath." ;;
+          signpath) echo "Windows signing: SignPath." ;;
+          *) echo "::error::DENICE_WINDOWS_SIGNING is '$MODE'; it must be 'test' or 'signpath' (docs/signing-switchover.md)."; exit 1 ;;
+        esac
+    - name: Hand off — upload the unsigned files as one artifact
+      id: unsigned
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.unsigned-dir }}
+        if-no-files-found: error
+        retention-days: 1
+
+    # --- Sign: TEST certificate. Takes the files from the artifact, as SignPath does. ---
+    - name: Sign (test certificate) — download the handed-off artifact
+      if: inputs.mode == 'test'
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ inputs.signed-dir }}
+    - name: Sign (test certificate) — signtool + RFC 3161 timestamp
+      if: inputs.mode == 'test'
+      shell: pwsh
+      env:
+        PFX_B64: ${{ inputs.pfx-base64 }}
+        PFX_PW: ${{ inputs.pfx-password }}
+        SIGNED_DIR: ${{ inputs.signed-dir }}
+      run: '& "$env:GITHUB_WORKSPACE/eng/windows/sign-with-test-cert.ps1" -Directory $env:SIGNED_DIR'
+
+    # --- Sign: SignPath. Runs only when DENICE_WINDOWS_SIGNING=signpath. ---
+    - name: Sign (SignPath) — submit the artifact, wait, download the signed artifact
+      if: inputs.mode == 'signpath'
+      uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+      with:
+        api-token: ${{ inputs.signpath-api-token }}
+        organization-id: ${{ inputs.signpath-organization-id }}
+        project-slug: ${{ inputs.signpath-project-slug }}
+        signing-policy-slug: ${{ inputs.signpath-signing-policy-slug }}
+        artifact-configuration-slug: ${{ inputs.signpath-artifact-configuration-slug }}
+        github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+        wait-for-completion: true
+        output-artifact-directory: ${{ inputs.signed-dir }}
+
+    - name: Take back — the signed files must be the handed-off files, each changed; copy them into place
+      shell: pwsh
+      env:
+        UNSIGNED_DIR: ${{ inputs.unsigned-dir }}
+        SIGNED_DIR: ${{ inputs.signed-dir }}
+        RESTORE_TO: ${{ inputs.restore-to }}
+      run: |
+        $ErrorActionPreference = 'Stop'
+        function Get-RelativeFiles([string]$root) {
+          $full = [IO.Path]::GetFullPath($root).TrimEnd('\', '/')
+          if (-not (Test-Path -LiteralPath $full -PathType Container)) { return @() }
+          @(Get-ChildItem -LiteralPath $full -Recurse -File | ForEach-Object { $_.FullName.Substring($full.Length + 1) } | Sort-Object)
+        }
+        $unsigned = @(Get-RelativeFiles $env:UNSIGNED_DIR)
+        $signed = @(Get-RelativeFiles $env:SIGNED_DIR)
+        if ($unsigned.Count -eq 0) { throw "nothing was handed off from $env:UNSIGNED_DIR" }
+        if ($signed.Count -eq 0) { throw "nothing came back signed in $env:SIGNED_DIR" }
+        $diff = @(Compare-Object $unsigned $signed)
+        if ($diff.Count -gt 0) { throw "the signed set differs from the handed-off set: $($diff | Out-String)" }
+        foreach ($rel in $signed) {
+          $before = (Get-FileHash -LiteralPath (Join-Path $env:UNSIGNED_DIR $rel) -Algorithm SHA256).Hash
+          $after = (Get-FileHash -LiteralPath (Join-Path $env:SIGNED_DIR $rel) -Algorithm SHA256).Hash
+          if ($before -eq $after) { throw "$rel came back unchanged — it was not signed" }
+          $target = Join-Path $env:RESTORE_TO $rel
+          if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { throw "$rel has no original at $target" }
+          Copy-Item -Force -LiteralPath (Join-Path $env:SIGNED_DIR $rel) -Destination $target
+        }
+        Write-Host "took back $($signed.Count) signed file(s) into $env:RESTORE_TO"
