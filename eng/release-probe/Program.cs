@@ -50,12 +50,15 @@ internal static class Program
         };
         byte[] genuine = await File.ReadAllBytesAsync(args[2]).ConfigureAwait(false);
         byte[]? other = args.Length == 4 ? await File.ReadAllBytesAsync(args[3]).ConfigureAwait(false) : null;
-        return await RunAsync(shipped, Path.GetFullPath(args[1]), genuine, other).ConfigureAwait(false);
+        // The release zip's name ends in -<rid>.zip (decision release-asset-names); the installer checks that platform's entry.
+        string zipName = Path.GetFileNameWithoutExtension(args[2]);
+        string rid = string.Join('-', zipName.Split('-')[^2..]);
+        return await RunAsync(shipped, Path.GetFullPath(args[1]), rid, genuine, other).ConfigureAwait(false);
     }
 
     // Kept out of Main so no Denice type is resolved before the Resolving handler is in place.
     [MethodImpl(MethodImplOptions.NoInlining)]
-    private static async Task<int> RunAsync(string shipped, string work, byte[] genuine, byte[]? other)
+    private static async Task<int> RunAsync(string shipped, string work, string rid, byte[] genuine, byte[]? other)
     {
         Assembly installer = typeof(VersionInstaller).Assembly;
         if (!string.Equals(Path.GetDirectoryName(installer.Location), shipped, StringComparison.Ordinal))
@@ -93,19 +96,19 @@ internal static class Program
         {
             string root = Path.Combine(work, $"case-{++index}");
             Directory.CreateDirectory(root);
-            ok &= await JudgeAsync(services, root, name, zip, accept).ConfigureAwait(false);
+            ok &= await JudgeAsync(services, root, rid, name, zip, accept).ConfigureAwait(false);
         }
 
         Console.WriteLine(ok ? "probe RESULT: PASS" : "probe RESULT: FAIL");
         return ok ? 0 : 1;
     }
 
-    private static async Task<bool> JudgeAsync(ISystemServices services, string root, string name, byte[] zip, bool accept)
+    private static async Task<bool> JudgeAsync(ISystemServices services, string root, string rid, string name, byte[] zip, bool accept)
     {
         string verdict;
         try
         {
-            InstallOutcome outcome = await new VersionInstaller(services, root).InstallAsync(zip, CancellationToken.None)
+            InstallOutcome outcome = await new VersionInstaller(services, root, rid).InstallAsync(zip, CancellationToken.None)
                 .ConfigureAwait(false);
             verdict = $"{outcome.Result} {outcome.Version}";
         }
