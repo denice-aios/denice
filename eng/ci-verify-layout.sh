@@ -35,7 +35,9 @@ ok=1
     echo "== $name.zip =="
     ( cd "$DIST" && "${SUM[@]}" -c "$name.zip.sha256" ) 2>&1 || { echo "zip checksum FAIL: $rid"; ok=0; }
     work="$(mktemp -d)"
-    unzip -q "$DIST/$name.zip" -d "$work" || { echo "unzip FAIL: $rid"; ok=0; continue; }
+    # Git Bash on the Windows runner may lack Info-ZIP; 7-Zip unpacks the same zip there.
+    if command -v unzip > /dev/null 2>&1; then unpack=(unzip -q "$DIST/$name.zip" -d "$work"); else unpack=(7z x -bso0 -bsp0 "-o$work" "$DIST/$name.zip"); fi
+    "${unpack[@]}" || { echo "unzip FAIL: $rid"; ok=0; continue; }
     vdir="$work/versions/$DENICE_ASSET_VERSION"
     ( cd "$vdir" && "${SUM[@]}" -c --quiet SHA256SUMS ) 2>&1 && echo "SHA256SUMS PASS: $rid" || { echo "SHA256SUMS FAIL: $rid"; ok=0; }
     if cosign verify-blob --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" \

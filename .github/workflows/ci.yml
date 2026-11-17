@@ -9,8 +9,9 @@ name: CI
 #
 # Signing (push only, decision signing-mechanisms): each OS job strong-name-signs its build (from the
 # DENICE_STRONGNAME_SNK secret; DENICE_REQUIRE_SIGNED makes a missing key a hard fail so CI never ships
-# unsigned — no-committed-keys), then codesign (mac) / signtool+timestamp (Windows) / cosign-keyless (all six)
-# its two install layouts, checksum and cosign them, and upload them. The release job gathers all six and publishes one
+# unsigned — no-committed-keys), then codesign (mac) / the Windows signing hand-off (.github/actions/windows-sign:
+# today signtool+timestamp with the test certificate, later SignPath) / cosign-keyless (all six) its two install
+# layouts, checksum and cosign them, and upload them. The release job gathers all six and publishes one
 # release: pre-release from dev, full release from main (channel-by-prerelease-id).
 #
 # What ships (Tim, 14-16 November 2026; rust/REQUIREMENTS.md): per platform one install layout, built by
@@ -35,6 +36,15 @@ on:
 
 permissions:
   contents: read
+
+# Which keys sign each OS (docs/signing-switchover.md). Each is a repository variable (Settings > Secrets and variables >
+# Actions > Variables); unset means `test`, the self-signed CI certificates. Moving to the real keys is a change of
+# settings, not of this file: set the new secrets, then flip the variable.
+#   DENICE_MACOS_SIGNING    test | developer-id  (developer-id: codesign --timestamp, notarize + staple the app and DMG)
+#   DENICE_WINDOWS_SIGNING  test | signpath      (signpath: the signing hand-off goes to SignPath instead of signtool)
+env:
+  DENICE_MACOS_SIGNING: ${{ vars.DENICE_MACOS_SIGNING || 'test' }}
+  DENICE_WINDOWS_SIGNING: ${{ vars.DENICE_WINDOWS_SIGNING || 'test' }}
 
 jobs:
   version:
@@ -171,12 +181,20 @@ jobs:
         with:
           cosign-release: 'v3.1.3'
       - name: Sign mac binaries (codesign, hardened runtime + entitlements)
+        # DENICE_MACOS_CERT_P12 holds the test certificate today and the Developer ID Application certificate after the
+        # switch (docs/signing-switchover.md); the steps are the same, except that a Developer ID signature also gets
+        # Apple's secure timestamp (--timestamp), which notarization requires and which a self-signed cert cannot get.
         if: github.event_name == 'push'
         env:
           P12_B64: ${{ secrets.DENICE_MACOS_CERT_P12 }}
           P12_PW: ${{ secrets.DENICE_MACOS_CERT_PASSWORD }}
         run: |
           set -euo pipefail
+          case "$DENICE_MACOS_SIGNING" in
+            test) TS=""; echo "::notice::macOS signing: TEST certificate (self-signed, untrusted; no timestamp, not notarized). Set the repository variable DENICE_MACOS_SIGNING=developer-id to sign with the Developer ID." ;;
+            developer-id) TS="--timestamp" ;;
+            *) echo "::error::DENICE_MACOS_SIGNING is '$DENICE_MACOS_SIGNING'; it must be 'test' or 'developer-id' (docs/signing-switchover.md)."; exit 1 ;;
+          esac
           WORK="$RUNNER_TEMP/macsign"; mkdir -p "$WORK"
           printf '%s' "$P12_B64" | openssl base64 -d -A > "$WORK/cert.p12"
           # ci-cert-expiry-check: fail the build if the CI signing cert is already expired. The p12->PEM
@@ -200,6 +218,8 @@ jobs:
           # (the verify step) is a structural seal check and likewise needs no trust.
           IDENTITY="$(security find-identity -p codesigning "$KC" | grep -oE '[0-9A-F]{40}' | head -1)"
           if [ -z "$IDENTITY" ]; then echo "::error::No code-signing identity found in the build keychain after import."; exit 1; fi
+          # The DMG step signs with the same identity, keychain and timestamp choice (none of these is secret).
+          { echo "DENICE_MAC_IDENTITY=$IDENTITY"; echo "DENICE_MAC_KEYCHAIN=$KC"; echo "DENICE_MAC_TIMESTAMP=$TS"; } >> "$GITHUB_ENV"
           # Denice's own executables in each layout: the loader app Denice.app (root + the copy the version carries;
           # signing the app seals its program and Info.plist) and the versioned entry, which hosts .NET and so carries
           # the JIT entitlements (decision mac-hardened-runtime). The .NET runtime's own .dylib files keep Microsoft's
@@ -208,10 +228,58 @@ jobs:
             L="layouts/$rid"; V="$L/versions/$DENICE_ASSET_VERSION"
             # Sign the root app once and copy it into the version: two separate signatures differ (each carries its
             # own signing time), and ci-stage-layout.sh requires the carried loader to equal the root one.
-            codesign --force --options runtime --keychain "$KC" --sign "$IDENTITY" "$L/Denice.app"
+            # $TS is empty (test) or --timestamp (developer-id), so it is left unquoted on purpose.
+            codesign --force --options runtime $TS --keychain "$KC" --sign "$IDENTITY" "$L/Denice.app"
             rm -rf "$V/Denice.app"; ditto "$L/Denice.app" "$V/Denice.app"
-            codesign --force --options runtime --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$V/denice-v$DENICE_ASSET_VERSION-$rid"
+            codesign --force --options runtime $TS --entitlements eng/signing/denice.entitlements --keychain "$KC" --sign "$IDENTITY" "$V/denice-v$DENICE_ASSET_VERSION-$rid"
           done
+      - name: Notarize and staple Denice.app (developer-id only; skipped with a notice on the test certificate)
+        # Apple notarizes only Developer ID signatures. The root app is notarized and stapled, then copied over the
+        # carried copy again, because ci-stage-layout.sh requires the carried loader to equal the root one.
+        if: github.event_name == 'push'
+        env:
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+        run: |
+          set -euo pipefail
+          if [ "$DENICE_MACOS_SIGNING" != developer-id ]; then
+            echo "::notice::macOS notarization skipped: DENICE_MACOS_SIGNING is '$DENICE_MACOS_SIGNING' (only a Developer ID signature can be notarized)."
+            exit 0
+          fi
+          for rid in osx-arm64 osx-x64; do
+            L="layouts/$rid"; V="$L/versions/$DENICE_ASSET_VERSION"
+            eng/macos/notarize.sh "$L/Denice.app"
+            rm -rf "$V/Denice.app"; ditto "$L/Denice.app" "$V/Denice.app"
+          done
+      - name: Build and sign the drag-to-Applications DMGs; notarize and staple them (developer-id only)
+        # Built on the test certificate too, so the DMG build is proven before the switch; only a Developer ID DMG is
+        # notarized and uploaded. The release does not publish the DMGs yet (docs/signing-switchover.md).
+        if: github.event_name == 'push'
+        env:
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+        run: |
+          set -euo pipefail
+          for rid in osx-arm64 osx-x64; do
+            DMG="dmg/denice-v$DENICE_ASSET_VERSION-$rid.dmg"
+            # $DENICE_MAC_TIMESTAMP is empty or --timestamp (set by the signing step), so it is left unquoted.
+            eng/macos/build-dmg.sh "layouts/$rid/Denice.app" "$DMG" --sign "$DENICE_MAC_IDENTITY" --keychain "$DENICE_MAC_KEYCHAIN" $DENICE_MAC_TIMESTAMP
+            if [ "$DENICE_MACOS_SIGNING" = developer-id ]; then
+              eng/macos/notarize.sh "$DMG"
+            else
+              echo "::notice::$DMG not notarized: DENICE_MACOS_SIGNING is '$DENICE_MACOS_SIGNING'."
+            fi
+          done
+      - name: Upload the notarized DMGs (developer-id only)
+        if: github.event_name == 'push' && env.DENICE_MACOS_SIGNING == 'developer-id'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dmg-macos
+          path: dmg/
+          if-no-files-found: error
+          retention-days: 7
       - name: Launch the codesigned mac layout (proves hardened runtime lets the loader, entry and .NET run)
         # success definition + Acceptance 5: run the codesigned, hardened-runtime osx-arm64 layout through its loader and
         # require exit 0 — the entry's entitlements (allow-jit / allow-unsigned-executable-memory) let it host .NET under
@@ -256,6 +324,7 @@ jobs:
     permissions:
       contents: read
       id-token: write            # cosign keyless (ambient GitHub OIDC) on a push
+      actions: read              # SignPath reads the handed-off artifact with this job's token (DENICE_WINDOWS_SIGNING=signpath)
     env:
       AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
       # Release file names carry the full build version (Tim, pkg-fcfb11e1ba8c semver-form b): denice-v<version>-<rid>.
@@ -444,75 +513,108 @@ jobs:
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
         with:
           cosign-release: 'v3.1.3'
-      - name: Sign windows binaries (Authenticode + RFC3161 timestamp)
+      # Windows signing is one bounded hand-off (.github/actions/windows-sign), run twice: unsigned files go out as an
+      # artifact, come back signed, and are checked and copied into place. Only the signer inside it changes with
+      # DENICE_WINDOWS_SIGNING: `test` (unset) signs with the self-signed DENICE_WINDOWS_PFX and signtool, `signpath`
+      # sends the artifact to SignPath (docs/signing-switchover.md). Round 1 is Denice's own files in the layouts;
+      # round 2 is the setup programs, built from the signed layouts.
+      - name: Signing hand-off 1 of 2 — collect Denice's unsigned files from both layouts
+        # Denice's own files in each layout: the root loader, the versioned entry and the Denice.*.dll assemblies. The
+        # carried loader is not handed off: it is copied from the signed root one afterwards, because two separate
+        # signatures differ (each has its own timestamp) and ci-stage-layout.sh requires the two to be equal. The .NET
+        # runtime's own files keep Microsoft's signatures.
         if: github.event_name == 'push'
         shell: pwsh
-        env:
-          PFX_B64: ${{ secrets.DENICE_WINDOWS_PFX }}
-          PFX_PW: ${{ secrets.DENICE_WINDOWS_PFX_PASSWORD }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $work = Join-Path $env:RUNNER_TEMP 'winsign'
-          New-Item -ItemType Directory -Force -Path $work | Out-Null
-          $pfx = Join-Path $work 'cert.pfx'
-          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
-          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 @($pfx, $env:PFX_PW)
-          # ci-cert-expiry-check: fail the build if the CI signing cert is already expired.
-          if ($cert.NotAfter -lt (Get-Date)) {
-            Write-Error "DENICE_WINDOWS_PFX is expired ($($cert.NotAfter)) — regenerate the CI signing cert (decision ci-cert-expiry-check)."
-          }
-          # Install our self-signed cert into this ephemeral runner's trust store so `signtool verify /pa` chains.
-          # This is the RUNNER, not a tester's machine — the tester 'never Root' rule (tester-trust-public-cer)
-          # governs end users, who use eng/signing/trust-cert.ps1 (Trusted Publishers only).
-          $der = Join-Path $work 'public.cer'
-          [IO.File]::WriteAllBytes($der, $cert.Export('Cert'))
-          Import-Certificate -FilePath $der -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
-          Import-Certificate -FilePath $der -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
-          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
-            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $signtool) { Write-Error 'signtool.exe not found on the runner.' }
-          # Denice's own files in each layout: the loader (root + carried copy), the versioned entry and the Denice.*.dll
-          # assemblies. The .NET runtime's own files keep Microsoft's signatures.
+          $out = Join-Path $env:RUNNER_TEMP 'winsign\layouts-unsigned'
           foreach ($rid in 'win-x64','win-arm64') {
-            $layout = "layouts\$rid"; $version = Join-Path $layout "versions\$env:DENICE_ASSET_VERSION"
-            # The carried loader is copied from the signed root one afterwards (below): two separate signatures
-            # differ (each has its own timestamp), and ci-stage-layout.sh requires the two to be equal.
-            $files = @((Join-Path $layout 'denice.exe'),
-                       (Join-Path $version "denice-v$env:DENICE_ASSET_VERSION-$rid.exe")) +
-                     @(Get-ChildItem -Path $version -Filter 'Denice.*.dll' | ForEach-Object FullName)
-            foreach ($bin in $files) {
-              # Timestamp against DigiCert; on failure fall back to Sectigo (decision digicert-timestamp-sectigo-fallback).
-              & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $bin
-              if ($LASTEXITCODE -ne 0) {
-                Write-Host 'DigiCert timestamp unavailable; falling back to Sectigo.'
-                & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.sectigo.com /td sha256 $bin
-                if ($LASTEXITCODE -ne 0) { Write-Error "signtool sign failed for $bin on both timestamp servers." }
-              }
+            $layout = "layouts\$rid"; $versionRel = "versions\$env:DENICE_ASSET_VERSION"
+            $rels = @('denice.exe', "$versionRel\denice-v$env:DENICE_ASSET_VERSION-$rid.exe") +
+                    @(Get-ChildItem -Path (Join-Path $layout $versionRel) -Filter 'Denice.*.dll' | ForEach-Object { "$versionRel\$($_.Name)" })
+            foreach ($rel in $rels) {
+              $dest = Join-Path $out "$rid\$rel"
+              New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
+              Copy-Item -LiteralPath (Join-Path $layout $rel) -Destination $dest
             }
-            Copy-Item -Force (Join-Path $layout 'denice.exe') (Join-Path $version 'denice.exe')
           }
-      - name: Rebuild the installers from the signed layouts, then sign the installers (push only)
+          Get-ChildItem -Path $out -Recurse -File | ForEach-Object { Write-Host "hand off: $($_.FullName.Substring($out.Length + 1))" }
+      - name: Signing hand-off 1 of 2 — sign Denice's files and put them back into the layouts
+        if: github.event_name == 'push'
+        uses: ./.github/actions/windows-sign
+        with:
+          artifact-name: windows-sign-layouts
+          unsigned-dir: ${{ runner.temp }}/winsign/layouts-unsigned
+          signed-dir: ${{ runner.temp }}/winsign/layouts-signed
+          restore-to: ${{ github.workspace }}/layouts
+          mode: ${{ env.DENICE_WINDOWS_SIGNING }}
+          pfx-base64: ${{ secrets.DENICE_WINDOWS_PFX }}
+          pfx-password: ${{ secrets.DENICE_WINDOWS_PFX_PASSWORD }}
+          signpath-api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          signpath-organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          signpath-project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'denice' }}
+          signpath-signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          signpath-artifact-configuration-slug: ${{ vars.SIGNPATH_FILES_CONFIGURATION_SLUG || 'denice-files' }}
+      - name: Carry the signed root loader into each version folder (ci-stage-layout.sh requires them equal)
         if: github.event_name == 'push'
         shell: pwsh
-        env:
-          PFX_B64: ${{ secrets.DENICE_WINDOWS_PFX }}
-          PFX_PW: ${{ secrets.DENICE_WINDOWS_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($rid in 'win-x64','win-arm64') {
+            $layout = "layouts\$rid"
+            Copy-Item -Force (Join-Path $layout 'denice.exe') (Join-Path $layout "versions\$env:DENICE_ASSET_VERSION\denice.exe")
+          }
+      - name: Signing hand-off 2 of 2 — rebuild the setup programs from the signed layouts and collect them
+        if: github.event_name == 'push'
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           Remove-Item -Recurse -Force installers -ErrorAction SilentlyContinue
           foreach ($rid in 'win-x64','win-arm64') {
             ./eng/windows/build-installer.ps1 -Rid $rid -Version $env:DENICE_VERSION -Layout "layouts/$rid" -Out installers
           }
-          $pfx = Join-Path $env:RUNNER_TEMP 'winsign\cert.pfx'
-          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
-            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
-          foreach ($setup in Get-ChildItem installers -Filter 'denice-setup-*.exe' | ForEach-Object FullName) {
-            & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $setup
-            if ($LASTEXITCODE -ne 0) {
-              & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.sectigo.com /td sha256 $setup
-              if ($LASTEXITCODE -ne 0) { Write-Error "signtool sign failed for $setup on both timestamp servers." }
-            }
-          }
+          $out = Join-Path $env:RUNNER_TEMP 'winsign\setup-unsigned'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Copy-Item -Path 'installers\denice-setup-*.exe' -Destination $out
+          Get-ChildItem -Path $out -File | ForEach-Object { Write-Host "hand off: $($_.Name)" }
+      - name: Signing hand-off 2 of 2 — sign the setup programs and put them back
+        if: github.event_name == 'push'
+        uses: ./.github/actions/windows-sign
+        with:
+          artifact-name: windows-sign-setup
+          unsigned-dir: ${{ runner.temp }}/winsign/setup-unsigned
+          signed-dir: ${{ runner.temp }}/winsign/setup-signed
+          restore-to: ${{ github.workspace }}/installers
+          mode: ${{ env.DENICE_WINDOWS_SIGNING }}
+          pfx-base64: ${{ secrets.DENICE_WINDOWS_PFX }}
+          pfx-password: ${{ secrets.DENICE_WINDOWS_PFX_PASSWORD }}
+          signpath-api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          signpath-organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          signpath-project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'denice' }}
+          signpath-signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          signpath-artifact-configuration-slug: ${{ vars.SIGNPATH_SETUP_CONFIGURATION_SLUG || 'denice-setup' }}
+      - name: TEST CERTIFICATE ONLY — trust the self-signed cert on this runner so `signtool verify /pa` chains
+        # Only for DENICE_WINDOWS_SIGNING=test: SignPath's certificate chains to a public root, so this step is skipped
+        # after the switch and goes away with the test certificate. This is the RUNNER, not a tester's machine — the
+        # tester 'never Root' rule (tester-trust-public-cer) governs end users, who use eng/signing/trust-cert.ps1
+        # (Trusted Publishers only).
+        if: github.event_name == 'push' && env.DENICE_WINDOWS_SIGNING == 'test'
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.DENICE_WINDOWS_PFX }}
+          PFX_PW: ${{ secrets.DENICE_WINDOWS_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'wintrust'
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          $pfx = Join-Path $work 'cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 @($pfx, $env:PFX_PW)
+          Remove-Item -Force $pfx
+          $der = Join-Path $work 'public.cer'
+          [IO.File]::WriteAllBytes($der, $cert.Export('Cert'))
+          Import-Certificate -FilePath $der -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          Import-Certificate -FilePath $der -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
       - name: Checksum, cosign and verify the installers (push only)
         if: github.event_name == 'push'
         shell: bash
@@ -784,7 +886,7 @@ jobs:
           eng/ci-verify-layout.sh verify/release-macos.txt   codesign "$IDENTITY" dist osx-arm64 osx-x64
           eng/ci-verify-layout.sh verify/release-windows.txt none     "$IDENTITY" dist win-x64 win-arm64
           eng/ci-verify-layout.sh verify/release-linux.txt   none     "$IDENTITY" dist linux-arm64 linux-x64
-      - name: Export the two public certs from their secrets (never drift)
+      - name: Export the public test certs from their secrets (never drift; only for an OS still on its test certificate)
         env:
           MAC_P12_B64: ${{ secrets.DENICE_MACOS_CERT_P12 }}
           MAC_P12_PW: ${{ secrets.DENICE_MACOS_CERT_PASSWORD }}
@@ -801,10 +903,15 @@ jobs:
             openssl x509 -in "$tmp/cert.pem" -outform DER -out "$out"
             rm -rf "$tmp"
           }
-          export_cer "$MAC_P12_B64" "$MAC_P12_PW" dist/denice-macos-public.cer
-          export_cer "$WIN_PFX_B64" "$WIN_PFX_PW" dist/denice-windows-public.cer
-      - name: Stage the tester trust scripts and the macOS/Linux install script
-        run: cp eng/signing/trust-cert.sh eng/signing/trust-cert.ps1 eng/install/install.sh dist/
+          # A Developer ID or SignPath signature is trusted by the OS, so testers need no certificate for that OS.
+          if [ "$DENICE_MACOS_SIGNING" = test ]; then export_cer "$MAC_P12_B64" "$MAC_P12_PW" dist/denice-macos-public.cer; fi
+          if [ "$DENICE_WINDOWS_SIGNING" = test ]; then export_cer "$WIN_PFX_B64" "$WIN_PFX_PW" dist/denice-windows-public.cer; fi
+      - name: Stage the macOS/Linux install script and, for an OS still on its test certificate, the tester trust script
+        run: |
+          set -euo pipefail
+          cp eng/install/install.sh dist/
+          if [ "$DENICE_MACOS_SIGNING" = test ]; then cp eng/signing/trust-cert.sh dist/; fi
+          if [ "$DENICE_WINDOWS_SIGNING" = test ]; then cp eng/signing/trust-cert.ps1 dist/; fi
       - name: Package the evidence zip (release-zip-layout)
         # release-zip-layout: the per-OS jobs already produced one denice-v<version>-<rid>.zip per platform (the install
         # layout, with versions/<version>/SHA256SUMS and its cosign bundle inside, the zip's own .zip.sha256 beside it).
@@ -839,9 +946,27 @@ jobs:
           TITLE="Denice ${VERSION} (${KIND})"
           REPO="${{ github.repository }}"
           NOTES="$RUNNER_TEMP/notes.md"
+          # The certificates and trust scripts ship only for an OS still on its test certificate (docs/signing-switchover.md);
+          # the ${A[@]+"${A[@]}"} form keeps an empty list safe under `set -u` on macOS's bash 3.2.
+          CERTS=(); TRUST=()
+          if [ "$DENICE_MACOS_SIGNING" = test ]; then CERTS+=(denice-macos-public.cer); TRUST+=(trust-cert.sh); fi
+          if [ "$DENICE_WINDOWS_SIGNING" = test ]; then CERTS+=(denice-windows-public.cer); TRUST+=(trust-cert.ps1); fi
           {
             printf 'Channel: %s\n\n' "$CHANNEL_LINE"
-            printf 'These binaries are signed with a self-signed, UNTRUSTED developer certificate — not a CA-issued or notarized identity. Trust our public certificate first with the attached tester trust script (`trust-cert.sh` on macOS, `trust-cert.ps1` on Windows); it trusts the cert narrowly for code signing only, never as a root.\n\n'
+            if [ "$DENICE_MACOS_SIGNING" = test ] && [ "$DENICE_WINDOWS_SIGNING" = test ]; then
+              printf 'These binaries are signed with a self-signed, UNTRUSTED developer certificate — not a CA-issued or notarized identity. Trust our public certificate first with the attached tester trust script (`trust-cert.sh` on macOS, `trust-cert.ps1` on Windows); it trusts the cert narrowly for code signing only, never as a root.\n\n'
+            else
+              if [ "$DENICE_MACOS_SIGNING" = test ]; then
+                printf 'The macOS binaries are signed with a self-signed, UNTRUSTED developer certificate — not a notarized identity. Trust our public certificate first with the attached tester trust script `trust-cert.sh`; it trusts the cert narrowly for code signing only, never as a root.\n\n'
+              else
+                printf 'The macOS binaries are signed with our Apple Developer ID and notarized by Apple.\n\n'
+              fi
+              if [ "$DENICE_WINDOWS_SIGNING" = test ]; then
+                printf 'The Windows binaries are signed with a self-signed, UNTRUSTED developer certificate — not a CA-issued identity. Trust our public certificate first with the attached tester trust script `trust-cert.ps1`; it trusts the cert narrowly for code signing only, never as a root.\n\n'
+              else
+                printf 'The Windows binaries are signed through SignPath: free code signing provided by SignPath.io, certificate by SignPath Foundation.\n\n'
+              fi
+            fi
             printf 'How to run these alpha builds: https://github.com/%s/blob/%s/docs/running-alpha-builds.md\n\n' "$REPO" "$GITHUB_SHA"
             printf 'Built, tested, and signed from commit: https://github.com/%s/commit/%s\n' "$REPO" "$GITHUB_SHA"
           } > "$NOTES"
@@ -859,5 +984,5 @@ jobs:
             "denice-setup-v${DENICE_ASSET_VERSION}"-{win-x64,win-arm64}.exe.cosign.bundle \
             install.sh \
             evidence.zip \
-            denice-macos-public.cer denice-windows-public.cer \
-            trust-cert.sh trust-cert.ps1
+            ${CERTS[@]+"${CERTS[@]}"} \
+            ${TRUST[@]+"${TRUST[@]}"}
