@@ -293,6 +293,8 @@ jobs:
           mkdir -p "$VERSIONS"
           ditto "layouts/osx-arm64/versions/$DENICE_ASSET_VERSION" "$VERSIONS/$DENICE_ASSET_VERSION"
           HOME="$LAUNCH_HOME" layouts/osx-arm64/Denice.app/Contents/MacOS/denice version
+      - name: Install a quarantined download as a new standard (non-administrator) user, run it, Gatekeeper's verdict, uninstall (rust/REQUIREMENTS.md I10; on push the signed layout)
+        run: eng/install/test-standard-user.sh osx-arm64 layouts/osx-arm64
       - name: Stage, checksum, and cosign the mac layouts
         if: github.event_name == 'push'
         run: |
@@ -457,6 +459,9 @@ jobs:
           $setup = Get-ChildItem installers -Filter "denice-setup-v*-win-x64.exe" | Select-Object -First 1 -ExpandProperty FullName
           $copy = Join-Path $env:PUBLIC 'denice-setup.exe'
           Copy-Item $setup $copy
+          # As a browser download: the Mark of the Web (Internet zone), what SmartScreen and Smart App Control look at.
+          Set-Content -LiteralPath $copy -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3"
+          if (-not ((Get-Content -LiteralPath $copy -Stream Zone.Identifier) -match 'ZoneId=3')) { throw 'the setup copy carries no Mark of the Web' }
           $plain = 'Dn-' + [guid]::NewGuid().ToString('N').Substring(0, 16) + '!a1'
           $password = ConvertTo-SecureString $plain -AsPlainText -Force
           New-LocalUser -Name 'denicestd' -Password $password -AccountNeverExpires | Out-Null
@@ -493,6 +498,12 @@ jobs:
           $text = if (Test-Path $out) { Get-Content $out -Raw } else { '' }
           if (-not ($text -match [regex]::Escape("SemVer: $env:DENICE_VERSION"))) { throw "denice version as a standard user failed (task result $result): $text" }
           Write-Host "installed and ran as a standard user: $text"
+          # Nothing setup installed carries the Mark of the Web, so only the downloaded setup itself meets SmartScreen.
+          $marked = @(Get-ChildItem (Split-Path $exe) -Recurse -File | Where-Object { Get-Item -LiteralPath $_.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue })
+          if ($marked.Count -ne 0) { throw "installed files carry the Mark of the Web: $($marked.FullName -join ', ')" }
+          Write-Host 'no installed file carries the Mark of the Web'
+          # What SmartScreen and Smart App Control will weigh (docs/release-checks.md: a person checks the prompts).
+          foreach ($file in @($copy, $exe)) { $sig = Get-AuthenticodeSignature -LiteralPath $file; Write-Host "Authenticode $($sig.Status) on $file ($($sig.SignerCertificate.Subject))" }
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
@@ -740,6 +751,8 @@ jobs:
         run: eng/install/test-install.sh
       - name: Install the real linux-arm64 layout with the install script, run it, find it from a new login shell's PATH, uninstall (pkg-d4e90c3ce176; rust/REQUIREMENTS.md I4 I5)
         run: eng/install/test-real-install.sh linux-arm64 layouts/linux-arm64 "$RUNNER_TEMP/real-install"
+      - name: Install as a new standard (non-administrator) user, check the menu entry and PATH from a new login shell, uninstall (rust/REQUIREMENTS.md I10)
+        run: eng/install/test-standard-user.sh linux-arm64 layouts/linux-arm64
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
