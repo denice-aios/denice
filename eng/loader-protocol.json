@@ -15,6 +15,7 @@
     "partialSuffix": ".partial",
     "startedMarker": ".started",
     "badMarker": ".bad",
+    "runningLock": ".running",
     "loaderStagingSuffix": ".ver",
     "loaderBackupSuffix": ".old",
     "runtimeAssembly": "Denice.Runtime.dll"

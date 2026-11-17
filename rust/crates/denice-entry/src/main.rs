@@ -33,6 +33,9 @@ fn run(args: &[OsString]) -> i32 {
         }
     }
 
+    // Marks this version as running for as long as Denice Runtime runs, so another Denice never removes it meanwhile.
+    let _running = denice_core::layout::InstalledVersion::running_lock_in(&version_dir);
+
     let request = hosting::HostRequest { host_path: &host_path, version_dir: &version_dir, args };
     match hosting::run(&request) {
         Ok(code) => code,

@@ -7,12 +7,18 @@
 
 use crate::platform;
 use crate::protocol::{
-    BAD_MARKER, LOADER_BACKUP_SUFFIX, LOADER_STAGING_SUFFIX, PARTIAL_SUFFIX, STARTED_MARKER, VERSIONS_DIR,
+    BAD_MARKER, LOADER_BACKUP_SUFFIX, LOADER_STAGING_SUFFIX, PARTIAL_SUFFIX, RUNNING_LOCK, STARTED_MARKER, VERSIONS_DIR,
 };
 use crate::version::Version;
 use std::ffi::OsString;
 use std::io;
 use std::path::{Path, PathBuf};
+
+/// Keeps a version marked as running until dropped (the open, share-locked `.running` file is the mark).
+#[derive(Debug)]
+pub struct RunningLock {
+    _file: std::fs::File,
+}
 
 /// One installed version folder.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,6 +52,39 @@ impl InstalledVersion {
     #[must_use]
     pub fn is_bad(&self) -> bool {
         self.dir.join(BAD_MARKER).is_file()
+    }
+
+    /// Marks this version as running for as long as the returned lock lives (held by the versioned entry for its whole
+    /// run). Several processes may hold it at once.
+    ///
+    /// # Errors
+    /// Returns the file system error if the lock file cannot be opened or locked.
+    pub fn hold_running(&self) -> io::Result<RunningLock> {
+        Self::running_lock_in(&self.dir).ok_or_else(|| io::Error::other("cannot take the running lock"))
+    }
+
+    /// Holds the running lock of the version folder `dir` (used by the entry, which knows only its own folder); `None`
+    /// when it cannot be taken, in which case the version simply runs unmarked.
+    #[must_use]
+    pub fn running_lock_in(dir: &Path) -> Option<RunningLock> {
+        let file =
+            std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(dir.join(RUNNING_LOCK)).ok()?;
+        file.lock_shared().ok()?;
+        Some(RunningLock { _file: file })
+    }
+
+    /// Whether any process is running this version now.
+    #[must_use]
+    pub fn is_running(&self) -> bool {
+        let Ok(file) = std::fs::OpenOptions::new().write(true).open(self.dir.join(RUNNING_LOCK)) else { return false };
+        match file.try_lock() {
+            Ok(()) => {
+                let _ = file.unlock();
+                false
+            }
+            Err(std::fs::TryLockError::WouldBlock) => true,
+            Err(std::fs::TryLockError::Error(_)) => false,
+        }
     }
 
     /// Records that this version failed to start.
@@ -151,7 +190,8 @@ impl InstallLayout {
             return Ok(Vec::new());
         }
         let mut removed = Vec::new();
-        for older in self.complete_versions()?.into_iter().filter(|v| v.version < current.version) {
+        // A version another Denice is still running is kept; a later start removes it.
+        for older in self.complete_versions()?.into_iter().filter(|v| v.version < current.version && !v.is_running()) {
             std::fs::remove_dir_all(&older.dir)?;
             removed.push(older.dir);
         }

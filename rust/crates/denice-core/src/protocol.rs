@@ -28,6 +28,9 @@ pub const PARTIAL_SUFFIX: &str = ".partial";
 pub const STARTED_MARKER: &str = ".started";
 /// Marker file the loader writes in a version folder that failed to start, so it is not chosen again.
 pub const BAD_MARKER: &str = ".bad";
+/// Lock file a running version holds (shared) for its whole run; the loader removes an older version only when it can
+/// take this lock exclusively, so a version another Denice is still running is never deleted.
+pub const RUNNING_LOCK: &str = ".running";
 /// Suffix of the new loader while it is being unpacked (Tim: "Unpack first (to denice.ver)").
 pub const LOADER_STAGING_SUFFIX: &str = ".ver";
 /// Suffix the running loader is renamed to during the swap (Tim: "rename current to old").

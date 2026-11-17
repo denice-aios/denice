@@ -27,7 +27,7 @@ diff -rq "$LAYOUT/$LOADER" "$VERSION_DIR/$LOADER" > /dev/null \
   || { echo "ci-stage-layout: the root loader differs from the loader the version carries" >&2; exit 1; }
 
 ( cd "$VERSION_DIR"
-  rm -f SHA256SUMS SHA256SUMS.cosign.bundle .started .bad
+  rm -f SHA256SUMS SHA256SUMS.cosign.bundle .started .bad .running
   find . -type f ! -name SHA256SUMS ! -name SHA256SUMS.cosign.bundle | sed 's#^\./##' | LC_ALL=C sort \
     | while IFS= read -r file; do "${SUM[@]}" "$file"; done > SHA256SUMS
   "${SUM[@]}" -c SHA256SUMS > /dev/null      # proof in the build
