@@ -11,6 +11,8 @@
 # Denice Runtime checks the same SHA256SUMS and bundle before it moves a downloaded version into place.
 #
 # Usage: eng/ci-stage-layout.sh <layout-dir> <dist-dir> <rid>
+# SHA256SUMS lines are always `<hash>  <name>` (two spaces), the form Denice Runtime reads: sha256sum in Git Bash
+# on Windows writes binary-mode `<hash> *<name>`, which is rewritten (release 0.1.108556414-pre-release shipped it).
 # Requires: DENICE_ASSET_VERSION, cosign, zip, sha256sum or shasum. Runs on macOS, Linux and Windows (Git Bash).
 set -euo pipefail
 
@@ -29,7 +31,7 @@ diff -rq "$LAYOUT/$LOADER" "$VERSION_DIR/$LOADER" > /dev/null \
 ( cd "$VERSION_DIR"
   rm -f SHA256SUMS SHA256SUMS.cosign.bundle .started .bad .running
   find . -type f ! -name SHA256SUMS ! -name SHA256SUMS.cosign.bundle | sed 's#^\./##' | LC_ALL=C sort \
-    | while IFS= read -r file; do "${SUM[@]}" "$file"; done > SHA256SUMS
+    | while IFS= read -r file; do "${SUM[@]}" "$file"; done | sed 's/^\([0-9a-f]\{64\}\) \*/\1  /' > SHA256SUMS
   "${SUM[@]}" -c SHA256SUMS > /dev/null      # proof in the build
   cosign sign-blob --yes --bundle SHA256SUMS.cosign.bundle SHA256SUMS )
 
