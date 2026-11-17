@@ -369,8 +369,12 @@ jobs:
           if ((Get-LocalGroupMember -Group 'Administrators' | Where-Object Name -like '*\denicestd')) { throw 'the test user is an administrator' }
           Start-Service seclogon
           $cred = New-Object System.Management.Automation.PSCredential('denicestd', $password)
-          $p = Start-Process -FilePath $copy -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Credential $cred -LoadUserProfile -Wait -PassThru
-          if ($p.ExitCode -ne 0) { throw "setup as a standard user exited with $($p.ExitCode)" }
+          $log = Join-Path $env:PUBLIC 'denice-setup-std.log'
+          $p = Start-Process -FilePath $copy -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/LOG=`"$log`"" -Credential $cred -LoadUserProfile -WorkingDirectory $env:PUBLIC -Wait -PassThru
+          if ($p.ExitCode -ne 0) {
+            if (Test-Path $log) { Get-Content $log | Select-Object -Last 40 | ForEach-Object { Write-Host $_ } } else { Write-Host "setup wrote no log at $log" }
+            throw "setup as a standard user exited with $($p.ExitCode)"
+          }
           $exe = 'C:\Users\denicestd\AppData\Local\Programs\Denice\denice.exe'
           if (-not (Test-Path $exe)) { throw "no denice.exe for the standard user at $exe" }
           $out = Join-Path $env:PUBLIC 'denice-std-version.txt'
