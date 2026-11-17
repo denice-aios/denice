@@ -21,6 +21,7 @@ ISSUER="https://token.actions.githubusercontent.com"
 : "${DENICE_ASSET_VERSION:?DENICE_ASSET_VERSION must be set}"
 mkdir -p "$(dirname "$RESULT")"
 if command -v sha256sum >/dev/null 2>&1; then SUM=(sha256sum); else SUM=(shasum -a 256); fi
+# MSYS_NO_PATHCONV keeps signtool's /pa /q options intact, so file paths are converted to Windows form by hand.
 find_signtool() { find "/c/Program Files (x86)/Windows Kits/10/bin" -name signtool.exe 2>/dev/null | grep -i '/x64/' | sort -r | head -1; }
 
 ok=1
@@ -58,7 +59,7 @@ ok=1
         ;;
       signtool)
         while IFS= read -r -d '' f; do
-          MSYS_NO_PATHCONV=1 "$SIGNTOOL" verify /pa /q "$f" 2>&1 || { echo "signtool FAIL: ${f#$work/}"; ok=0; }
+          MSYS_NO_PATHCONV=1 "$SIGNTOOL" verify /pa /q "$(cygpath -w "$f")" 2>&1 || { echo "signtool FAIL: ${f#$work/}"; ok=0; }
         done < <(find "$work" -type f \( -name 'denice*.exe' -o -name 'Denice.*.dll' \) -print0)
         echo "signtool checked: $rid"
         ;;
