@@ -148,7 +148,7 @@ jobs:
         run: eng/loader-e2e-test.sh osx-arm64 "$RUNNER_TEMP/e2e"
       - name: Install script tests (macOS and the Linux branch; temporary HOME, no network; rust/REQUIREMENTS.md I3 I4 I6)
         run: eng/install/test-install.sh
-      - name: Install the real osx-arm64 layout with the install script, run it, uninstall (rust/REQUIREMENTS.md I3 I5)
+      - name: Install the real osx-arm64 layout with the install script, run it, find it from a new login shell's PATH, uninstall (pkg-d4e90c3ce176; rust/REQUIREMENTS.md I3 I5)
         run: eng/install/test-real-install.sh osx-arm64 layouts/osx-arm64 "$RUNNER_TEMP/real-install"
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
@@ -324,10 +324,13 @@ jobs:
           foreach ($rid in 'win-x64','win-arm64') {
             ./eng/windows/build-installer.ps1 -Rid $rid -Version $env:DENICE_VERSION -Layout "layouts/$rid" -Out installers
           }
-      - name: Install, run and uninstall the win-x64 setup silently as this user (no admin; rust/REQUIREMENTS.md I1 I2)
+      - name: Install, run and uninstall the win-x64 setup silently as this user (no admin; user PATH per pkg-d4e90c3ce176; rust/REQUIREMENTS.md I1 I2)
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # The user's PATH exactly as stored (unexpanded), to compare after uninstall.
+          function Get-UserPath { (Get-Item 'HKCU:\Environment').GetValue('Path', $null, 'DoNotExpandEnvironmentNames') }
+          $pathBefore = Get-UserPath
           $setup = Get-ChildItem installers -Filter "denice-setup-v*-win-x64.exe" | Select-Object -First 1 -ExpandProperty FullName
           $p = Start-Process -FilePath $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "setup exited with $($p.ExitCode)" }
@@ -343,6 +346,20 @@ jobs:
           & $exe settings set updates.enabled false
           $out = & $exe version
           if ($LASTEXITCODE -ne 0 -or -not ($out -match [regex]::Escape("SemVer: $env:DENICE_VERSION"))) { throw "denice version failed: $out" }
+          # pkg-d4e90c3ce176 install-path: the install folder is on the user's PATH (HKCU, REG_EXPAND_SZ), once.
+          $entries = @((Get-UserPath) -split ';' | Where-Object { $_ -eq $app })
+          if ($entries.Count -ne 1) { throw "HKCU\Environment Path holds $app $($entries.Count) times: $(Get-UserPath)" }
+          $kind = (Get-Item 'HKCU:\Environment').GetValueKind('Path')
+          if ($kind -ne 'ExpandString') { throw "HKCU\Environment Path is $kind, not REG_EXPAND_SZ" }
+          # A new process with the PATH a new terminal gets (machine + user, from the registry) finds and runs denice.
+          $psi = [Diagnostics.ProcessStartInfo]::new('cmd.exe', '/d /c where denice && denice version')
+          $psi.UseShellExecute = $false
+          $psi.RedirectStandardOutput = $true
+          $psi.Environment['Path'] = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+          $proc = [Diagnostics.Process]::Start($psi)
+          $viaPath = $proc.StandardOutput.ReadToEnd()
+          $proc.WaitForExit()
+          if ($proc.ExitCode -ne 0 -or -not ($viaPath -match [regex]::Escape($exe)) -or -not ($viaPath -match [regex]::Escape("SemVer: $env:DENICE_VERSION"))) { throw "a new process with the user PATH did not run denice: $viaPath" }
           # A version Denice downloaded after setup must go too (pkg-494745156d56 option text).
           $later = Join-Path $app 'versions\0.9.9-pre-release+downloaded'
           New-Item -ItemType Directory -Force -Path $later | Out-Null
@@ -355,6 +372,9 @@ jobs:
           if (Test-Path $shortcut) { throw "uninstall left the Start Menu shortcut" }
           if (Test-Path $app) { throw "uninstall left $app (including versions downloaded after setup)" }
           if (Test-Path "HKCU:\$key") { throw "uninstall left the Installed apps entry" }
+          $pathAfter = Get-UserPath
+          if ((@($pathAfter -split ';') | Where-Object { $_ -eq $app }).Count -ne 0) { throw "uninstall left $app on the user's PATH: $pathAfter" }
+          if ($pathAfter -cne $pathBefore) { throw "uninstall changed the rest of the user's PATH: before '$pathBefore', after '$pathAfter'" }
           Write-Host "installed, ran ($out), uninstalled"
       - name: Install and run the win-x64 setup as a standard (non-administrator) user (rust/REQUIREMENTS.md I1 I10)
         shell: pwsh
@@ -608,7 +628,7 @@ jobs:
         run: eng/loader-e2e-test.sh linux-arm64 "$RUNNER_TEMP/e2e"
       - name: Install script tests on Linux (temporary HOME, no network; rust/REQUIREMENTS.md I4 I6)
         run: eng/install/test-install.sh
-      - name: Install the real linux-arm64 layout with the install script, run it, uninstall (rust/REQUIREMENTS.md I4 I5)
+      - name: Install the real linux-arm64 layout with the install script, run it, find it from a new login shell's PATH, uninstall (pkg-d4e90c3ce176; rust/REQUIREMENTS.md I4 I5)
         run: eng/install/test-real-install.sh linux-arm64 layouts/linux-arm64 "$RUNNER_TEMP/real-install"
       - name: Upload build evidence (coverage + test results + binlog)
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
