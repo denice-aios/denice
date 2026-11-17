@@ -96,9 +96,10 @@ public sealed class SettingsCliTests : IDisposable
 
     public void Dispose() => real.FileSystem.GetDirectoryWriter().DeleteDirectory(home, recursive: true);
 
-    // The one settings.yaml under the temporary home, wherever this OS's per-user folder puts it.
+    // The one settings.yaml under the temporary home, wherever this OS's per-user folder puts it (on Linux inside the
+    // hidden ~/.config, so hidden folders are searched too).
     private string SettingsFilePath() =>
         real.FileSystem.GetDirectoryReader()
-            .EnumerateFiles(home, "settings.yaml", new EnumerationOptions { RecurseSubdirectories = true })
+            .EnumerateFiles(home, "settings.yaml", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = 0 })
             .Should().ContainSingle().Subject;
 }
