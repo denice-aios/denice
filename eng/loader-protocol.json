@@ -18,6 +18,7 @@
     "runningLock": ".running",
     "loaderStagingSuffix": ".ver",
     "loaderBackupSuffix": ".old",
-    "runtimeAssembly": "Denice.Runtime.dll"
+    "runtimeAssembly": "Denice.Runtime.dll",
+    "entryPrefix": "denice-v"
   }
 }

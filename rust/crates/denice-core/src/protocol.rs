@@ -37,6 +37,9 @@ pub const LOADER_STAGING_SUFFIX: &str = ".ver";
 pub const LOADER_BACKUP_SUFFIX: &str = ".old";
 /// The Denice Runtime assembly the entry runs.
 pub const RUNTIME_ASSEMBLY: &str = "Denice.Runtime.dll";
+/// The start of the versioned entry's file name, `denice-v<version>-<rid>` (`.exe` on Windows); the rest is built by
+/// `platform::entry_file_name`, and Denice Runtime's `LoaderProtocol.EntryFileName` builds the same name.
+pub const ENTRY_PREFIX: &str = "denice-v";
 
 #[cfg(test)]
 #[path = "protocol_tests.rs"]

@@ -27,6 +27,7 @@ public sealed class VersionInstaller
 
     private readonly ISystemServices _services;
     private readonly string _installRoot;
+    private readonly string _rid;
     private readonly ReleaseTrust _trust;
 
     /// <summary>
@@ -34,8 +35,10 @@ public sealed class VersionInstaller
     /// </summary>
     /// <param name="services">The owned services every file operation goes through.</param>
     /// <param name="installRoot">The install root (the folder holding the loader and <c>versions</c>).</param>
-    public VersionInstaller(ISystemServices services, string installRoot)
-        : this(services, installRoot, ReleaseTrust.Denice)
+    /// <param name="rid">The runtime identifier of the platform the install is for (e.g. <c>win-x64</c>); it names the
+    /// versioned entry (<see cref="LoaderProtocol.EntryFileName"/>), the program whose code signature is checked.</param>
+    public VersionInstaller(ISystemServices services, string installRoot, string rid)
+        : this(services, installRoot, rid, ReleaseTrust.Denice)
     {
     }
 
@@ -45,14 +48,17 @@ public sealed class VersionInstaller
     /// </summary>
     /// <param name="services">The owned services every file operation goes through.</param>
     /// <param name="installRoot">The install root.</param>
+    /// <param name="rid">The runtime identifier of the platform the install is for.</param>
     /// <param name="trust">Who a release must come from.</param>
-    internal VersionInstaller(ISystemServices services, string installRoot, ReleaseTrust trust)
+    internal VersionInstaller(ISystemServices services, string installRoot, string rid, ReleaseTrust trust)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrEmpty(installRoot);
+        ArgumentException.ThrowIfNullOrEmpty(rid);
         ArgumentNullException.ThrowIfNull(trust);
         _services = services;
         _installRoot = installRoot;
+        _rid = rid;
         _trust = trust;
     }
 
@@ -87,7 +93,7 @@ public sealed class VersionInstaller
         await UnpackAsync(archive, version, partial, ct).ConfigureAwait(false);
         string? problem = ChecksumProblem(partial)
             ?? await CosignProblemAsync(partial, ct).ConfigureAwait(false)
-            ?? CodeSignatureProblem(partial);
+            ?? CodeSignatureProblem(partial, version);
         if (problem is not null)
         {
             directoryWriter.DeleteDirectory(partial, recursive: true);
@@ -175,16 +181,18 @@ public sealed class VersionInstaller
     /// <summary>
     /// Denice's own executables must carry an OS code signature by a pinned Denice certificate: on macOS the loader app
     /// and the versioned entry; on Windows the loader, the entry and the Denice.*.dll assemblies (the files CI signs).
-    /// Platforms without OS code signatures (Linux) rely on the checksum and cosign checks.
+    /// The entry is exactly <see cref="LoaderProtocol.EntryFileName"/>: other files sharing its prefix (such as a debug
+    /// file) are not programs, carry no code signature, and are covered by the checksum and cosign checks like every
+    /// other file. Platforms without OS code signatures (Linux) rely on the checksum and cosign checks.
     /// </summary>
-    private string? CodeSignatureProblem(string partial)
+    private string? CodeSignatureProblem(string partial, string version)
     {
         IPlatformFileSystem platform = _services.Platform.FileSystem;
+        string entry = Path.Combine(partial, LoaderProtocol.EntryFileName(version, _rid));
         IReadOnlyList<string> signed = platform.CodeSignatureFormat switch
         {
-            CodeSignatureFormat.AppleCodeSignature => [Path.Combine(partial, "Denice.app"), .. EntriesIn(partial)],
-            CodeSignatureFormat.Authenticode =>
-                [Path.Combine(partial, "denice.exe"), .. EntriesIn(partial), .. AssembliesIn(partial)],
+            CodeSignatureFormat.AppleCodeSignature => [Path.Combine(partial, "Denice.app"), entry],
+            CodeSignatureFormat.Authenticode => [Path.Combine(partial, "denice.exe"), entry, .. AssembliesIn(partial)],
             _ => [],
         };
         foreach (string path in signed)
@@ -198,9 +206,6 @@ public sealed class VersionInstaller
 
         return null;
     }
-
-    private IEnumerable<string> EntriesIn(string partial) => TopLevelFiles(partial)
-        .Where(path => Path.GetFileName(path).StartsWith("denice-v", StringComparison.Ordinal));
 
     private IEnumerable<string> AssembliesIn(string partial) => TopLevelFiles(partial)
         .Where(path => Path.GetFileName(path).StartsWith("Denice.", StringComparison.Ordinal)

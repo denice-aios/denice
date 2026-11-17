@@ -5,6 +5,7 @@
 #   - unpacked, versions/<version>/SHA256SUMS matches every file, and its cosign bundle verifies against this workflow's
 #     keyless identity (the check Denice Runtime repeats before using a downloaded version);
 #   - the root loader equals the carried loader;
+#   - the versioned entry is the only denice-v* file in the version (no .pdb or other file sharing its prefix);
 #   - native signatures: codesign --verify --strict on every Mach-O (mac), signtool verify /pa on Denice's own .exe and
 #     Denice.*.dll files (Windows), none on Linux (cosign only).
 # Writes the command output plus a final "RESULT: PASS" or "RESULT: FAIL" to <result-file>; exits non-zero on failure.
@@ -45,6 +46,11 @@ ok=1
     if grep -qvE '^[0-9a-f]{64}  [^ *]' "$vdir/SHA256SUMS"; then echo "SHA256SUMS FORMAT FAIL: $rid (a line is not '<hash>  <name>')"; ok=0; fi
     if cosign verify-blob --certificate-identity "$IDENTITY" --certificate-oidc-issuer "$ISSUER" \
          --bundle "$vdir/SHA256SUMS.cosign.bundle" "$vdir/SHA256SUMS" 2>&1; then echo "cosign PASS: $rid"; else echo "cosign FAIL: $rid"; ok=0; fi
+    # The entry is the only denice-v* file in the version: installed Denice Runtime 0.1.108558692 code-signature checks
+    # every denice-v* file of a new version, so another one (such as the entry's .pdb debug file) makes it refuse the
+    # update. Debug symbols do not ship.
+    strays="$(cd "$vdir" && find . -maxdepth 1 -name 'denice-v*' ! -name "$name$EXE" | sed 's#^\./##' | paste -sd' ' -)"
+    [ -z "$strays" ] && echo "entry is the only denice-v* file PASS: $rid" || { echo "entry is the only denice-v* file FAIL: $rid has $strays"; ok=0; }
     case "$rid" in osx-*) LOADER="Denice.app" ;; *) LOADER="denice$EXE" ;; esac
     diff -rq "$work/$LOADER" "$vdir/$LOADER" > /dev/null && echo "loader copy PASS: $rid" || { echo "loader copy FAIL: $rid"; ok=0; }
     case "$NATIVE" in

@@ -25,8 +25,6 @@ public sealed class UpdateService : IDisposable
     /// <summary>GitHub's list of Denice releases, newest first.</summary>
     internal static readonly Uri ReleasesUrl = new("https://api.github.com/repos/denice-aios/denice/releases?per_page=100");
 
-    private const string EntryPrefix = "denice-v";
-    private const string WindowsExecutableSuffix = ".exe";
     private const int ChunkBytes = 81920;
 
     private readonly ISystemServices _services;
@@ -131,7 +129,7 @@ public sealed class UpdateService : IDisposable
         if (!_services.FileSystem.GetDirectoryReader().DirectoryExists(installed))
         {
             byte[] zip = await DownloadCheckedAsync(newest, progress, ct).ConfigureAwait(false);
-            await new VersionInstaller(_services, handshake.InstallRoot, _trust).InstallAsync(zip, ct).ConfigureAwait(false);
+            await new VersionInstaller(_services, handshake.InstallRoot, rid, _trust).InstallAsync(zip, ct).ConfigureAwait(false);
         }
 
         lastCheck.Record(_services.Clock.GetUtcNow());
@@ -141,20 +139,12 @@ public sealed class UpdateService : IDisposable
     // This version's entry is versions/<version>/denice-v<version>-<rid> (.exe on Windows); its name gives the rid.
     private string RuntimeIdentifier(string versionDirectory, string running)
     {
-        string prefix = EntryPrefix + running + "-";
-        string? entry = _services.FileSystem.GetDirectoryReader().EnumerateChildren(versionDirectory)
+        string? rid = _services.FileSystem.GetDirectoryReader().EnumerateChildren(versionDirectory)
             .Where(child => !child.IsDirectory)
-            .Select(child => Path.GetFileName(child.FullPath))
-            .FirstOrDefault(name => name.StartsWith(prefix, StringComparison.Ordinal) && name.Length > prefix.Length);
-        if (entry is null)
-        {
-            throw new InvalidDataException($"This version's folder '{versionDirectory}' has no {prefix}<rid> entry.");
-        }
-
-        string rid = entry[prefix.Length..];
-        return rid.EndsWith(WindowsExecutableSuffix, StringComparison.OrdinalIgnoreCase)
-            ? rid[..^WindowsExecutableSuffix.Length]
-            : rid;
+            .Select(child => LoaderProtocol.EntryRid(Path.GetFileName(child.FullPath), running))
+            .FirstOrDefault(found => found is not null);
+        return rid ?? throw new InvalidDataException(
+            $"This version's folder '{versionDirectory}' has no {LoaderProtocol.EntryPrefix}{running}-<rid> entry.");
     }
 
     private async Task<byte[]> DownloadCheckedAsync(ReleaseCandidate release, IProgress<DownloadProgress>? progress, CancellationToken ct)
