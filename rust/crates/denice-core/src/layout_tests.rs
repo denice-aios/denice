@@ -147,3 +147,78 @@ fn several_processes_may_run_one_version_at_once() {
     drop(second);
     assert!(!version.is_running());
 }
+
+fn two_versions_newer_started(root: &Path) -> (InstallLayout, InstalledVersion, InstalledVersion) {
+    let _ = install(root, "0.1.100-pre-release+aaaaaaa");
+    let _ = install(root, "0.1.200-pre-release+bbbbbbb");
+    let layout = InstallLayout::new(root);
+    let mut versions = layout.usable_versions().unwrap_or_else(|e| unreachable!("{e}")).into_iter();
+    let (current, older) =
+        (versions.next().unwrap_or_else(|| unreachable!()), versions.next().unwrap_or_else(|| unreachable!()));
+    std::fs::write(current.dir.join(STARTED_MARKER), b"").unwrap_or_else(|e| unreachable!("{e}"));
+    (layout, current, older)
+}
+
+#[test]
+fn a_version_held_for_start_is_marked_running_and_kept() {
+    let root = temp();
+    let (layout, current, older) = two_versions_newer_started(root.path());
+    let StartHold::Installed(held) = older.hold_for_start() else { unreachable!("the version is installed") };
+    assert!(held.is_some() && older.is_running());
+    assert_eq!(
+        layout.remove_versions_older_than(&current).unwrap_or_else(|e| unreachable!("{e}")),
+        Vec::<PathBuf>::new()
+    );
+    assert!(older.entry_path().is_file(), "a version held for start keeps its entry");
+}
+
+#[test]
+fn a_version_removed_after_it_was_chosen_is_not_started() {
+    let root = temp();
+    let (_, _, older) = two_versions_newer_started(root.path());
+    // Another Denice takes the version for removal; this one, which had already chosen it, waits for the lock and then
+    // finds the entry gone.
+    let removal = older.take_for_removal().unwrap_or_else(|e| unreachable!("{e}")).unwrap_or_else(|| unreachable!());
+    let chooser = {
+        let older = older.clone();
+        std::thread::spawn(move || matches!(older.hold_for_start(), StartHold::Removed))
+    };
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    std::fs::remove_file(older.entry_path()).unwrap_or_else(|e| unreachable!("{e}"));
+    drop(removal);
+    assert!(chooser.join().unwrap_or_else(|_| unreachable!()), "the chooser must see the version as removed");
+}
+
+#[test]
+fn a_version_another_denice_started_meanwhile_is_not_marked_bad() {
+    let root = temp();
+    let (_, current, _) = two_versions_newer_started(root.path());
+    current.mark_bad().unwrap_or_else(|e| unreachable!("{e}"));
+    assert!(!current.is_bad(), "a version that has started is never bad");
+}
+
+#[test]
+fn older_versions_are_kept_while_the_current_one_is_marked_bad() {
+    let root = temp();
+    let (layout, current, older) = two_versions_newer_started(root.path());
+    // Another Denice marked it bad before this one's start was recorded.
+    std::fs::write(current.dir.join(BAD_MARKER), b"").unwrap_or_else(|e| unreachable!("{e}"));
+    assert_eq!(
+        layout.remove_versions_older_than(&current).unwrap_or_else(|e| unreachable!("{e}")),
+        Vec::<PathBuf>::new()
+    );
+    assert!(older.dir.is_dir());
+}
+
+#[test]
+fn an_older_folder_left_incomplete_is_removed_by_a_later_start() {
+    let root = temp();
+    let (layout, current, older) = two_versions_newer_started(root.path());
+    // A removal cut short after the entry was deleted.
+    std::fs::remove_file(older.entry_path()).unwrap_or_else(|e| unreachable!("{e}"));
+    assert_eq!(
+        layout.remove_versions_older_than(&current).unwrap_or_else(|e| unreachable!("{e}")),
+        std::slice::from_ref(&older.dir)
+    );
+    assert!(!older.dir.exists());
+}
