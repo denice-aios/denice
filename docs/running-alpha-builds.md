@@ -148,14 +148,31 @@ curl -fsSL https://raw.githubusercontent.com/denice-aios/denice/dev/eng/install/
 ```
 
 The script finds the newest release for your machine (pre-releases included), downloads the zip and its
-`.zip.sha256`, refuses the zip if the checksum does not match, installs it, and runs `denice version` to show it
-works. Options go after `sh -s --`:
+`.zip.sha256`, verifies it (below), installs it, and runs `denice version` to show it works. Options go after
+`sh -s --`:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/denice-aios/denice/dev/eng/install/install.sh | sh -s -- --version <version>
-sh install.sh --from denice-v<version>-<rid>.zip     # install a zip you already downloaded (offline)
+sh install.sh --from denice-v<version>-<rid>.zip     # install a zip you already downloaded
 sh install.sh --no-modify-path                       # leave your shell profiles alone
 ```
+
+**Every install is verified first**, with the same checks Denice applies to every update it downloads. Before it
+installs anything, the script checks that:
+
+- the zip matches its `.zip.sha256` (for `--from`, when that file is beside the zip);
+- `versions/<version>/SHA256SUMS` lists every file of the version as `<hash>  <name>`, and every file matches;
+- `SHA256SUMS.cosign.bundle` is a valid cosign signature over `SHA256SUMS` by Denice's release workflow
+  (`https://github.com/denice-aios/denice/.github/workflows/ci.yml` on `dev` or `main`, issuer
+  `https://token.actions.githubusercontent.com`), recorded in Sigstore's public transparency log;
+- the loader at the top of the zip is the same as the one the version carries.
+
+The signature check needs [cosign](https://docs.sigstore.dev/cosign/system_config/installation/). If cosign 3.0.4 or
+a newer 3.x is installed, the script uses it. Otherwise it downloads Sigstore's own cosign 3.1.3 for your machine from
+GitHub (about 133-149 MB), checks it against the SHA-256 written in the script, uses it for this one check from a
+temporary folder and deletes it. If any check fails, or no cosign is available (none installed and the download fails,
+for example offline with `--from`), nothing is installed and the script says why. There is no option to skip the
+checks.
 
 Where everything goes:
 

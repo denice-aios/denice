@@ -156,7 +156,7 @@ jobs:
         run: eng/coverage-gate.sh . Denice.CrossPlatform.MacOS
       - name: End-to-end loader test on osx-arm64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
         run: eng/loader-e2e-test.sh osx-arm64 "$RUNNER_TEMP/e2e"
-      - name: Install script tests (macOS and the Linux branch; temporary HOME, no network; rust/REQUIREMENTS.md I3 I4 I6)
+      - name: Install script tests (macOS and the Linux branch; temporary HOME, no network; download verification with a fake cosign; rust/REQUIREMENTS.md I3 I4 I6 I11)
         run: eng/install/test-install.sh
       - name: Install the real osx-arm64 layout with the install script, run it, find it from a new login shell's PATH, uninstall (pkg-d4e90c3ce176; rust/REQUIREMENTS.md I3 I5)
         run: eng/install/test-real-install.sh osx-arm64 layouts/osx-arm64 "$RUNNER_TEMP/real-install"
@@ -1029,7 +1029,7 @@ jobs:
       - name: Denice Runtime from the release accepts the genuine osx-arm64 release and refuses altered copies (rust/REQUIREMENTS.md E3)
         if: ${{ !cancelled() }}
         run: eng/check-release-runtime.sh osx-arm64 "$RUNNER_TEMP/release-check/assets" "$RUNNER_TEMP/release-runtime"
-      - name: First install from the release with `curl … install.sh | sh`, run, denice update, uninstall (rust/REQUIREMENTS.md I5 I6)
+      - name: First install from the release with `curl … install.sh | sh` (real cosign check), run, denice update, uninstall; altered release zips refused (rust/REQUIREMENTS.md I5 I6 I11)
         if: ${{ !cancelled() }}
         run: eng/install/test-real-install.sh osx-arm64 "--release=$TAG" "$RUNNER_TEMP/release-install"
       - name: Install the previous release and let Denice update itself to this one through GitHub Releases (rust/REQUIREMENTS.md E1)
@@ -1071,7 +1071,7 @@ jobs:
         run: gh release download "$TAG" --repo "${{ github.repository }}" --dir "$RUNNER_TEMP/assets" --pattern 'denice-v*-linux-*.zip' --pattern 'denice-v*-osx-x64.zip'
       - name: Denice Runtime from the release accepts the genuine ${{ matrix.rid }} release and refuses altered copies (rust/REQUIREMENTS.md E3)
         run: eng/check-release-runtime.sh ${{ matrix.rid }} "$RUNNER_TEMP/assets" "$RUNNER_TEMP/release-runtime"
-      - name: First install from the release with `curl … install.sh | sh`, run, denice update, uninstall (rust/REQUIREMENTS.md I5 I6)
+      - name: First install from the release with `curl … install.sh | sh` (real cosign check), run, denice update, uninstall; altered release zips refused (rust/REQUIREMENTS.md I5 I6 I11)
         if: ${{ !cancelled() }}
         run: eng/install/test-real-install.sh ${{ matrix.rid }} "--release=$TAG" "$RUNNER_TEMP/release-install"
       - name: Install the previous release and let Denice update itself to this one through GitHub Releases (rust/REQUIREMENTS.md E1)

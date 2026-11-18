@@ -30,8 +30,10 @@ echo "standard-user: $(id "$USER_NAME")"
 
 rm -rf "$SHARED"; mkdir -p "$SHARED/eng"
 cp -R "$REPO_ROOT/eng/install" "$SHARED/eng/install"
+cp "$REPO_ROOT/eng/write-sha256sums.sh" "$SHARED/eng/"   # test-real-install.sh writes the layout's SHA256SUMS with it
 cp -R "$LAYOUT" "$SHARED/layout"
 chmod -R a+rX "$SHARED"
+sudo chown -R "$USER_NAME" "$SHARED/layout"   # the user writes SHA256SUMS into its copy of the layout
 
 cd /   # the runner's workspace is not the user's to read
 sudo -u "$USER_NAME" -H env DENICE_MACOS_SIGNING="${DENICE_MACOS_SIGNING:-test}" \
