@@ -141,5 +141,17 @@ if ((Get-SemVer) -ne $versionB) { throw 'B did not run again' }
 if (Test-Path (Join-Path $app "versions\$versionA")) { throw 'A was not removed after B started' }
 if (Test-Path "$exe.old") { throw 'denice.exe.old was not deleted' }
 Write-Host 'release-update: ok: 4: B runs again, A was removed, denice.exe.old is gone'
+# 5. A higher version C that cannot start (B's files without Denice Runtime): the real loader marks C bad, falls back
+# to B, and never chooses C again (L5).
+$core = ($versionB -split '-')[0]; $parts = $core.Split('.')
+$c = "$($parts[0]).$($parts[1]).$([int64]$parts[2] + 1)-pre-release+0000000"
+$dirB = Join-Path $app "versions\$versionB"; $dirC = Join-Path $app "versions\$c"
+Copy-Item -Recurse $dirB $dirC
+Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $dirC '.started'), (Join-Path $dirC 'Denice.Runtime.dll')
+Rename-Item (Join-Path $dirC "denice-v$versionB-win-x64.exe") "denice-v$c-win-x64.exe"
+if ((Get-SemVer) -ne $versionB) { throw "expected the fallback to B ($versionB)" }
+if (-not (Test-Path (Join-Path $dirC '.bad'))) { throw 'C was not marked bad' }
+if ((Get-SemVer) -ne $versionB) { throw 'expected B again after the fallback' }
+Write-Host "release-update: ok: 5: a broken C ($c) failed to start, was marked bad, and the loader fell back to B"
 Uninstall-Denice
 Write-Host "release-update: ok: updated $($a.tag_name) -> $Tag through GitHub Releases on win-x64"

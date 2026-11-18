@@ -69,5 +69,20 @@ out="$("$PROGRAM" version)" || fail "the second run on B failed: $out"
 [ ! -e "$LOADER.old" ] || fail "$LOADER.old was not deleted"
 pass "4: B runs again, A was removed after B started, and the previous loader is gone"
 
+# 5. A higher version C that cannot start (B's files without Denice Runtime): the real loader marks C bad, falls back to
+# B, and never chooses C again (L5).
+C="${B_VERSION%%-*}"; C="${C%.*}.$(( ${C##*.} + 1 ))-pre-release+0000000"
+cp -R "$VERSIONS/$B_VERSION" "$VERSIONS/$C"
+rm -f "$VERSIONS/$C/.started" "$VERSIONS/$C/Denice.Runtime.dll"
+mv "$VERSIONS/$C/denice-v$B_VERSION-$RID" "$VERSIONS/$C/denice-v$C-$RID"
+out="$("$PROGRAM" version 2> "$WORK/fallback.err")" || fail "the fallback run failed: $out"
+[ "$(semver_of "$out")" = "$B_VERSION" ] || fail "expected the fallback to B ($B_VERSION), got: $out"
+[ -f "$VERSIONS/$C/.bad" ] || fail "C was not marked bad"
+grep -q "failed to start" "$WORK/fallback.err" || fail "the fallback was not reported"
+out="$("$PROGRAM" version 2> "$WORK/again.err")" || fail "the run after the fallback failed: $out"
+[ "$(semver_of "$out")" = "$B_VERSION" ] || fail "expected B again, got: $out"
+! grep -q "failed to start" "$WORK/again.err" || fail "C was tried again"
+pass "5: a broken C ($C) failed to start, was marked bad, the loader fell back to B and never chose C again"
+
 curl -fsSL "$INSTALL_URL" | sh -s -- --uninstall
 pass "updated $A -> $B through GitHub Releases on $RID"
