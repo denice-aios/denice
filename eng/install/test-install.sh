@@ -87,7 +87,7 @@ envs() {
     [ -n "${COSIGN_URL:-}" ] && ENVS+=(DENICE_INSTALL_COSIGN_URL="$COSIGN_URL")
     [ -n "${XDG:-}" ] && ENVS+=(XDG_DATA_HOME="$XDG")
     [ -n "${TEST_OS:-}" ] && ENVS+=(DENICE_INSTALL_OS="$TEST_OS")
-    [ -n "${API:-}" ] && ENVS+=(DENICE_INSTALL_API_URL="$API")
+    [ -n "${LIST:-}" ] && ENVS+=(DENICE_INSTALL_LIST_URL="$LIST")
     [ -n "${LOGIN_SHELL:-}" ] && ENVS+=(SHELL="$LOGIN_SHELL")
     [ -n "${ZDOT:-}" ] && ENVS+=(ZDOTDIR="$ZDOT")
     [ -n "${XDGC:-}" ] && ENVS+=(XDG_CONFIG_HOME="$XDGC")
@@ -138,7 +138,7 @@ test_osx() {
     local APP="$H/Applications/Denice.app" VERS="$H/Library/Application Support/Denice/versions"
     local PROG="$APP/Contents/MacOS/denice" out
     echo "== macOS branch under $shell (HOME=$H)"
-    unset TEST_OS XDG API
+    unset TEST_OS XDG LIST
     [ "$(uname -s)" = Darwin ] || TEST_OS=osx
     out="$(run_install "$shell" "$H" --from "$ZIPS/denice-v$V1-osx-$ARCH.zip" --no-run)"
     check "first install reports a verified checksum" contains <(echo "$out") "checksum verified"
@@ -212,7 +212,7 @@ test_osx() {
 # ---------------------------------------------------------------- Linux layout
 test_linux() {
     local shell="$1" xdg_mode="$2" H="$WORK/home-linux-$2-$(basename "$shell")" DATA out
-    TEST_OS=linux; unset API
+    TEST_OS=linux; unset LIST
     if [ "$xdg_mode" = set ]; then XDG="$H/my data \$dir"; DATA="$XDG"; else unset XDG; DATA="$H/.local/share"; fi
     local LOADER="$DATA/denice/denice" VERS="$DATA/denice/versions" DESK="$DATA/applications/denice.desktop"
     echo "== Linux branch under $shell, XDG_DATA_HOME $xdg_mode (DENICE_INSTALL_OS=linux, HOME=$H)"
@@ -265,7 +265,7 @@ test_profiles() {
     local shell="$1" os="$2" tag="$2-$(basename "$1")" out f
     local H="$WORK/home-path-$tag" O="$WORK/orig-path-$tag" zip="$ZIPS/denice-v$V1-$2-$ARCH.zip"
     local ENV_REF ENV_FILE FISH="$H/.config/fish/conf.d/denice.fish"
-    unset API XDG ZDOT XDGC LOGIN_SHELL TEST_OS
+    unset LIST XDG ZDOT XDGC LOGIN_SHELL TEST_OS
     if [ "$os" = osx ]; then ENV_REF='$HOME/Library/Application Support/Denice/env'; else ENV_REF='$HOME/.local/share/denice/env'; fi
     ENV_FILE="$H/${ENV_REF#\$HOME/}"
     [ "$os" = osx ] && [ "$(uname -s)" = Darwin ] || TEST_OS="$os"
@@ -378,7 +378,8 @@ test_lookup() {
     }
     # Newest first: a draft (skipped), a release without a checksum file (skipped), then V2, V0.
     printf '[%s,%s,%s,%s]' "$(rel true "$V3" yes)" "$(rel false "$V1" no)" "$(rel false "$V2" yes)" "$(rel false "$V0" yes)" > "$R/releases.json"
-    API="file://$R/releases.json"
+    "$FAKE_COSIGN_DIR/cosign" sign-blob --yes --bundle "$R/releases.json.cosign.bundle" "$R/releases.json"
+    LIST="file://$R/releases.json"
 
     H="$WORK/home-lookup-$(basename "$shell")"
     out="$(run_install "$shell" "$H" --no-run)"
@@ -386,6 +387,20 @@ test_lookup() {
     check "the draft release is not installed" not test -e "$H/.local/share/denice/versions/$V3"
     check "the download's checksum is verified" contains <(echo "$out") "checksum verified"
     check "the download's signature is verified" contains <(echo "$out") "signature verified"
+    check "the release list's signature is verified first" contains <(echo "$out") "release list verified: signed by Denice's release workflow"
+
+    H="$WORK/home-lookup-forged-list-$(basename "$shell")"
+    cp "$R/releases.json.cosign.bundle" "$R/list-bundle.keep"
+    echo "a signature by someone else" > "$R/releases.json.cosign.bundle"
+    out="$(run_install "$shell" "$H" --no-run 2>&1)" || true
+    check "a release list not signed by Denice is refused" contains <(echo "$out") "the release list is not signed by Denice's release workflow"
+    check "...and installs nothing" test "$(tree_of "$H")" = "."
+    rm "$R/releases.json.cosign.bundle"
+    H="$WORK/home-lookup-no-list-sig-$(basename "$shell")"
+    out="$(run_install "$shell" "$H" --no-run 2>&1)" || true
+    check "a release list without its signature is refused" contains <(echo "$out") "cannot read the release list's signature"
+    check "...and installs nothing" test "$(tree_of "$H")" = "."
+    mv "$R/list-bundle.keep" "$R/releases.json.cosign.bundle"
 
     H="$WORK/home-lookup-v-$(basename "$shell")"
     run_install "$shell" "$H" --version "${V0%%+*}" --no-run >/dev/null
@@ -403,7 +418,7 @@ test_lookup() {
     check "a download with a wrong checksum is refused" not quiet run_install "$shell" "$H" --no-run
     check "...and installs nothing" test "$(tree_of "$H")" = "."
     mv "$R/keep.sha256" "$R/denice-v$V2-linux-$ARCH.zip.sha256"
-    unset API
+    unset LIST
 }
 
 # ---------------------------------------------------------------- download verification (pkg-3480bb950ef7 "Always verify")
@@ -446,7 +461,7 @@ refused() {
 
 test_verify() {
     local os="$2" D="$WORK/verify-$2-$(basename "$1")" zip out
-    VSHELL="$1"; unset API XDG TEST_OS COSIGN_URL NO_COSIGN FAKE_COSIGN_VERSION FAKE_COSIGN_LOG
+    VSHELL="$1"; unset LIST XDG TEST_OS COSIGN_URL NO_COSIGN FAKE_COSIGN_VERSION FAKE_COSIGN_LOG
     [ "$os" = osx ] && [ "$(uname -s)" = Darwin ] || TEST_OS="$os"
     zip="$ZIPS/denice-v$V1-$os-$ARCH.zip"
     echo "== download verification, $os branch under $VSHELL (fake cosign; HOME under $D)"

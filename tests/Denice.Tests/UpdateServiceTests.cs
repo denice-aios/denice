@@ -138,7 +138,7 @@ public sealed class UpdateServiceTests : IDisposable
         UpdateOutcome outcome = await Service.CheckAndInstallAsync(request, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.NoNewerVersion);
-        github.Requests.Should().ContainSingle();
+        ListReads().Should().ContainSingle();
         LastCheck().Should().Be(Start);
     }
 
@@ -271,7 +271,8 @@ public sealed class UpdateServiceTests : IDisposable
         UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
         outcome.Should().Be(UpdateOutcome.NoNewerVersion);
-        github.Requests.Should().ContainSingle();
+        github.Requests.Select(request => request.RequestUri!.AbsoluteUri).Should().Equal(
+            UpdateService.ReleasesUrl.AbsoluteUri, UpdateService.ReleasesSignatureUrl.AbsoluteUri);
         LastCheck().Should().Be(Start);
     }
 
@@ -372,8 +373,8 @@ public sealed class UpdateServiceTests : IDisposable
     public async Task AReleaseTheInstallerRefuses_FailsAndRecordsNothing()
     {
         const string version = "0.1.300-pre-release+ccccccc";
-        using var refusing = new UpdateService(
-            services, github, new ReleaseTrust((_, _, _) => Task.FromResult<string?>("not Denice's release workflow"), []));
+        using var refusing = new UpdateService(services, github, new ReleaseTrust(
+            (signed, _, _) => Task.FromResult<string?>(IsReleaseList(signed) ? null : "not Denice's release workflow"), []));
         AddRelease(version, prerelease: true);
         ServeReleases();
 
@@ -382,6 +383,63 @@ public sealed class UpdateServiceTests : IDisposable
         outcome.Result.Should().Be(UpdateResult.Failed);
         outcome.Reason.Should().Contain("not Denice's release workflow");
         NothingInstalledOrRecorded(version);
+    }
+
+    [Fact]
+    public async Task AReleaseListNotSignedByDenice_IsNotUsed_AndNothingIsInstalledOrRecorded()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        using var refusing = new UpdateService(services, github, new ReleaseTrust(
+            (signed, _, _) => Task.FromResult<string?>(IsReleaseList(signed) ? "not Denice's release workflow" : null),
+            DeniceSigningCertificates.Sha256Fingerprints.ToArray()));
+        AddRelease(version, prerelease: true);
+        ServeReleases();
+
+        UpdateOutcome outcome = await refusing.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
+
+        outcome.Result.Should().Be(UpdateResult.Failed);
+        outcome.Reason.Should().Contain("The release list was not used").And.Contain("not Denice's release workflow");
+        NothingInstalledOrRecorded(version);
+    }
+
+    [Fact]
+    public async Task AReleaseListWithoutItsSignature_IsNotUsed()
+    {
+        const string version = "0.1.300-pre-release+ccccccc";
+        AddRelease(version, prerelease: true);
+        github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, JsonSerializer.Serialize(releases));
+
+        UpdateOutcome outcome = await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
+
+        outcome.Result.Should().Be(UpdateResult.Failed);
+        NothingInstalledOrRecorded(version);
+    }
+
+    [Fact]
+    public void TheReleaseList_IsAReleaseDownload_NotGitHubsApi()
+    {
+        UpdateService.ReleasesUrl.Host.Should().Be("github.com");
+        UpdateService.ReleasesSignatureUrl.AbsoluteUri.Should().Be(UpdateService.ReleasesUrl.AbsoluteUri + ".cosign.bundle");
+    }
+
+    [Fact]
+    public async Task TheReleaseListHolder_IsNeverOfferedAsAVersion()
+    {
+        releases.Add(new Dictionary<string, object>(StringComparer.Ordinal)
+        {
+            ["tag_name"] = "release-list",
+            ["draft"] = false,
+            ["prerelease"] = true,
+            ["assets"] = new List<object>
+            {
+                Asset("releases.json", UpdateService.ReleasesUrl.AbsoluteUri, 100),
+                Asset($"denice-vrelease-list-{Rid}.zip", "https://github.test/download/holder.zip", 1),
+            },
+        });
+        ServeReleases();
+
+        (await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None)).Result
+            .Should().Be(UpdateResult.NoNewerVersion);
     }
 
     [Fact]
@@ -402,18 +460,19 @@ public sealed class UpdateServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task EveryRequest_NamesDeniceAndItsVersion_AndTheListAsksForGitHubsJson()
+    public async Task EveryRequest_NamesDeniceAndItsVersion_AndTheSignedListComesFirst()
     {
         AddRelease("0.1.300-pre-release+ccccccc", prerelease: true);
         ServeReleases();
 
         await Service.CheckAndInstallAsync(UpdateRequest.AtStart, null, CancellationToken.None);
 
-        github.Requests.Should().HaveCount(3).And.OnlyContain(request =>
+        github.Requests.Should().HaveCount(4).And.OnlyContain(request =>
             request.Method == HttpMethod.Get && request.Headers.UserAgent.ToString() == $"Denice/{Running}");
-        HttpRequestMessage list = github.Requests[0];
-        list.RequestUri!.AbsoluteUri.Should().Be("https://api.github.com/repos/denice-aios/denice/releases?per_page=100");
-        list.Headers.Accept.ToString().Should().Be("application/vnd.github+json");
+        github.Requests.Take(2).Select(request => request.RequestUri!.AbsoluteUri).Should().Equal(
+            "https://github.com/denice-aios/denice/releases/download/release-list/releases.json",
+            "https://github.com/denice-aios/denice/releases/download/release-list/releases.json.cosign.bundle");
+        github.Requests.Should().NotContain(request => string.Equals(request.RequestUri!.Host, "api.github.com", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -557,11 +616,11 @@ public sealed class UpdateServiceTests : IDisposable
         github.Requests.Should().BeEmpty("no check runs before the interval has passed");
         clock.Advance(TimeSpan.FromSeconds(1));
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
-        github.Requests.Should().ContainSingle();
+        ListReads().Should().ContainSingle();
         LastCheck().Should().Be(Start + TimeSpan.FromHours(6));
         clock.Advance(TimeSpan.FromHours(6));
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
-        github.Requests.Should().HaveCount(2);
+        ListReads().Should().HaveCount(2);
 
         await stop.CancelAsync();
         (await run).Should().BeNull();
@@ -586,7 +645,7 @@ public sealed class UpdateServiceTests : IDisposable
         new SettingsFile(services).Set("updates.enabled", "true");
         clock.Advance(TimeSpan.FromHours(6));
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
-        github.Requests.Should().ContainSingle();
+        ListReads().Should().ContainSingle();
 
         await stop.CancelAsync();
         (await run).Should().BeNull();
@@ -605,10 +664,10 @@ public sealed class UpdateServiceTests : IDisposable
         github.Requests.Should().BeEmpty("the wait under way keeps the interval it started with");
         clock.Advance(TimeSpan.FromHours(5));
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(1));
-        github.Requests.Should().ContainSingle();
+        ListReads().Should().ContainSingle();
         clock.Advance(TimeSpan.FromHours(1));
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(1));
-        github.Requests.Should().HaveCount(2);
+        ListReads().Should().HaveCount(2);
 
         await stop.CancelAsync();
         (await run).Should().BeNull();
@@ -645,7 +704,7 @@ public sealed class UpdateServiceTests : IDisposable
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6));
         clock.Advance(TimeSpan.FromHours(6));
         (await NextWaitAsync(run)).Should().Be(TimeSpan.FromHours(6), "a failed check is retried at the next interval");
-        github.Requests.Should().ContainSingle();
+        ListReads().Should().ContainSingle();
 
         AddRelease(version, prerelease: true);
         ServeReleases();
@@ -740,7 +799,7 @@ public sealed class UpdateServiceTests : IDisposable
         clock.Advance(TimeSpan.FromHours(6));
         (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6), "nothing newer, so the checks go on");
 
-        github.Requests.Should().ContainSingle();
+        ListReads().Should().ContainSingle();
         command.IsRunning.Should().BeTrue();
         command.Finish(0);
         (await session).Should().Be(0);
@@ -870,7 +929,7 @@ public sealed class UpdateServiceTests : IDisposable
         Task<int> session = HostAfterStartCheck(StartCheck()).RunAsync(command.RunAsync, CancellationToken.None);
 
         (await NextWaitAsync(session)).Should().Be(TimeSpan.FromHours(6));
-        github.Requests.Should().ContainSingle("the start check ran");
+        ListReads().Should().ContainSingle("the start check ran");
         command.IsRunning.Should().BeTrue();
         AddRelease(version, prerelease: true);
         ServeReleases();
@@ -984,6 +1043,8 @@ public sealed class UpdateServiceTests : IDisposable
         github.Dispose();
     }
 
+    private static bool IsReleaseList(ReadOnlyMemory<byte> signed) => signed.Length > 0 && signed.Span[0] == (byte)'[';
+
     private static string ZipUrl(string version, string rid = Rid) => $"{Downloads}{version}/denice-v{version}-{rid}.zip";
 
     private static Dictionary<string, object> Asset(string name, string url, long size) => new(StringComparer.Ordinal)
@@ -1089,7 +1150,15 @@ public sealed class UpdateServiceTests : IDisposable
         return await Task.WhenAny(wait, loop).ConfigureAwait(false) == wait ? await wait.ConfigureAwait(false) : null;
     }
 
-    private void ServeReleases() => github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, JsonSerializer.Serialize(releases));
+    private void ServeReleases()
+    {
+        github.Answer(UpdateService.ReleasesUrl.AbsoluteUri, JsonSerializer.Serialize(releases));
+        github.Answer(UpdateService.ReleasesSignatureUrl.AbsoluteUri, "{}");
+    }
+
+    // Each check reads the release list once.
+    private IEnumerable<HttpRequestMessage> ListReads() =>
+        github.Requests.Where(request => request.RequestUri! == UpdateService.ReleasesUrl);
 
     private void RecordLastCheck(DateTimeOffset when) => new LastUpdateCheck(services).Record(when);
 
