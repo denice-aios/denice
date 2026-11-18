@@ -359,8 +359,10 @@ find_cosign() {
 
 # Runs $cosign; the downloaded one keeps its Sigstore trust data and any cache in the temporary folder.
 run_cosign() {
+    # cosign caches Sigstore's trust data under TUF_ROOT (default ~/.sigstore); keep it in this run's temporary folder
+    # so a check never leaves files in the user's home, whichever cosign runs.
     if [ -n "$cosign_home" ]; then HOME="$cosign_home" TUF_ROOT="$cosign_home/sigstore" "$cosign" "$@"
-    else "$cosign" "$@"; fi
+    else TUF_ROOT="$tmp/sigstore" "$cosign" "$@"; fi
 }
 
 # Checks the unpacked release <root> holding versions/$version: SHA256SUMS, its cosign signature, the loader copy.

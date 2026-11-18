@@ -171,7 +171,7 @@ refused() {
   ( cd "$dir" && { command -v sha256sum >/dev/null && sha256sum "$(basename "$zip")" || shasum -a 256 "$(basename "$zip")"; } > "$zip.sha256" )
   if HOME="$home" sh "$SCRIPT" --from "$zip" --no-run > "$dir/out.log" 2>&1; then fail "install.sh accepted the $1 release"; fi
   grep -qF "$3" "$dir/out.log" || { cat "$dir/out.log" >&2; fail "the $1 release was refused for another reason"; }
-  [ -z "$(ls -A "$home")" ] || fail "the refused $1 install left files in HOME"
+  [ -z "$(ls -A "$home")" ] || fail "the refused $1 install left files in HOME: $(ls -A "$home" | tr '\n' ' ')"
   echo "real-install: ok: the $1 release zip is refused ($3) and nothing is left behind"
 }
 refused "changed-byte" change_byte "does not match its SHA256SUMS"
