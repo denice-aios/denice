@@ -37,6 +37,12 @@ on:
 permissions:
   contents: read
 
+# One run at a time per branch for pushes, queued (never cancelled), so releases publish in order; a newer push to a
+# PR cancels that PR's older run.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Which keys sign each OS (docs/signing-switchover.md). Each is a repository variable (Settings > Secrets and variables >
 # Actions > Variables); unset means `test`, the self-signed CI certificates. Moving to the real keys is a change of
 # settings, not of this file: set the new secrets, then flip the variable.
@@ -60,8 +66,24 @@ jobs:
       # consumes these — no job re-reads version.props or re-applies -pre-release (compute-version-once).
       tag: ${{ steps.id.outputs.tag }}
       version: ${{ steps.id.outputs.version }}
+      # 'true' when this push changed something Denice ships (anything but Markdown and docs/); only then is a release
+      # published and proven.
+      ship: ${{ steps.ship.outputs.ship }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: ship
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          ship=true
+          if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            changed="$(git diff --name-only "$BEFORE" "$GITHUB_SHA")"
+            if [ -n "$changed" ] && ! grep -vE '(^docs/|\.md$)' <<< "$changed" > /dev/null; then ship=false; fi
+          fi
+          echo "ship=$ship" >> "$GITHUB_OUTPUT"
+          echo "ships a release: $ship"
       - id: id
         # pull_request => channel 'pr-<number>' (pr-build-version-channel: a PR build is not a pre-release, and the
         # number makes each build's evidence identifiable). push to dev => 'dev'; push to main => '' (no prerelease).
@@ -108,6 +130,17 @@ jobs:
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/macos-build.binlog
+      # The toolchains and cargo tools are reinstalled only when a pin changes (they took 3-7 minutes per OS every run).
+      - name: Cache the pinned Rust toolchains and cargo tools
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+            ~/.cargo/bin
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: rust-tools-${{ runner.os }}-${{ hashFiles('rust/rust-toolchain.toml', 'rust/lints/denice_rules/rust-toolchain*') }}-llvm-cov-0.9.1-dylint-6.4.0
       - name: Install the pinned Rust toolchain (rust/rust-toolchain.toml) and the coverage tool
         # The toolchain pin has ONE source, rust/rust-toolchain.toml (as global.json pins the .NET SDK): rustup reads it
         # and installs that exact version with its components and all six targets. cargo-llvm-cov is pinned here.
@@ -365,6 +398,17 @@ jobs:
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/windows-build.binlog
+      # The toolchains and cargo tools are reinstalled only when a pin changes (they took 3-7 minutes per OS every run).
+      - name: Cache the pinned Rust toolchains and cargo tools
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+            ~/.cargo/bin
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: rust-tools-${{ runner.os }}-${{ hashFiles('rust/rust-toolchain.toml', 'rust/lints/denice_rules/rust-toolchain*') }}-llvm-cov-0.9.1-dylint-6.4.0
       - name: Install the pinned Rust toolchain (rust/rust-toolchain.toml) and the coverage tool
         # The toolchain pin has ONE source, rust/rust-toolchain.toml (as global.json pins the .NET SDK): rustup reads it
         # and installs that exact version with its components and all six targets. cargo-llvm-cov is pinned here.
@@ -709,6 +753,17 @@ jobs:
         run: |
           mkdir -p evidence
           dotnet build -c Release $AG -bl:evidence/linux-build.binlog
+      # The toolchains and cargo tools are reinstalled only when a pin changes (they took 3-7 minutes per OS every run).
+      - name: Cache the pinned Rust toolchains and cargo tools
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            ~/.rustup/toolchains
+            ~/.rustup/update-hashes
+            ~/.cargo/bin
+            ~/.cargo/.crates.toml
+            ~/.cargo/.crates2.json
+          key: rust-tools-${{ runner.os }}-${{ hashFiles('rust/rust-toolchain.toml', 'rust/lints/denice_rules/rust-toolchain*') }}-llvm-cov-0.9.1-dylint-6.4.0
       - name: Install the pinned Rust toolchain (rust/rust-toolchain.toml) and the coverage tool
         # The toolchain pin has ONE source, rust/rust-toolchain.toml (as global.json pins the .NET SDK): rustup reads it
         # and installs that exact version with its components and all six targets. cargo-llvm-cov is pinned here.
@@ -821,7 +876,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Every loader requirement is done with evidence (rust/REQUIREMENTS.md E2; nothing is dropped quietly)
+      - name: Every loader requirement has a valid status; open ones are listed in the run summary (rust/REQUIREMENTS.md)
         run: eng/check-requirements.sh
 
   # Publishes ONE release from the six signed binaries — pre-release from dev, full release from main. Runs only
@@ -830,7 +885,7 @@ jobs:
   # one denice-v<version>-<rid>.zip per binary plus one evidence.zip with a subdirectory per OS/platform build.
   release:
     needs: [version, gate, macos, windows, linux]
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && needs.version.outputs.ship == 'true'
     runs-on: macos-latest
     permissions:
       contents: write
