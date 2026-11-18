@@ -19,11 +19,12 @@ semver_of() { sed -n 's/^SemVer: //p' <<< "$1" | tr -d '\r'; }
 hash_of() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | cut -d' ' -f1; }
 
 # A: the newest release published before B that is in the install layout (it ships install.sh and a checksummed zip
-# for this platform, the marker install.sh itself uses).
+# for this platform, the marker install.sh itself uses). awk reads to the end: exiting early would break gh's pipe
+# (exit 141 under pipefail).
 A="$(gh api "repos/$REPO/releases?per_page=100" --jq '.[] | select(.draft | not) | [.tag_name, ([.assets[].name] | join(" "))] | @tsv' \
   | awk -F'\t' -v b="$B" -v rid="$RID" '
       $1 == b { seen = 1; next }
-      seen && index(" " $2 " ", " install.sh ") && $2 ~ ("denice-v[^ ]*-" rid "\\.zip\\.sha256") { print $1; exit }')"
+      !found && seen && index(" " $2 " ", " install.sh ") && $2 ~ ("denice-v[^ ]*-" rid "\\.zip\\.sha256") { print $1; found = 1 }')"
 if [ -z "$A" ]; then
   echo "release-update: NOT PROVEN: no release before $B is in the install layout for $RID, so there is nothing to update from yet;"
   echo "release-update: the next release proves this (A = $B)."
