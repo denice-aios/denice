@@ -149,7 +149,7 @@ echo "real-install: ok: uninstalled; settings kept"
 
 [ -n "$TAG" ] || exit 0
 # Altered copies of the published release zip must be refused, with nothing left behind (I11).
-ASSET="$(curl -fsSL -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/denice-aios/denice/releases/tags/$TAG" \
+ASSET="$(gh api "repos/denice-aios/denice/releases/tags/$TAG" \
   | grep -o '"browser_download_url": *"[^"]*-'"$RID"'\.zip"' | sed 's/.*"\(https[^"]*\)"$/\1/')" \
   || fail "could not find the $RID zip of release $TAG"
 GENUINE="$WORK/genuine.zip"

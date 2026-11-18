@@ -22,8 +22,17 @@ namespace Denice.Updates;
 /// </summary>
 public sealed class UpdateService : IDisposable
 {
-    /// <summary>GitHub's list of Denice releases, newest first.</summary>
-    internal static readonly Uri ReleasesUrl = new("https://api.github.com/repos/denice-aios/denice/releases?per_page=100");
+    /// <summary>
+    /// The list of Denice releases, newest first: GitHub's own release list, which CI fetches once per release (logged
+    /// in) and publishes as a file on the permanent <c>release-list</c> release, so Denice never calls GitHub's API and
+    /// its limit of 60 requests per hour per internet address (pkg-05bdc04efda0 github-limit, "c").
+    /// </summary>
+    internal static readonly Uri ReleasesUrl =
+        new("https://github.com/denice-aios/denice/releases/download/release-list/releases.json");
+
+    /// <summary>The cosign signature over <see cref="ReleasesUrl"/> by Denice's release workflow.</summary>
+    internal static readonly Uri ReleasesSignatureUrl =
+        new("https://github.com/denice-aios/denice/releases/download/release-list/releases.json.cosign.bundle");
 
     private const int ChunkBytes = 81920;
 
@@ -108,7 +117,7 @@ public sealed class UpdateService : IDisposable
         DeniceVersion runningVersion = DeniceVersion.Parse(running)
             ?? throw new InvalidDataException($"The running version '{running}' is not a Denice version.");
         string rid = RuntimeIdentifier(handshake.VersionDirectory, running);
-        string releases = await GetTextAsync(ReleasesUrl, "application/vnd.github+json", ct).ConfigureAwait(false);
+        string releases = await GetSignedListAsync(ct).ConfigureAwait(false);
         ReleaseCandidate? newest = ReleaseCandidate.Highest(releases, settings.Channel, rid);
         if (newest is null || DeniceVersion.Order.Compare(newest.Version, runningVersion) <= 0)
         {
@@ -154,7 +163,7 @@ public sealed class UpdateService : IDisposable
             throw new InvalidDataException($"Denice {release.Version} has no .zip.sha256 for its release file.");
         }
 
-        string sums = await GetTextAsync(release.Checksum, "application/octet-stream", ct).ConfigureAwait(false);
+        string sums = await GetTextAsync(release.Checksum, ct).ConfigureAwait(false);
         string expected = sums.Split((char[]?)null, 2, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
         byte[] zip = await DownloadAsync(release, progress, ct).ConfigureAwait(false);
         string actual = Convert.ToHexStringLower(SHA256.HashData(zip));
@@ -169,7 +178,7 @@ public sealed class UpdateService : IDisposable
 
     private async Task<byte[]> DownloadAsync(ReleaseCandidate release, IProgress<DownloadProgress>? progress, CancellationToken ct)
     {
-        using HttpResponseMessage response = await SendAsync(release.Zip, "application/octet-stream", ct).ConfigureAwait(false);
+        using HttpResponseMessage response = await SendAsync(release.Zip, ct).ConfigureAwait(false);
         using var bytes = new MemoryStream((int)Math.Clamp(release.ZipSize, 0, int.MaxValue));
         Stream body = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         await using (body.ConfigureAwait(false))
@@ -186,18 +195,35 @@ public sealed class UpdateService : IDisposable
         return bytes.ToArray();
     }
 
-    private async Task<string> GetTextAsync(Uri url, string accept, CancellationToken ct)
+    // The release list, refused unless Denice's release workflow signed it.
+    private async Task<string> GetSignedListAsync(CancellationToken ct)
     {
-        using HttpResponseMessage response = await SendAsync(url, accept, ct).ConfigureAwait(false);
-        return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        byte[] list = await GetBytesAsync(ReleasesUrl, ct).ConfigureAwait(false);
+        string bundle = await GetTextAsync(ReleasesSignatureUrl, ct).ConfigureAwait(false);
+        string? problem = await _trust.CosignProblem(list, bundle, ct).ConfigureAwait(false);
+        if (problem is not null)
+        {
+            throw new InvalidDataException($"The release list was not used: {problem}.");
+        }
+
+        return System.Text.Encoding.UTF8.GetString(list);
     }
 
-    // GitHub's API asks for a User-Agent naming the client and for its JSON media type; release files are plain bytes.
-    private async Task<HttpResponseMessage> SendAsync(Uri url, string accept, CancellationToken ct)
+    private async Task<byte[]> GetBytesAsync(Uri url, CancellationToken ct)
+    {
+        using HttpResponseMessage response = await SendAsync(url, ct).ConfigureAwait(false);
+        return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+    }
+
+    private async Task<string> GetTextAsync(Uri url, CancellationToken ct) =>
+        System.Text.Encoding.UTF8.GetString(await GetBytesAsync(url, ct).ConfigureAwait(false));
+
+    // Every request names the client; release files are plain bytes.
+    private async Task<HttpResponseMessage> SendAsync(Uri url, CancellationToken ct)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("Denice", _services.BuildInfo.SemVer));
-        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(accept));
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
         HttpResponseMessage response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct)
             .ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)

@@ -1000,6 +1000,28 @@ jobs:
             ${CERTS[@]+"${CERTS[@]}"} \
             ${TRUST[@]+"${TRUST[@]}"}
 
+      # Denice and install.sh read this signed copy of GitHub's release list instead of GitHub's API, whose limit is 60
+      # requests per hour per internet address (pkg-05bdc04efda0 github-limit "c"). This one API call per release is
+      # made logged in. The list is GitHub's own answer (published releases only, minus the holder release), signed by
+      # this workflow like every release file, on the permanent pre-release "release-list".
+      - name: Publish the signed release list
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-list && cd release-list
+          gh api "repos/$REPO/releases?per_page=100" \
+            --jq '[.[] | select(.draft | not) | select(.tag_name != "release-list")]' > releases.json
+          grep -q '"tag_name": *"'"$TAG"'"' releases.json || { echo "the list does not hold $TAG" >&2; exit 1; }
+          cosign sign-blob --yes --bundle releases.json.cosign.bundle releases.json
+          if ! gh release view release-list --repo "$REPO" > /dev/null 2>&1; then
+            gh release create release-list --repo "$REPO" --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "Release list" \
+              --notes "The signed list of Denice releases that Denice and install.sh read to find updates. CI replaces it at every release."
+          fi
+          gh release upload release-list releases.json releases.json.cosign.bundle --repo "$REPO" --clobber
+
   # Proves the rows only a PUBLISHED release can prove (rust/REQUIREMENTS.md F9 F10 F11 F14 E3, and the real-download
   # halves of E1 I5 I6), from the release the job above just published, downloaded from GitHub as a user gets it. They run
   # after publishing, so they cannot stop a release; a failure here is a defect in the published release.

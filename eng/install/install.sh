@@ -42,7 +42,8 @@
 #
 # Test-only environment overrides (not for users):
 #   DENICE_INSTALL_OS=osx|linux   pretend to run on that OS (lets the Linux branch be tested on a Mac)
-#   DENICE_INSTALL_API_URL=<url>  the GitHub releases API URL to read (tests point it at a file:// URL)
+#   DENICE_INSTALL_LIST_URL=<url>  the signed release list to read, with its signature at <url>.cosign.bundle (tests
+#                                 point it at a file:// URL)
 #   DENICE_INSTALL_COSIGN_URL=<url>  where to download cosign-<os>-<arch> from (tests point it at a file:// URL; the
 #                                 download must still match the SHA-256 written in this script)
 #
@@ -50,7 +51,10 @@
 set -eu
 
 REPO="denice-aios/denice"
-API_URL="${DENICE_INSTALL_API_URL:-https://api.github.com/repos/$REPO/releases?per_page=100}"
+# The release list: GitHub's own list of releases, which CI publishes and signs at every release on the permanent
+# release-list release, so this script never calls GitHub's API and its 60-requests-per-hour limit (pkg-05bdc04efda0
+# github-limit "c"; src/Denice.Updates/UpdateService.cs ReleasesUrl reads the same file).
+LIST_URL="${DENICE_INSTALL_LIST_URL:-https://github.com/$REPO/releases/download/release-list/releases.json}"
 
 # The release signer, exactly as Denice Runtime pins it (src/Denice.Updates/ReleaseSignature.cs DeniceWorkflowPattern
 # and GitHubActionsIssuer; eng/install/test-install.sh checks the two stay equal).
@@ -333,6 +337,7 @@ cosign_usable() {
 # Sets $cosign to a cosign that can check Denice's signature: the installed one when it is new enough, otherwise
 # Sigstore's own release binary, downloaded into the temporary folder and checked against the pin above.
 find_cosign() {
+    [ -z "${cosign:-}" ] || return 0   # already found for the release list
     cosign_home=""
     if command -v cosign >/dev/null 2>&1; then
         if found="$(cosign_usable cosign)"; then
@@ -365,6 +370,16 @@ run_cosign() {
     else TUF_ROOT="$tmp/sigstore" "$cosign" "$@"; fi
 }
 
+# verify_signed <file> <refusal>: <file> must be signed by Denice's release workflow (<file>.cosign.bundle); otherwise
+# the install is refused with <refusal>.
+verify_signed() {
+    run_cosign verify-blob --certificate-identity-regexp "$SIGNER_IDENTITY" \
+        --certificate-oidc-issuer "$SIGNER_ISSUER" --bundle "$1.cosign.bundle" "$1" > "$tmp/cosign.log" 2>&1 || {
+        sed 's/^/  cosign: /' "$tmp/cosign.log" >&2
+        refuse "$2"
+    }
+}
+
 # Checks the unpacked release <root> holding versions/$version: SHA256SUMS, its cosign signature, the loader copy.
 verify_release() {
     vdir="$1/versions/$version"
@@ -372,12 +387,7 @@ verify_release() {
     diff -r "$1/$loader_name" "$vdir/$loader_name" > /dev/null 2>&1 \
         || refuse "the loader $loader_name at the top of the release differs from the one in versions/$version"
     find_cosign
-    run_cosign verify-blob --certificate-identity-regexp "$SIGNER_IDENTITY" \
-        --certificate-oidc-issuer "$SIGNER_ISSUER" --bundle "$vdir/SHA256SUMS.cosign.bundle" "$vdir/SHA256SUMS" \
-        > "$tmp/cosign.log" 2>&1 || {
-        sed 's/^/  cosign: /' "$tmp/cosign.log" >&2
-        refuse "the release's cosign signature is not a valid signature by Denice's release workflow"
-    }
+    verify_signed "$vdir/SHA256SUMS" "the release's cosign signature is not a valid signature by Denice's release workflow"
     rm -rf "$tmp/cosign" "$tmp/cosign-home"
     say "signature verified: signed by Denice's release workflow ($SIGNER_IDENTITY)"
 }
@@ -391,8 +401,12 @@ if [ -n "$from_zip" ]; then
 else
     need curl
     say "looking up Denice releases for $rid"
-    curl -fsSL -H 'Accept: application/vnd.github+json' -o "$tmp/releases.json" "$API_URL" \
-        || fail "cannot read the release list from $API_URL"
+    curl -fsSL -o "$tmp/releases.json" "$LIST_URL" || fail "cannot read the release list from $LIST_URL"
+    curl -fsSL -o "$tmp/releases.json.cosign.bundle" "$LIST_URL.cosign.bundle" \
+        || refuse "cannot read the release list's signature from $LIST_URL.cosign.bundle"
+    find_cosign
+    verify_signed "$tmp/releases.json" "the release list is not signed by Denice's release workflow"
+    say "release list verified: signed by Denice's release workflow"
     # The release list is newest first. Keep the download links of releases that are not drafts, in order; GitHub
     # writes each release's "draft" field before its assets.
     grep -o '"draft": *[a-z]*\|"browser_download_url": *"[^"]*"' "$tmp/releases.json" \
