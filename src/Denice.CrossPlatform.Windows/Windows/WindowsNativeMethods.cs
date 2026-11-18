@@ -41,6 +41,21 @@ internal static partial class WindowsNativeMethods
     /// <summary>OPEN_EXISTING: open the link only if it already exists.</summary>
     internal const uint OpenExisting = 3;
 
+    /// <summary>OPEN_ALWAYS: open the file, creating it when absent.</summary>
+    internal const uint OpenAlways = 4;
+
+    /// <summary>FILE_ATTRIBUTE_NORMAL: a plain file.</summary>
+    internal const uint FileAttributeNormal = 0x00000080;
+
+    /// <summary>LOCKFILE_EXCLUSIVE_LOCK: an exclusive (write) byte-range lock.</summary>
+    internal const uint LockfileExclusiveLock = 0x00000002;
+
+    /// <summary>LOCKFILE_FAIL_IMMEDIATELY: return at once instead of waiting for the lock.</summary>
+    internal const uint LockfileFailImmediately = 0x00000001;
+
+    /// <summary>ERROR_LOCK_VIOLATION: another handle holds a conflicting lock.</summary>
+    internal const int ErrorLockViolation = 33;
+
     /// <summary>FILE_FLAG_BACKUP_SEMANTICS: required to obtain a handle to a directory (a directory symlink).</summary>
     internal const uint FileFlagBackupSemantics = 0x02000000;
 
@@ -98,6 +113,27 @@ internal static partial class WindowsNativeMethods
         uint outBufferSize,
         out uint bytesReturned,
         IntPtr overlapped);
+
+    /// <summary>
+    /// Locks a byte range of an open file (<c>LockFileEx</c>), the lock Rust's <c>File::lock</c> takes on Windows.
+    /// </summary>
+    /// <param name="file">The open file.</param>
+    /// <param name="flags">The lock flags (for example <see cref="LockfileExclusiveLock"/>).</param>
+    /// <param name="reserved">Must be zero.</param>
+    /// <param name="bytesToLockLow">The low 32 bits of the range length.</param>
+    /// <param name="bytesToLockHigh">The high 32 bits of the range length.</param>
+    /// <param name="overlapped">Holds the range's start offset (zero here).</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/> with the last Win32 error set.</returns>
+    [LibraryImport("kernel32.dll", EntryPoint = "LockFileEx", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool LockFileEx(
+        SafeFileHandle file,
+        uint flags,
+        uint reserved,
+        uint bytesToLockLow,
+        uint bytesToLockHigh,
+        ref Overlapped overlapped);
 
     /// <summary>
     /// Reads a file/directory information class off an open handle — here <see cref="FileCaseSensitiveInfo"/>, whose

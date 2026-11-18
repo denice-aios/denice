@@ -17,7 +17,7 @@ fn has(spec: &str, key: &str, value: &str) -> bool {
 #[test]
 fn constants_equal_the_shared_protocol_file() {
     let spec = spec();
-    let expected: [(&str, String); 15] = [
+    let expected: [(&str, String); 16] = [
         ("restartIntoNewerVersion", EXIT_RESTART_INTO_NEWER_VERSION.to_string()),
         ("loaderReplaced", EXIT_LOADER_REPLACED.to_string()),
         ("installRoot", ENV_INSTALL_ROOT.to_owned()),
@@ -29,6 +29,7 @@ fn constants_equal_the_shared_protocol_file() {
         ("startedMarker", STARTED_MARKER.to_owned()),
         ("badMarker", BAD_MARKER.to_owned()),
         ("runningLock", RUNNING_LOCK.to_owned()),
+        ("installLock", INSTALL_LOCK.to_owned()),
         ("loaderStagingSuffix", LOADER_STAGING_SUFFIX.to_owned()),
         ("loaderBackupSuffix", LOADER_BACKUP_SUFFIX.to_owned()),
         ("runtimeAssembly", RUNTIME_ASSEMBLY.to_owned()),

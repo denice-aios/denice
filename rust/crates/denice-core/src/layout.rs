@@ -7,12 +7,26 @@
 
 use crate::platform;
 use crate::protocol::{
-    BAD_MARKER, LOADER_BACKUP_SUFFIX, LOADER_STAGING_SUFFIX, PARTIAL_SUFFIX, RUNNING_LOCK, STARTED_MARKER, VERSIONS_DIR,
+    BAD_MARKER, INSTALL_LOCK, LOADER_BACKUP_SUFFIX, LOADER_STAGING_SUFFIX, PARTIAL_SUFFIX, RUNNING_LOCK,
+    STARTED_MARKER, VERSIONS_DIR,
 };
 use crate::version::Version;
 use std::ffi::OsString;
 use std::io;
 use std::path::{Path, PathBuf};
+
+/// Keeps `versions/.lock` held exclusively until dropped (pkg-db4b63e03ad4): only one Denice at a time renames a version
+/// into place, swaps the loader, or removes the replaced loader.
+///
+/// The lock is the OS file lock std's `File::lock` takes: `flock(LOCK_EX)` on macOS and Linux, `LockFileEx` over the
+/// whole file on Windows. Denice Runtime (.NET) takes exactly the same lock on the same file (`IPlatformFileSystem.
+/// TryLockExclusive`), because these locks only exclude locks of their own kind: a .NET `FileStream.Lock` is an
+/// `fcntl` lock on Unix, which Linux keeps apart from `flock`, and a `FileShare.None` open on Windows is a share mode,
+/// which `LockFileEx` ignores.
+#[derive(Debug)]
+pub struct InstallLock {
+    _file: std::fs::File,
+}
 
 /// Keeps a version marked as running until dropped (the open, share-locked `.running` file is the mark).
 #[derive(Debug)]
@@ -198,6 +212,22 @@ impl InstallLayout {
         self.root.join(VERSIONS_DIR)
     }
 
+    /// Takes the install lock, `versions/.lock`, waiting for as long as another Denice holds it (there is no timeout:
+    /// the loader has no clock or timed wait, rust/RULES.md R6; a holder that dies releases the lock with it). Whoever
+    /// waited must check again what it came to do: the other Denice may have done it meanwhile.
+    ///
+    /// # Errors
+    /// Returns the file system error, naming the lock file.
+    pub fn lock_install(&self) -> io::Result<InstallLock> {
+        let dir = self.versions_dir();
+        let path = dir.join(INSTALL_LOCK);
+        let locked = std::fs::create_dir_all(&dir).and_then(|()| open_lock_file(&path)).and_then(|file| {
+            file.lock()?;
+            Ok(InstallLock { _file: file })
+        });
+        locked.map_err(|e| io::Error::new(e.kind(), format!("cannot take the install lock {}: {e}", path.display())))
+    }
+
     /// Every complete version folder that has not been marked bad, highest first.
     ///
     /// # Errors
@@ -272,7 +302,11 @@ impl InstallLayout {
 }
 
 fn open_running_lock(dir: &Path) -> io::Result<std::fs::File> {
-    std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(dir.join(RUNNING_LOCK))
+    open_lock_file(&dir.join(RUNNING_LOCK))
+}
+
+fn open_lock_file(path: &Path) -> io::Result<std::fs::File> {
+    std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(path)
 }
 
 fn remove_file_if_present(path: &Path) -> io::Result<()> {

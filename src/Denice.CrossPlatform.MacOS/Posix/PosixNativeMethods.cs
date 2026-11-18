@@ -1,6 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 namespace Denice.CrossPlatform.Posix;
 
@@ -25,4 +26,24 @@ internal static partial class PosixNativeMethods
     [LibraryImport("libc", EntryPoint = "rename", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     internal static partial int Rename(string oldPath, string newPath);
+
+    /// <summary>
+    /// Opens an existing file (<c>open(2)</c> without <c>O_CREAT</c>, so with no mode argument).
+    /// </summary>
+    /// <param name="path">The file to open.</param>
+    /// <param name="flags">The open flags.</param>
+    /// <returns>The descriptor, closed when disposed; invalid with <c>errno</c> set on failure.</returns>
+    [LibraryImport("libc", EntryPoint = "open", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    internal static partial SafeFileHandle Open(string path, int flags);
+
+    /// <summary>
+    /// Applies or removes an advisory lock on an open file (<c>flock(2)</c>), the lock Rust's <c>File::lock</c> takes.
+    /// </summary>
+    /// <param name="handle">The open file.</param>
+    /// <param name="operation">The lock operation (for example <c>LOCK_EX | LOCK_NB</c>).</param>
+    /// <returns>Zero on success; -1 with <c>errno</c> set on failure.</returns>
+    [LibraryImport("libc", EntryPoint = "flock", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    internal static partial int Flock(SafeFileHandle handle, int operation);
 }

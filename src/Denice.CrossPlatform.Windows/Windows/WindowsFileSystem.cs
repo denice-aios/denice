@@ -132,6 +132,39 @@ internal sealed partial class WindowsFileSystem : PlatformFileSystemBase, IPlatf
         return _shared.ProbeCaseSensitive(path);
     }
 
+    /// <inheritdoc/>
+    public IDisposable? TryLockExclusive(string lockPath)
+    {
+        // Opened as Rust's OpenOptions::new().create(true).write(true) opens it (OPEN_ALWAYS, all sharing allowed), so
+        // only the LockFileEx lock below decides who holds it.
+        SafeFileHandle handle = WindowsNativeMethods.CreateFile(
+            lockPath,
+            WindowsNativeMethods.GenericWrite,
+            WindowsNativeMethods.FileShareReadWriteDelete,
+            IntPtr.Zero,
+            WindowsNativeMethods.OpenAlways,
+            WindowsNativeMethods.FileAttributeNormal,
+            IntPtr.Zero);
+        if (handle.IsInvalid)
+        {
+            int openError = Marshal.GetLastPInvokeError();
+            handle.Dispose();
+            throw new IOException($"Cannot open the lock file '{lockPath}' (Win32 error {openError}).");
+        }
+
+        // The whole file, offset 0 and length 2^64-1: the range Rust's File::try_lock locks.
+        if (LockWholeFile(handle))
+        {
+            return handle;
+        }
+
+        int error = Marshal.GetLastPInvokeError();
+        handle.Dispose();
+        return error == WindowsNativeMethods.ErrorLockViolation
+            ? null
+            : throw new IOException($"Cannot lock '{lockPath}' (Win32 error {error}).");
+    }
+
     /// <summary>
     /// Creates the Windows file system, wired to the shared OS-uniform helper it routes its uniform calls through and
     /// the wrapper factory the shared base reads the OS-uniform symlink target through.
@@ -141,6 +174,20 @@ internal sealed partial class WindowsFileSystem : PlatformFileSystemBase, IPlatf
     /// <returns>The file system, as its interface.</returns>
     internal static IPlatformFileSystem Create(PlatformFileSystemShared shared, IFileInfoFactory factory) =>
         new WindowsFileSystem(shared, factory);
+
+    // The OVERLAPPED structure only carries the range's start offset (zero); the call completes at once
+    // (LOCKFILE_FAIL_IMMEDIATELY on a synchronous handle), so it lives on the stack.
+    private static bool LockWholeFile(SafeFileHandle handle)
+    {
+        var overlapped = default(Overlapped);
+        return WindowsNativeMethods.LockFileEx(
+            handle,
+            WindowsNativeMethods.LockfileExclusiveLock | WindowsNativeMethods.LockfileFailImmediately,
+            0,
+            uint.MaxValue,
+            uint.MaxValue,
+            ref overlapped);
+    }
 
     // Reads the NTFS per-directory case-sensitivity flag natively: open a handle to the directory (a directory needs
     // FILE_FLAG_BACKUP_SEMANTICS), query FileCaseSensitiveInfo, and test FILE_CS_FLAG_CASE_SENSITIVE_DIR. Returns false

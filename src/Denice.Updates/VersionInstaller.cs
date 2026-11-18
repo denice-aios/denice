@@ -25,6 +25,11 @@ public sealed class VersionInstaller
     private const string ChecksumsSignatureFile = "SHA256SUMS.cosign.bundle";
     private const string VersionsPrefix = LoaderProtocol.VersionsDirectory + "/";
 
+    /// <summary>How long an install waits for another Denice to release the install lock before giving up.</summary>
+    private static readonly TimeSpan InstallLockTimeout = TimeSpan.FromMinutes(2);
+
+    private static readonly TimeSpan InstallLockPoll = TimeSpan.FromMilliseconds(50);
+
     private readonly ISystemServices _services;
     private readonly string _installRoot;
     private readonly string _rid;
@@ -69,6 +74,7 @@ public sealed class VersionInstaller
     /// <param name="ct">Cancels the install; a cancelled install leaves only a <c>.partial</c> folder, never a version.</param>
     /// <returns>The outcome and the version it concerns.</returns>
     /// <exception cref="InvalidDataException">The release file is not a valid Denice release; nothing was installed.</exception>
+    /// <exception cref="IOException">Another Denice held the install lock for two minutes.</exception>
     public async Task<InstallOutcome> InstallAsync(ReadOnlyMemory<byte> releaseZip, CancellationToken ct)
     {
         using var archive = new ZipArchive(new MemoryStream(releaseZip.ToArray(), writable: false), ZipArchiveMode.Read);
@@ -79,6 +85,9 @@ public sealed class VersionInstaller
         IDirectoryEnumerator directories = _services.FileSystem.GetDirectoryReader();
         IDirectoryWriter directoryWriter = _services.FileSystem.GetDirectoryWriter();
 
+        // pkg-db4b63e03ad4: one Denice at a time turns a .partial folder into a version; one that waited checks again
+        // below, and finds the version the other installed.
+        using IDisposable installLock = await LockInstallAsync(versions, ct).ConfigureAwait(false);
         if (directories.DirectoryExists(final))
         {
             return new InstallOutcome(InstallResult.AlreadyInstalled, version);
@@ -125,6 +134,30 @@ public sealed class VersionInstaller
     private static bool IsSafeSegment(string segment) =>
         segment.Length > 0 && !string.Equals(segment, ".", StringComparison.Ordinal)
         && !string.Equals(segment, "..", StringComparison.Ordinal) && segment.IndexOfAny(['\\', ':']) < 0;
+
+    /// <summary>Takes <c>versions/.lock</c>, waiting up to <see cref="InstallLockTimeout"/> for another Denice to release it.</summary>
+    private async Task<IDisposable> LockInstallAsync(string versions, CancellationToken ct)
+    {
+        _services.FileSystem.GetDirectoryWriter().CreateDirectory(versions);
+        string lockPath = Path.Combine(versions, LoaderProtocol.InstallLock);
+        long started = _services.Clock.GetTimestamp();
+        while (true)
+        {
+            IDisposable? held = _services.Platform.FileSystem.TryLockExclusive(lockPath);
+            if (held is not null)
+            {
+                return held;
+            }
+
+            if (_services.Clock.GetElapsedTime(started) >= InstallLockTimeout)
+            {
+                throw new IOException(
+                    $"Another Denice held '{lockPath}' for {InstallLockTimeout.TotalSeconds:0} seconds (installing a version or replacing the loader); nothing was installed.");
+            }
+
+            await Task.Delay(InstallLockPoll, _services.Clock, ct).ConfigureAwait(false);
+        }
+    }
 
     private async Task UnpackAsync(ZipArchive archive, string version, string partial, CancellationToken ct)
     {

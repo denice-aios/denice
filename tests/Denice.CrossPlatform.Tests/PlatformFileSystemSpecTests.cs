@@ -35,6 +35,23 @@ public sealed class PlatformFileSystemSpecTests : IDisposable
     }
 
     [Fact]
+    public void TryLockExclusive_IsHeldByOneHolderAtATime_AndFreedWhenDisposed()
+    {
+        string lockPath = Path.Combine(root, ".lock");
+
+        using (IDisposable? first = fileSystem.TryLockExclusive(lockPath))
+        {
+            first.Should().NotBeNull();
+            services.FileSystem.GetFileReader().Exists(lockPath).Should().BeTrue();
+            using IDisposable? second = fileSystem.TryLockExclusive(lockPath);
+            second.Should().BeNull();
+        }
+
+        using IDisposable? again = fileSystem.TryLockExclusive(lockPath);
+        again.Should().NotBeNull();
+    }
+
+    [Fact]
     public void MakeLinkTarget_WhenLinkAbsent_CreatesTheLinkAtTheTarget()
     {
         MakeTargetDirectory("target-a");

@@ -31,6 +31,9 @@ pub const BAD_MARKER: &str = ".bad";
 /// Lock file a running version holds (shared) for its whole run; the loader removes an older version only when it can
 /// take this lock exclusively, so a version another Denice is still running is never deleted.
 pub const RUNNING_LOCK: &str = ".running";
+/// Lock file in the versions folder, held exclusively (by the loader, the entry and Denice Runtime alike) while a version
+/// is renamed into place, while the loader is swapped, and while the replaced loader is removed (pkg-db4b63e03ad4).
+pub const INSTALL_LOCK: &str = ".lock";
 /// Suffix of the new loader while it is being unpacked (Tim: "Unpack first (to denice.ver)").
 pub const LOADER_STAGING_SUFFIX: &str = ".ver";
 /// Suffix the running loader is renamed to during the swap (Tim: "rename current to old").

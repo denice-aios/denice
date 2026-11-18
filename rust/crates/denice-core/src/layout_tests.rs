@@ -222,3 +222,23 @@ fn an_older_folder_left_incomplete_is_removed_by_a_later_start() {
     );
     assert!(!older.dir.exists());
 }
+
+#[test]
+fn the_install_lock_is_held_by_one_denice_at_a_time() {
+    let dir = temp();
+    let layout = InstallLayout::new(dir.path());
+    let held = layout.lock_install().unwrap_or_else(|e| unreachable!("{e}"));
+    let other = open_lock_file(&layout.versions_dir().join(INSTALL_LOCK)).unwrap_or_else(|e| unreachable!("{e}"));
+    assert!(matches!(other.try_lock(), Err(std::fs::TryLockError::WouldBlock)));
+    drop(held);
+    assert!(other.try_lock().is_ok());
+}
+
+#[test]
+fn an_install_lock_that_cannot_be_taken_names_the_lock_file() {
+    let dir = temp();
+    std::fs::write(dir.path().join(VERSIONS_DIR), b"a file where the versions folder belongs")
+        .unwrap_or_else(|e| unreachable!("{e}"));
+    let err = InstallLayout::new(dir.path()).lock_install().err().unwrap_or_else(|| unreachable!());
+    assert!(err.to_string().contains(INSTALL_LOCK), "{err}");
+}
