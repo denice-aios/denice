@@ -27,7 +27,7 @@ KDE menu. Those are the manual checks below.
   so builds installed with it run. Do the Gatekeeper steps M1–M3 with a Developer ID build. With a test build, only
   write down what you saw.
 - **Windows:** SmartScreen ("Windows protected your PC", "Unknown publisher") and Smart App Control block test-signed
-  builds by design. That stays until trusted Windows signing exists (JARVIS work item work-223830d341c2; REQUIREMENTS
+  builds by design. That stays until trusted Windows signing exists (JARVIS work item work-e0f84110e096; REQUIREMENTS
   F13, SignPath). Do W1 and W3 with a trusted-signed build. With a test build, write down the block and the publisher
   name shown.
 
