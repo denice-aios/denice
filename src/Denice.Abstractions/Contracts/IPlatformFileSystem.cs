@@ -124,4 +124,17 @@ public interface IPlatformFileSystem
     /// <returns>The outcome, the signer fingerprint that was found, and a human-readable detail.</returns>
     /// <exception cref="ArgumentException">A pinned fingerprint is not a SHA-256 fingerprint.</exception>
     CodeSignatureCheck CheckCodeSignature(string path, IReadOnlyCollection<string> pinnedSignerSha256);
+
+    /// <summary>
+    /// Tries, without waiting, to take an exclusive lock on the file at <paramref name="lockPath"/>, creating the file
+    /// when it is absent. It is the very lock the Rust loader and entry take with std's <c>File::lock</c> on the same
+    /// file — <c>flock(LOCK_EX)</c> on macOS and Linux, <c>LockFileEx</c> over the whole file on Windows — because
+    /// these locks exclude only locks of their own kind: a <c>FileStream.Lock</c> is an <c>fcntl</c> lock on Unix,
+    /// which Linux keeps apart from <c>flock</c>, and a <c>FileShare.None</c> open on Windows is a share mode, which
+    /// <c>LockFileEx</c> ignores. Every handle holds its own lock, so two holders in one process exclude each other too.
+    /// </summary>
+    /// <param name="lockPath">The lock file.</param>
+    /// <returns>The held lock, released when disposed; <see langword="null"/> when another holder has it.</returns>
+    /// <exception cref="IOException">The lock file cannot be opened or locked for another reason.</exception>
+    IDisposable? TryLockExclusive(string lockPath);
 }

@@ -83,6 +83,28 @@ internal sealed class PlatformFileSystemShared
     internal void CreateDirectory(string path) => _directoryWriter.CreateDirectory(path);
 
     /// <summary>
+    /// Creates an empty file at <paramref name="path"/> when none exists, through the owned reader and writer. Another
+    /// process may create it at the same moment; that file is kept.
+    /// </summary>
+    /// <param name="path">The file path.</param>
+    internal void CreateFileIfMissing(string path)
+    {
+        if (_fileReader.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            _fileWriter.WriteAllText(path, string.Empty);
+        }
+        catch (IOException) when (_fileReader.Exists(path))
+        {
+            // Created by another process meanwhile.
+        }
+    }
+
+    /// <summary>
     /// Deletes the file at <paramref name="path"/> through the owned file writer.
     /// </summary>
     /// <param name="path">The file path to delete.</param>

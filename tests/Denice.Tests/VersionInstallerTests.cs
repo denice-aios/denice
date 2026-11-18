@@ -13,6 +13,7 @@ using Denice.Abstractions.Contracts;
 using Denice.TestHelpers;
 using Denice.Updates;
 using FluentAssertions;
+using Microsoft.Extensions.Time.Testing;
 using Xunit;
 
 namespace Denice.Tests;
@@ -286,6 +287,32 @@ public sealed class VersionInstallerTests
         await recording.InstallAsync(Release(WithDebugFile(Files())), CancellationToken.None);
 
         Encoding.UTF8.GetString(seenChecksums!).Should().Contain($"  {DebugFile}\n");
+    }
+
+    [Fact]
+    public async Task Install_WhileAnotherDeniceKeepsTheInstallLock_GivesUpAfterTwoMinutesWithAClearError()
+    {
+        var clock = new FakeTimeProvider();
+        DateTimeOffset start = clock.GetUtcNow();
+        ISystemServices waiting = SystemServicesBuilder.Real().SimulateFileSystem().With(clock).Build();
+        string waitingRoot = waiting.FileSystem.GetDirectoryWriter().CreateTempSubdirectory("denice-install-");
+        string lockPath = Path.Combine(waitingRoot, LoaderProtocol.VersionsDirectory, LoaderProtocol.InstallLock);
+        using IDisposable? held = waiting.Platform.FileSystem.TryLockExclusive(lockPath);
+
+        Task<InstallOutcome> install =
+            new VersionInstaller(waiting, waitingRoot, Rid, AcceptingCosign).InstallAsync(Release(Files()), CancellationToken.None);
+        for (int step = 0; step < 100_000 && !install.IsCompleted; step++)
+        {
+            install.IsCompleted.Should().BeFalse();
+            clock.Advance(TimeSpan.FromSeconds(1));
+            await Task.Yield();
+        }
+
+        (await install.Awaiting(task => task).Should().ThrowAsync<IOException>())
+            .WithMessage($"Another Denice held '*{LoaderProtocol.InstallLock}' for 120 seconds*nothing was installed.");
+        clock.GetUtcNow().Should().BeOnOrAfter(start + TimeSpan.FromMinutes(2));
+        waiting.FileSystem.GetDirectoryReader()
+            .DirectoryExists(Path.Combine(waitingRoot, LoaderProtocol.VersionsDirectory, Version)).Should().BeFalse();
     }
 
     [Fact]

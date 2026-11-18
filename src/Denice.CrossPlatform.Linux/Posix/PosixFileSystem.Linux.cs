@@ -15,6 +15,11 @@ namespace Denice.CrossPlatform.Posix;
 /// </summary>
 internal sealed partial class PosixFileSystem
 {
+    // open(2) O_CLOEXEC and errno EWOULDBLOCK on Linux (asm-generic/fcntl.h: 02000000 octal; asm-generic/errno-base.h:
+    // EAGAIN 11).
+    private const int OpenCloseOnExec = 0x80000;
+    private const int WouldBlockErrno = 11;
+
     /// <inheritdoc />
     // The owner's choice for Linux is exactly ~/.config/denice/ (the base is the home directory); XDG_CONFIG_HOME is
     // deliberately not consulted.

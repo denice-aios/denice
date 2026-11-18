@@ -38,6 +38,7 @@ public sealed class LoaderProtocolTests
         files.GetProperty("partialSuffix").GetString().Should().Be(LoaderProtocol.PartialSuffix);
         files.GetProperty("startedMarker").GetString().Should().Be(LoaderProtocol.StartedMarker);
         files.GetProperty("badMarker").GetString().Should().Be(LoaderProtocol.BadMarker);
+        files.GetProperty("installLock").GetString().Should().Be(LoaderProtocol.InstallLock);
         files.GetProperty("loaderStagingSuffix").GetString().Should().Be(LoaderProtocol.LoaderStagingSuffix);
         files.GetProperty("loaderBackupSuffix").GetString().Should().Be(LoaderProtocol.LoaderBackupSuffix);
         files.GetProperty("runtimeAssembly").GetString().Should().Be(LoaderProtocol.RuntimeAssembly);

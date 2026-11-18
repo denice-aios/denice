@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Denice.Abstractions.Contracts;
+using Microsoft.Win32.SafeHandles;
 
 namespace Denice.CrossPlatform.Posix;
 
@@ -25,6 +26,11 @@ internal sealed partial class PosixFileSystem : PlatformFileSystemBase, IPlatfor
 {
     private const UnixFileMode ExecuteBits =
         UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+
+    // open(2) O_RDWR and flock(2) LOCK_EX / LOCK_NB: the same values on macOS and Linux.
+    private const int OpenReadWrite = 2;
+    private const int LockExclusive = 2;
+    private const int LockNonBlocking = 4;
 
     private const string WindowsNotSupported =
         "The POSIX file system implementation does not run on Windows; the executable bit is a POSIX concept.";
@@ -136,6 +142,30 @@ internal sealed partial class PosixFileSystem : PlatformFileSystemBase, IPlatfor
         }
 
         return _shared.ProbeCaseSensitive(path);
+    }
+
+    /// <inheritdoc/>
+    public IDisposable? TryLockExclusive(string lockPath)
+    {
+        _shared.CreateFileIfMissing(lockPath);
+
+        // open(2) without O_CREAT takes no mode argument, so the variadic call is made with its fixed arguments only.
+        SafeFileHandle handle = PosixNativeMethods.Open(lockPath, OpenReadWrite | OpenCloseOnExec);
+        if (handle.IsInvalid)
+        {
+            int openError = Marshal.GetLastPInvokeError();
+            handle.Dispose();
+            throw new IOException($"Cannot open the lock file '{lockPath}' (errno {openError}).");
+        }
+
+        if (PosixNativeMethods.Flock(handle, LockExclusive | LockNonBlocking) == 0)
+        {
+            return handle;
+        }
+
+        int error = Marshal.GetLastPInvokeError();
+        handle.Dispose();
+        return error == WouldBlockErrno ? null : throw new IOException($"Cannot lock '{lockPath}' (errno {error}).");
     }
 
     /// <summary>

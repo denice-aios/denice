@@ -16,6 +16,7 @@
     "startedMarker": ".started",
     "badMarker": ".bad",
     "runningLock": ".running",
+    "installLock": ".lock",
     "loaderStagingSuffix": ".ver",
     "loaderBackupSuffix": ".old",
     "runtimeAssembly": "Denice.Runtime.dll",

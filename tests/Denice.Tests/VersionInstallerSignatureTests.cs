@@ -62,6 +62,37 @@ public sealed class VersionInstallerSignatureTests
     }
 
     [Fact]
+    public async Task TwoDeniceInstallingOneVersionAtOnce_InstallItOnce_AndTheOneThatWaitedFindsItInstalled()
+    {
+        // pkg-db4b63e03ad4: both start while the install lock is held, so they race for it the moment it is released.
+        string root = services.FileSystem.GetDirectoryWriter().CreateTempSubdirectory("denice-race-");
+        string versions = Path.Combine(root, LoaderProtocol.VersionsDirectory);
+        string final = Path.Combine(versions, Version);
+        byte[] release = SignedRelease();
+        ReleaseTrust trust = Trust(MacFixtureSigner, WindowsFixtureSigner);
+        services.FileSystem.GetDirectoryWriter().CreateDirectory(versions);
+        Task<InstallOutcome>[] installs;
+        using (IDisposable? held = services.Platform.FileSystem.TryLockExclusive(Path.Combine(versions, LoaderProtocol.InstallLock)))
+        {
+            held.Should().NotBeNull();
+            installs =
+            [
+                new VersionInstaller(services, root, Rid, trust).InstallAsync(release, CancellationToken.None),
+                new VersionInstaller(services, root, Rid, trust).InstallAsync(release, CancellationToken.None),
+            ];
+            await Task.Delay(TimeSpan.FromMilliseconds(300), services.Clock);
+            installs.Should().OnlyContain(install => !install.IsCompleted, "both wait while another Denice holds the lock");
+            services.FileSystem.GetDirectoryReader().DirectoryExists(final + LoaderProtocol.PartialSuffix).Should().BeFalse();
+        }
+
+        InstallOutcome[] outcomes = await Task.WhenAll(installs);
+
+        outcomes.Select(outcome => outcome.Result).Should().BeEquivalentTo([InstallResult.Installed, InstallResult.AlreadyInstalled]);
+        services.FileSystem.GetFileReader().Exists(Path.Combine(final, LoaderProtocol.EntryFileName(Version, Rid))).Should().BeTrue();
+        services.FileSystem.GetDirectoryReader().DirectoryExists(final + LoaderProtocol.PartialSuffix).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task AnUnsignedFileSharingTheEntrysPrefix_IsNotCodeSignatureChecked()
     {
         // The Rust entry's debug file (denice-v<version>-win-x64.pdb) was shipped once and refused as "not signed by

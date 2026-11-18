@@ -31,6 +31,8 @@ pub enum SwapStep {
     Activate,
     /// The target is not a loader (`denice` / `denice.exe`, or an `.app` on macOS); nothing was touched.
     NotALoader,
+    /// Taking the install lock (`versions/.lock`) failed; nothing was touched.
+    Lock,
 }
 
 impl fmt::Display for SwapError {
@@ -53,9 +55,16 @@ impl std::error::Error for SwapError {
 /// The running loader keeps running from its renamed file (allowed on every supported OS). `denice.old` is
 /// left for the new loader to delete once the old one has exited.
 ///
+/// The swap runs under the install lock, so two Denice never swap at once (pkg-db4b63e03ad4). One that waited for
+/// the lock finds `new_loader` already installed by the other and changes nothing.
+///
 /// # Errors
 /// Returns the failed step; the installed `denice` is then the original one.
 pub fn swap_in_loader(layout: &InstallLayout, new_loader: &Path) -> Result<(), SwapError> {
+    let _lock = layout.lock_install().map_err(|source| SwapError { step: SwapStep::Lock, source })?;
+    if same_tree(&layout.loader_path(), new_loader) {
+        return Ok(());
+    }
     swap_with(&RealFiles, layout, new_loader)
 }
 
@@ -117,10 +126,17 @@ fn swap_with(files: &dyn SwapFiles, layout: &InstallLayout, new_loader: &Path) -
 /// file cannot be deleted, so while the old loader is still waiting this fails quietly and the next start
 /// deletes it.
 ///
+/// The removal runs under the install lock, so it never meets a swap that is renaming the loader to `denice.old`.
+///
 /// Returns whether a leftover was removed.
 #[must_use]
 pub fn remove_previous_loader(layout: &InstallLayout) -> bool {
     let backup = layout.loader_backup_path();
+    if !backup.exists() {
+        return false;
+    }
+    let Ok(_lock) = layout.lock_install() else { return false };
+    // Checked again under the lock: another Denice may have removed it while this one waited.
     backup.exists() && remove_if_present(&backup).is_ok()
 }
 
@@ -131,6 +147,26 @@ fn remove_if_present(path: &Path) -> io::Result<()> {
         Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
         Err(e) => Err(e),
     }
+}
+
+/// Whether `a` and `b` hold the same file, or the same folder tree (a macOS app bundle), byte for byte.
+fn same_tree(a: &Path, b: &Path) -> bool {
+    let (Ok(meta_a), Ok(meta_b)) = (std::fs::metadata(a), std::fs::metadata(b)) else { return false };
+    if meta_a.is_dir() && meta_b.is_dir() {
+        let (Some(names_a), Some(names_b)) = (sorted_names(a), sorted_names(b)) else { return false };
+        names_a == names_b && names_a.iter().all(|name| same_tree(&a.join(name), &b.join(name)))
+    } else if meta_a.is_file() && meta_b.is_file() {
+        meta_a.len() == meta_b.len() && matches!((std::fs::read(a), std::fs::read(b)), (Ok(x), Ok(y)) if x == y)
+    } else {
+        false
+    }
+}
+
+fn sorted_names(dir: &Path) -> Option<Vec<std::ffi::OsString>> {
+    let mut names =
+        std::fs::read_dir(dir).ok()?.map(|e| e.map(|e| e.file_name())).collect::<io::Result<Vec<_>>>().ok()?;
+    names.sort();
+    Some(names)
 }
 
 /// Copies a file, or a folder tree (a macOS app bundle), keeping permissions.

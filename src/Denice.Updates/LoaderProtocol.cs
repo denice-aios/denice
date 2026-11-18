@@ -40,6 +40,12 @@ public static class LoaderProtocol
     /// <summary>Marker the loader writes in a version folder that failed to start.</summary>
     public const string BadMarker = ".bad";
 
+    /// <summary>
+    /// Lock file in the versions folder, held exclusively by whichever Denice is renaming a version into place, swapping
+    /// the loader, or removing the replaced loader (pkg-db4b63e03ad4).
+    /// </summary>
+    public const string InstallLock = ".lock";
+
     /// <summary>Suffix of the new loader while it is unpacked.</summary>
     public const string LoaderStagingSuffix = ".ver";
 

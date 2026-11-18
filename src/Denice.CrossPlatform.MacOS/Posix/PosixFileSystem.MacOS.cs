@@ -23,6 +23,10 @@ internal sealed partial class PosixFileSystem
     // macOS-only fragments rather than the link-shared source.
     private const int PosixCaseSensitiveName = 11;
 
+    // open(2) O_CLOEXEC and errno EWOULDBLOCK on macOS (sys/fcntl.h: 0x01000000; sys/errno.h: 35).
+    private const int OpenCloseOnExec = 0x01000000;
+    private const int WouldBlockErrno = 35;
+
     /// <inheritdoc />
     // macOS keeps per-user application data under ~/Library/Application Support (the owner's choice for Denice's
     // settings folder), so the base is the home directory.

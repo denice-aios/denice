@@ -24,6 +24,7 @@ namespace Denice.TestHelpers;
 internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
 {
     private readonly InMemoryFileSystemStore _store;
+    private readonly HashSet<string> _heldLocks = new(StringComparer.Ordinal);
 
     private ManagedPlatformFileSystem(InMemoryFileSystemStore store) => _store = store;
 
@@ -70,8 +71,41 @@ internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
     public CodeSignatureCheck CheckCodeSignature(string path, IReadOnlyCollection<string> pinnedSignerSha256) =>
         new(CodeSignatureStatus.NotApplicable, null, $"The simulated file system has no code signatures; '{path}' was not checked.");
 
+    /// <inheritdoc />
+    // The simulated lock excludes holders within this simulated file system, as the OS lock excludes every handle.
+    public IDisposable? TryLockExclusive(string lockPath)
+    {
+        lock (_heldLocks)
+        {
+            return _heldLocks.Add(lockPath) ? new HeldLock(() => Release(lockPath)) : null;
+        }
+    }
+
     /// <summary>Creates the platform view over the given shared overlay.</summary>
     /// <param name="store">The shared copy-on-write overlay the link operations read and write.</param>
     /// <returns>The platform file system, as its interface.</returns>
     internal static IPlatformFileSystem Create(InMemoryFileSystemStore store) => new ManagedPlatformFileSystem(store);
+
+    private void Release(string lockPath)
+    {
+        lock (_heldLocks)
+        {
+            _heldLocks.Remove(lockPath);
+        }
+    }
+
+    /// <summary>A simulated lock, released once when disposed.</summary>
+    private sealed class HeldLock(Action release) : IDisposable
+    {
+        private bool _released;
+
+        public void Dispose()
+        {
+            if (!_released)
+            {
+                _released = true;
+                release();
+            }
+        }
+    }
 }
