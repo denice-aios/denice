@@ -9,6 +9,11 @@ internal static partial class MacNative
 {
     private const string ObjC = "/usr/lib/libobjc.A.dylib";
 
+    // x86_64 returns a 32-byte CGRect through hidden memory and requires objc_msgSend_stret; arm64 has no
+    // objc_msgSend_stret and returns CGRect, a homogeneous aggregate of four doubles, in registers through objc_msgSend.
+    // The runtime exports objc_msgSend_stret exactly where the indirect convention applies.
+    private static readonly bool RectReturnedIndirectly = NativeLibrary.TryGetExport(NativeLibrary.Load(ObjC), "objc_msgSend_stret", out _);
+
     /// <summary>Calls the native Cocoa or Metal operation with its ABI-compatible signature.</summary>
     /// <param name="name">The native runtime name.</param>
     /// <returns>The created object or native operation result.</returns>
@@ -144,12 +149,21 @@ internal static partial class MacNative
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
     internal static partial byte GetBool(nint obj, nint sel);
 
-    /// <summary>Calls the native Cocoa or Metal operation with its ABI-compatible signature.</summary>
+    /// <summary>Reads an Objective-C property that returns a rectangle, using the struct-return convention of the running architecture.</summary>
     /// <param name="rect">The native rectangle.</param>
     /// <param name="obj">The native receiver.</param>
     /// <param name="sel">The registered Objective-C selector.</param>
-    [LibraryImport(ObjC, EntryPoint = "objc_msgSend_stret")]
-    internal static partial void GetRect(out Rect rect, nint obj, nint sel);
+    internal static void GetRect(out Rect rect, nint obj, nint sel)
+    {
+        if (RectReturnedIndirectly)
+        {
+            GetRectIndirect(out rect, obj, sel);
+        }
+        else
+        {
+            rect = GetRectDirect(obj, sel);
+        }
+    }
 
     /// <summary>Calls the native Cocoa or Metal operation with its ABI-compatible signature.</summary>
     /// <param name="super">The Objective-C superclass dispatch record.</param>
@@ -207,6 +221,12 @@ internal static partial class MacNative
             Call(obj, "release");
         }
     }
+
+    [LibraryImport(ObjC, EntryPoint = "objc_msgSend_stret")]
+    private static partial void GetRectIndirect(out Rect rect, nint obj, nint sel);
+
+    [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
+    private static partial Rect GetRectDirect(nint obj, nint sel);
 
     /// <summary>Native Cocoa value layout.</summary>
     [StructLayout(LayoutKind.Sequential)]
