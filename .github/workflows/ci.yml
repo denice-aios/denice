@@ -1282,7 +1282,7 @@ jobs:
       contents: read
       actions: read
     with:
-      target: hosted-both
+      target: ${{ vars.DENICE_GPU_PROOF_TARGET }}
       windows_check: hardware-fixtures
       linux_check: hardware-fixtures
       build_run_id: ${{ vars.DENICE_GPU_PROOF_BUILD_RUN }}

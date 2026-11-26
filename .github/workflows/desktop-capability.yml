@@ -36,7 +36,7 @@ on:
         default: application
         required: true
       build_run_id:
-        description: Successful CI run for application artifacts/source; 0 inventories or builds explicitly selected Windows fixtures
+        description: CI run for source/artifacts; application requires success, isolated fixtures require source/target jobs
         type: string
         default: '0'
         required: true
@@ -82,6 +82,7 @@ jobs:
           set -euo pipefail
           [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'build_run_id must be an integer.' >&2; exit 2; }
           if [[ "$INVOKING_EVENT" == pull_request ]]; then
+            [[ "$TARGET" == hosted-windows || "$TARGET" == hosted-linux || "$TARGET" == hosted-both ]] || { echo 'Invalid approved proof target.' >&2; exit 2; }
             [[ "$INVOKING_ACTION" == labeled && "$INVOKING_LABEL" == denice-first-gpu-proof && "$INVOKING_PR" == "$APPROVED_PR" && "$INVOKING_HEAD" == "$APPROVED_HEAD" && "$INVOKING_REPOSITORY" == "$REPOSITORY" && "$BUILD_RUN_ID" == "$APPROVED_RUN" ]] || { echo 'First-proof approval identity mismatch.' >&2; exit 2; }
           fi
           if [[ "$TARGET" == windows-sandbox ]]; then
@@ -100,7 +101,21 @@ jobs:
           fi
           if [[ "$BUILD_RUN_ID" != 0 ]]; then
             gh api "repos/$REPOSITORY/actions/runs/$BUILD_RUN_ID" > build-run.json
-            jq -e '.conclusion == "success" and .path == ".github/workflows/ci.yml"' build-run.json >/dev/null
+            jq -e '.path == ".github/workflows/ci.yml"' build-run.json >/dev/null
+            application_selected=false
+            [[ "$TARGET" != hosted-linux && "$WINDOWS_CHECK" == application ]] && application_selected=true
+            [[ ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) && "$LINUX_CHECK" == application ]] && application_selected=true
+            if [[ "$application_selected" == true ]]; then
+              jq -e '.conclusion == "success"' build-run.json >/dev/null
+            fi
+            if [[ ( "$TARGET" != hosted-linux && "$WINDOWS_CHECK" == hardware-fixtures ) || ( ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) && "$LINUX_CHECK" == hardware-fixtures ) ]]; then
+              gh api --paginate --slurp "repos/$REPOSITORY/actions/runs/$BUILD_RUN_ID/jobs?per_page=100" > source-jobs.json
+              jq -e '[.[].jobs[] | select(.name == "version")] | length == 1 and .[0].conclusion == "success"' source-jobs.json >/dev/null
+              if [[ ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) && "$LINUX_CHECK" == hardware-fixtures ]]; then
+                jq -e '[.[].jobs[] | select(.name == "linux-media (linux-x64, ubuntu-24.04)")] | length == 1 and .[0].conclusion == "success"' source-jobs.json >/dev/null
+              fi
+              printf 'Isolated fixtures use validated source/target artifacts; ordinary CI conclusion is %s and remains a separate release gate.\n' "$(jq -r '.conclusion // .status' build-run.json)" >> "$GITHUB_STEP_SUMMARY"
+            fi
             build_sha=$(jq -r .head_sha build-run.json)
             if [[ "$LINUX_CHECK" == hardware-fixtures || "$WINDOWS_CHECK" == hardware-fixtures ]]; then
               gh run download "$BUILD_RUN_ID" --repo "$REPOSITORY" --name ci-source --dir media-source
@@ -123,7 +138,7 @@ jobs:
               gh run download "$BUILD_RUN_ID" --repo "$REPOSITORY" --name linux-media-source-linux-x64 --dir native-media-source
               cmp media-source/source.json native-media-source/source.json
             fi
-            printf 'Application artifact comes from CI run %s, commit %s.\n' "$BUILD_RUN_ID" "$(jq -r .head_sha build-run.json)" >> "$GITHUB_STEP_SUMMARY"
+            printf 'Selected source/artifacts come from CI run %s, commit %s.\n' "$BUILD_RUN_ID" "$(jq -r .head_sha build-run.json)" >> "$GITHUB_STEP_SUMMARY"
           fi
           if [[ "$WINDOWS_CHECK" == hardware-fixtures && "$TARGET" != hosted-linux ]]; then
             echo 'Windows fixtures cover isolated win-x64 graphics and decoded hardware video. Product CEF callback safety/audio and ARM64 execution remain separate.' >> "$GITHUB_STEP_SUMMARY"
