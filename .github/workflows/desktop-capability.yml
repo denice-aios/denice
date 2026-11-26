@@ -465,9 +465,21 @@ jobs:
           cp downloaded-fixtures/linux-hardware-fixtures.tar.gz.sha256 evidence/
           bash eng/run-linux-desktop-smoke.sh --fixture-extract downloaded-fixtures/linux-hardware-fixtures.tar.gz payload
           bash eng/run-linux-desktop-smoke.sh --fixture-verify payload "$EXPECTED_FIXTURE_COMMIT"
+      - name: Start ephemeral Xorg on the NVIDIA GPU (probes first; installs nothing; never Xvfb)
+        if: inputs.linux_check == 'hardware-fixtures'
+        run: |
+          bash eng/start-linux-gpu-xorg.sh start evidence :99
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - name: Execute isolated linux-x64 hardware fixtures
         if: inputs.linux_check == 'hardware-fixtures'
         run: bash eng/run-linux-desktop-smoke.sh payload evidence --hardware-fixtures
+      - name: Require the NVIDIA hardware renderer in fixture evidence
+        if: inputs.linux_check == 'hardware-fixtures'
+        run: |
+          grep -E 'GL renderer: .*(NVIDIA|Tesla)' evidence/hardware.trx
+      - name: Stop ephemeral Xorg
+        if: always() && inputs.linux_check == 'hardware-fixtures'
+        run: bash eng/start-linux-gpu-xorg.sh stop evidence
       - name: Preserve evidence even after failure
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
