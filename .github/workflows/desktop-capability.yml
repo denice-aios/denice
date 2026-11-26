@@ -103,7 +103,7 @@ jobs:
             jq -e '.conclusion == "success" and .path == ".github/workflows/ci.yml"' build-run.json >/dev/null
             build_sha=$(jq -r .head_sha build-run.json)
             if [[ "$LINUX_CHECK" == hardware-fixtures || "$WINDOWS_CHECK" == hardware-fixtures ]]; then
-              gh run download "$BUILD_RUN_ID" --repo "$REPOSITORY" --name linux-media-source-linux-x64 --dir media-source
+              gh run download "$BUILD_RUN_ID" --repo "$REPOSITORY" --name ci-source --dir media-source
               jq -e --arg repository "$REPOSITORY" --arg run "$BUILD_RUN_ID" --arg head "$build_sha" '.repository == $repository and .run_id == $run and .head_sha == $head and (.checkout_sha | test("^[0-9a-f]{40}$")) and (.base_sha | test("^[0-9a-f]{40}$"))' media-source/source.json >/dev/null
               if [[ "$INVOKING_EVENT" == pull_request ]]; then
                 jq -e --arg pr "$APPROVED_PR" --arg head "$APPROVED_HEAD" '.pr == $pr and .head_sha == $head' media-source/source.json >/dev/null
@@ -120,6 +120,8 @@ jobs:
             if [[ "$LINUX_CHECK" == hardware-fixtures && ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) ]]; then
               gh api --paginate --slurp "repos/$REPOSITORY/actions/runs/$BUILD_RUN_ID/artifacts?per_page=100" > media-artifacts.json
               jq -e --arg sha "$(jq -r .head_sha build-run.json)" '[.[].artifacts[] | select(.name == "linux-media-linux-x64")] | length == 1 and .[0].expired == false and .[0].workflow_run.head_sha == $sha' media-artifacts.json >/dev/null || { echo 'Expected one unexpired linux-media-linux-x64 artifact from the selected source SHA.' >&2; exit 2; }
+              gh run download "$BUILD_RUN_ID" --repo "$REPOSITORY" --name linux-media-source-linux-x64 --dir native-media-source
+              cmp media-source/source.json native-media-source/source.json
             fi
             printf 'Application artifact comes from CI run %s, commit %s.\n' "$BUILD_RUN_ID" "$(jq -r .head_sha build-run.json)" >> "$GITHUB_STEP_SUMMARY"
           fi

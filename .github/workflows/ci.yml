@@ -55,6 +55,7 @@ env:
 
 jobs:
   version:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     outputs:
       day: ${{ steps.id.outputs.day }}
@@ -89,6 +90,23 @@ jobs:
         # pull_request => channel 'pr-<number>' (pr-build-version-channel: a PR build is not a pre-release, and the
         # number makes each build's evidence identifiable). push to dev => 'dev'; push to main => '' (no prerelease).
         run: eng/compute-build-id.sh "${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref == 'refs/heads/dev' && 'dev' || '') }}"
+      - name: Capture immutable ordinary CI checkout provenance
+        env:
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+          SOURCE_PR: ${{ github.event.pull_request.number || 0 }}
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/denice-media-source"
+          jq -n --arg repository "$SOURCE_REPOSITORY" --arg run "$SOURCE_RUN_ID" --arg pr "$SOURCE_PR" --arg head "$SOURCE_HEAD" --arg base "$SOURCE_BASE" --arg checkout "$(git rev-parse HEAD)" '{repository:$repository,run_id:$run,pr:$pr,head_sha:$head,base_sha:$base,checkout_sha:$checkout}' > "$RUNNER_TEMP/denice-media-source/source.json"
+      - name: Retain immutable ordinary CI source provenance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-source
+          path: ${{ runner.temp }}/denice-media-source/source.json
+          if-no-files-found: error
+          retention-days: 1
 
   macos:
     needs: version
@@ -198,7 +216,7 @@ jobs:
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
         # binaries or signing material — a different risk class than the push-only signed artifacts below.
-        if: always()
+        if: always() && github.event.action != 'labeled'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: evidence-macos
@@ -739,16 +757,13 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Capture immutable native-media checkout provenance
-        env:
-          SOURCE_REPOSITORY: ${{ github.repository }}
-          SOURCE_RUN_ID: ${{ github.run_id }}
-          SOURCE_PR: ${{ github.event.pull_request.number || 0 }}
-          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-          SOURCE_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/denice-media-source"
-          jq -n --arg repository "$SOURCE_REPOSITORY" --arg run "$SOURCE_RUN_ID" --arg pr "$SOURCE_PR" --arg head "$SOURCE_HEAD" --arg base "$SOURCE_BASE" --arg checkout "$(git rev-parse HEAD)" '{repository:$repository,run_id:$run,pr:$pr,head_sha:$head,base_sha:$base,checkout_sha:$checkout}' > "$RUNNER_TEMP/denice-media-source/source.json"
+      - name: Obtain ordinary CI source provenance
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ci-source
+          path: ${{ runner.temp }}/denice-media-source
+      - name: Bind media bytes to the captured checkout
+        run: jq -e --arg sha "$(git rev-parse HEAD)" '.checkout_sha == $sha' "$RUNNER_TEMP/denice-media-source/source.json" >/dev/null
       - name: Cache pinned native media payload
         id: media-cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -945,6 +960,7 @@ jobs:
   # "Publish pre-release"): it stays red, visible on every run, until every requirement row has proof; neither the
   # gate nor the release waits for it, because the release rows can only be proven from a published release.
   requirements:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

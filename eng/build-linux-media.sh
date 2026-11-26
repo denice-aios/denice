@@ -170,7 +170,8 @@ home_dir = '$build/home'
 prefix = '$prefix'
 sources = '$build/cerbero-sources'
 local_sources = '$build/cerbero-downloads'
-variants = ['nopython', 'nogi', 'norust', 'noqt5', 'noqt6', 'nounwind', 'notestspackage']
+# Cerbero injects its mutable Variants object; assigning a new list is ignored.
+variants.override(['nopython', 'nogi', 'norust', 'noqt5', 'noqt6', 'nounwind', 'notestspackage'])
 use_ccache = False
 CBC
 (
