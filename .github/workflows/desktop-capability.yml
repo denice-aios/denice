@@ -167,8 +167,10 @@ jobs:
           Copy-Item global.json fixture-payload/global.json
           $sdk = Join-Path $PWD 'fixture-payload/dotnet'
           Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP/dotnet-install.ps1"
-          & "$env:RUNNER_TEMP/dotnet-install.ps1" -JSonFile "$PWD/global.json" -Architecture x64 -InstallDir $sdk
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$env:RUNNER_TEMP/dotnet-install.ps1" -JSonFile "$PWD/global.json" -Architecture x64 -InstallDir $sdk 2>&1 | Tee-Object evidence/windows-fixture-sdk-install.txt
           if ($LASTEXITCODE -ne 0) { throw 'Pinned SDK installation failed.' }
+          $installed = & "$sdk/dotnet.exe" --version
+          if ($LASTEXITCODE -ne 0 -or $installed -ne (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version) { throw 'Staged SDK does not match global.json.' }
           & "$sdk/dotnet.exe" publish tests/Denice.CrossPlatform.Tests/Denice.CrossPlatform.Tests.csproj -c Release -r win-x64 --self-contained true -p:DeniceDesktopGpuTests=true -m:1 -o fixture-payload/tests -bl:evidence/windows-fixture-build.binlog
           if ($LASTEXITCODE -ne 0) { throw 'Windows fixture publication failed.' }
           @("fixture_commit=$(git rev-parse HEAD)", 'rid=win-x64', "sdk=$(& "$sdk/dotnet.exe" --version)", 'check=isolated-hardware-fixtures') | Set-Content fixture-payload/fixture-source.txt

@@ -216,7 +216,7 @@ jobs:
         # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
         # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
         # binaries or signing material — a different risk class than the push-only signed artifacts below.
-        if: always() && github.event.action != 'labeled'
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: evidence-macos
@@ -946,7 +946,7 @@ jobs:
   # skipped or failed OS job cannot green it.
   gate:
     needs: [macos, windows, linux]
-    if: always()
+    if: always() && github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
       - name: Assert every OS job succeeded

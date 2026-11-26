@@ -120,7 +120,12 @@ for tool in python3 curl tar gcc g++ pkg-config patchelf readelf make jq sha256s
   command -v "$tool" >/dev/null || die "Missing build prerequisite: $tool"
 done
 [[ ! -f "$HOME/.cerbero/cerbero.cbc" ]] || die 'Use a clean build account without a personal Cerbero configuration.'
-pkg-config --exists egl glesv2 x11 xext xfixes x11-xcb xcb xcb-dri3 || die 'Install EGL/GLES/X11/XCB development prerequisites in the build image.'
+system_pc_modules=(egl glesv2 x11 xext xfixes x11-xcb xcb xcb-dri3)
+pkg-config --exists "${system_pc_modules[@]}" || die 'Install EGL/GLES/X11/XCB development prerequisites in the build image.'
+# Preserve the pinned image's development paths before Cerbero's pkg-config
+# replaces the system tool; its own default paths contain only its build prefix.
+system_pc_path=$(pkg-config --variable=pc_path pkg-config)
+[[ -n "$system_pc_path" ]] || die 'System pkg-config did not report its development search paths.'
 root=$(cd "$(dirname "$0")/.." && pwd)
 work=${work:-"$root/artifacts/linux-media-build"}
 mkdir -p "$work" "$(dirname "$output")"
@@ -136,7 +141,7 @@ fi
 # .cbc uses stock Python assignment syntax. Restrict build paths so shell-written
 # quoted assignments remain literal, rather than generating executable code.
 [[ "$work" != *"'"* && "$work" != *'\'* && "$work" != *$'\n'* ]] || die 'Build path cannot contain quotes, backslashes or newlines.'
-key=$( { cat "$0"; gcc -v 2>&1; g++ -v 2>&1; sha256sum "$(command -v gcc)" "$(command -v g++)"; pkg-config --modversion egl glesv2 x11 xext xfixes x11-xcb xcb xcb-dri3; if command -v rpm >/dev/null; then rpm -qa | sort; fi; } | sha256sum | cut -d' ' -f1)
+key=$( { cat "$0"; gcc -v 2>&1; g++ -v 2>&1; sha256sum "$(command -v gcc)" "$(command -v g++)"; pkg-config --modversion "${system_pc_modules[@]}"; if command -v rpm >/dev/null; then rpm -qa | sort; fi; } | sha256sum | cut -d' ' -f1)
 build="$work/$rid-$key"; prefix="$build/prefix"
 mkdir -p "$build" "$work/downloads"
 if [[ -n "$notices" ]]; then
@@ -185,9 +190,10 @@ CBC
 # Process-local build search paths. No application/user environment is changed.
 export PATH="$build/home/build-tools/bin:$PATH"
 export CC="$(command -v gcc)" CXX="$(command -v g++)"
-export PKG_CONFIG_PATH="$prefix/lib/pkgconfig:$prefix/lib64/pkgconfig:$prefix/lib/$triplet/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+export PKG_CONFIG_PATH="$prefix/lib/pkgconfig:$prefix/lib64/pkgconfig:$prefix/lib/$triplet/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}:$system_pc_path"
 export LD_LIBRARY_PATH="$prefix/lib:$prefix/lib64:$prefix/lib/$triplet${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 command -v meson >/dev/null || die 'Cerbero did not produce its Meson build tool.'
+pkg-config --exists "${system_pc_modules[@]}" || die 'The selected media pkg-config cannot resolve the pinned image EGL/GLES/X11/XCB development dependencies.'
 build_meson() {
   local name=$1 source=$2; shift 2
   if [[ -f "$build/meson-$name/meson-private/coredata.dat" ]]; then
