@@ -58,6 +58,11 @@
       Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&lt;plist version=&quot;1.0&quot;&gt;&lt;dict&gt;&lt;key&gt;CFBundleExecutable&lt;/key&gt;&lt;string&gt;Denice.CrossPlatform.Tests&lt;/string&gt;&lt;key&gt;CFBundleIdentifier&lt;/key&gt;&lt;string&gt;ai.denice.desktop-tests&lt;/string&gt;&lt;key&gt;CFBundlePackageType&lt;/key&gt;&lt;string&gt;APPL&lt;/string&gt;&lt;/dict&gt;&lt;/plist&gt;" />
   </Target>
 
+  <!-- Windows desktop behavior that needs no graphics adapter runs on every Windows test leg. -->
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('win')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Windows')))">
+    <Compile Remove="DesktopBehaviorTests.Windows.cs" />
+  </ItemGroup>
+
   <!-- Native GPU proof is explicitly selected on a Windows graphics runner, not ordinary unit-test hosts. -->
   <ItemGroup Condition="'$(DeniceDesktopGpuTests)' != 'true' or !$(DenicePlatformRid.StartsWith('win'))">
     <Compile Remove="DesktopGpuTests.Windows.cs" />
