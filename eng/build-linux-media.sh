@@ -89,9 +89,10 @@ export PATH="/opt/python/cp311-cp311/bin:$PATH"
 # Restrict installs to CentOS repositories: ARM has no EPEL, and an expired
 # unrelated EPEL mirror must not block installation of graphics headers.
 fixup-mirrors
+# Cerbero bootstraps CMake with HTTPS support; its bundled curl needs OpenSSL headers.
 yum --disablerepo='*' --enablerepo=base,updates install -y \
   mesa-libEGL-devel mesa-libGLES-devel libX11-devel libXext-devel libXfixes-devel \
-  libxcb-devel binutils flex bison gettext-devel
+  libxcb-devel binutils flex bison gettext-devel openssl-devel
 # jq is not in the CentOS-7 base repository. Upstream publishes statically linked
 # binaries for both native architectures; checksums are pinned release metadata.
 case "$(uname -m)" in

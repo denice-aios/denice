@@ -85,7 +85,7 @@ esac
 #    (agent-guard issue #56).
 # shellcheck disable=SC2086
 "$DOTNET" publish "$REPO_ROOT/src/Denice.Runtime/Denice.Runtime.csproj" -c Release -r "$RID" --self-contained -m:1 \
-  -o "$VERSION_DIR" "${native_publish_args[@]}" $VERSION_ARGS ${DENICE_DOTNET_ARGS:-}
+  -o "$VERSION_DIR" ${native_publish_args[@]+"${native_publish_args[@]}"} $VERSION_ARGS ${DENICE_DOTNET_ARGS:-}
 
 bash "$REPO_ROOT/eng/check-desktop-native.sh" "$VERSION_DIR" "$RID"
 

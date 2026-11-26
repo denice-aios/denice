@@ -23,7 +23,7 @@ check_binary() {
   require_file "$1"
   local description
   description="$(file -b "$ROOT/$1")"
-  if [[ "$description" != *"$KIND"* || "$description" != *"$ARCH"* ]]; then
+  if [[ "$description" != *"$KIND"* || ( "$description" != *"$ARCH"* && ! ( "$RID" == win-arm64 && "$description" == *ARM64* ) ) ]]; then
     echo "desktop-native: wrong native architecture for $RID: $1: $description" >&2
     exit 1
   fi
