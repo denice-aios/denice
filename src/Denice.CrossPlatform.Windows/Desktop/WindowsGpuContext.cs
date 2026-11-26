@@ -95,8 +95,7 @@ internal sealed class WindowsGpuContext : IDisposable
     /// <returns>The thread-affine context owner.</returns>
     internal static WindowsGpuContext Create()
     {
-        var device = D3D11.D3D11CreateDevice(DriverType.Hardware, DeviceCreationFlags.BgraSupport | DeviceCreationFlags.VideoSupport, FeatureLevel.Level_11_1, FeatureLevel.Level_11_0);
-        var result = new WindowsGpuContext(device);
+        var result = new WindowsGpuContext(CreateHardwareDevice());
         try
         {
             result.Initialize();
@@ -191,7 +190,9 @@ internal sealed class WindowsGpuContext : IDisposable
     /// <param name="destination">The logical destination rectangle.</param>
     internal void DrawTexture(ID3D11Texture2D texture, SKCanvas canvas, SKRect source, SKRect destination)
     {
-        nint image = AngleNative.CreateImage(_display, 0, 0x33A3, texture.NativePointer, [0x3038]);
+        // EGL_D3D11_TEXTURE_ANGLE (EGL_ANGLE_image_d3d11_texture). EGL_D3D_TEXTURE_ANGLE (0x33A3) is only a pbuffer
+        // client-buffer type; eglCreateImageKHR rejects it with EGL_BAD_PARAMETER (run 45906718383).
+        nint image = AngleNative.CreateImage(_display, 0, 0x3484, texture.NativePointer, [0x3038]);
         Require(image == 0 ? 0 : 1, "import the owned browser D3D11 texture");
         uint name = 0;
         try
@@ -230,6 +231,56 @@ internal sealed class WindowsGpuContext : IDisposable
             CleanupFailed |= AngleNative.DestroyImage(_display, image) == 0;
             Skia.ResetContext();
         }
+    }
+
+    /// <summary>Creates the device on the first DXGI adapter that is not a software rasterizer.</summary>
+    /// <returns>The hardware device.</returns>
+    /// <remarks>
+    /// The default device selected Microsoft Basic Render Driver in the hosted Windows fixture run.
+    /// Enumerating adapters explicitly prevents that software device from satisfying the hardware requirement.
+    /// </remarks>
+    private static ID3D11Device CreateHardwareDevice()
+    {
+        using IDXGIFactory1 factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
+        var rejected = new List<string>();
+        bool enumerated = true;
+        uint index = 0;
+        while (enumerated)
+        {
+            IDXGIAdapter1? adapter = null;
+            try
+            {
+                enumerated = factory.EnumAdapters1(index++, out adapter).Success;
+                if (!enumerated || adapter is null)
+                {
+                    continue;
+                }
+
+                AdapterDescription1 description = adapter.Description1;
+                string name = string.Create(CultureInfo.InvariantCulture, $"{description.Description} (vendor=0x{description.VendorId:X4}; device=0x{description.DeviceId:X4})");
+                bool basicRender = description.VendorId == 0x1414 && description.DeviceId == 0x008C;
+                if ((description.Flags & AdapterFlags.Software) == AdapterFlags.Software || basicRender)
+                {
+                    rejected.Add(name + ": software adapter");
+                    continue;
+                }
+
+                SharpGen.Runtime.Result created = D3D11.D3D11CreateDevice(adapter, DriverType.Unknown, DeviceCreationFlags.BgraSupport | DeviceCreationFlags.VideoSupport, [FeatureLevel.Level_11_1, FeatureLevel.Level_11_0], out ID3D11Device? device);
+                if (created.Success && device is not null)
+                {
+                    return device;
+                }
+
+                device?.Dispose();
+                rejected.Add(string.Create(CultureInfo.InvariantCulture, $"{name}: D3D11CreateDevice HRESULT 0x{created.Code:X8}"));
+            }
+            finally
+            {
+                adapter?.Dispose();
+            }
+        }
+
+        throw new InvalidOperationException("No hardware D3D11 adapter with video support is available; software rendering is not substituted. Adapters: " + (rejected.Count == 0 ? "none" : string.Join("; ", rejected)) + ".");
     }
 
     private static void Require(int result, string operation)

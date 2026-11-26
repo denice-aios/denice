@@ -9,6 +9,7 @@ param(
     [switch]$HardwareFixtures
 )
 $ErrorActionPreference = 'Stop'
+# Windows PowerShell 5.1 loses ExitCode for a redirected Start-Process unless the handle is opened while it runs (run 45906718383).
 if ($env:OS -ne 'Windows_NT') { throw 'Windows is required.' }
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $output = [IO.Path]::GetFullPath($OutputDirectory)
@@ -29,6 +30,7 @@ if ($HardwareFixtures) {
         '--Logger:"trx;LogFileName=hardware.trx"'
     ) -RedirectStandardOutput (Join-Path $output 'hardware-fixtures.stdout.txt') `
       -RedirectStandardError (Join-Path $output 'hardware-fixtures.stderr.txt') -PassThru
+    $null = $process.Handle
     try {
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) { throw "Hardware fixtures exceeded $TimeoutSeconds seconds." }
         if ($process.ExitCode -ne 0) { throw "Hardware fixtures exited $($process.ExitCode)." }
@@ -57,6 +59,7 @@ $process = Start-Process -FilePath $entry.FullName -WorkingDirectory $entry.Dire
     -ArgumentList @('gui', '--duration', $duration, '--record', ('"' + $video + '"')) `
     -RedirectStandardOutput (Join-Path $output 'application.stdout.txt') `
     -RedirectStandardError (Join-Path $output 'application.stderr.txt') -PassThru
+$null = $process.Handle
 try {
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
         throw "DENICE exceeded $TimeoutSeconds seconds; partial evidence is preserved."

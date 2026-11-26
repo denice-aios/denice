@@ -26,9 +26,12 @@ $facts = [ordered]@{
 $facts | ConvertTo-Json -Depth 5 | Set-Content -Encoding UTF8 (Join-Path $OutputDirectory 'windows-host.json')
 $nvidia = Get-Command nvidia-smi.exe -ErrorAction SilentlyContinue
 if ($nvidia) {
-    & $nvidia.Source --query-gpu=name,driver_version,memory.total --format=csv 2>&1 |
+    & $nvidia.Source --query-gpu=name,driver_version,memory.total,driver_model.current,driver_model.pending --format=csv 2>&1 |
         Out-File -Encoding UTF8 (Join-Path $OutputDirectory 'nvidia-smi.txt')
     if ($LASTEXITCODE -ne 0) { throw "nvidia-smi exited $LASTEXITCODE; inspect preserved evidence." }
+    # Retain driver model, vGPU licensing and virtualization details for graphics capability diagnosis.
+    & $nvidia.Source -q 2>&1 | Out-File -Encoding UTF8 (Join-Path $OutputDirectory 'nvidia-smi-query.txt')
+    if ($LASTEXITCODE -ne 0) { throw "nvidia-smi -q exited $LASTEXITCODE; inspect preserved evidence." }
 }
 $dxdiag = Get-Command dxdiag.exe -ErrorAction SilentlyContinue
 if ($dxdiag) {
