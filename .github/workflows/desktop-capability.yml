@@ -2,6 +2,20 @@ name: Desktop capability experiment
 
 # No push/PR trigger. GPU provisioning and execution are separate approvals.
 on:
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        required: true
+      windows_check:
+        type: string
+        required: true
+      linux_check:
+        type: string
+        required: true
+      build_run_id:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       target:
@@ -49,6 +63,15 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           TARGET: ${{ inputs.target }}
           BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          APPROVED_PR: ${{ vars.DENICE_GPU_PROOF_PR }}
+          APPROVED_HEAD: ${{ vars.DENICE_GPU_PROOF_HEAD }}
+          APPROVED_RUN: ${{ vars.DENICE_GPU_PROOF_BUILD_RUN }}
+          INVOKING_EVENT: ${{ github.event_name }}
+          INVOKING_ACTION: ${{ github.event.action }}
+          INVOKING_LABEL: ${{ github.event.label.name }}
+          INVOKING_PR: ${{ github.event.pull_request.number }}
+          INVOKING_HEAD: ${{ github.event.pull_request.head.sha }}
+          INVOKING_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           LINUX_CHECK: ${{ inputs.linux_check }}
           WINDOWS_CHECK: ${{ inputs.windows_check }}
           GPU_ENABLED: ${{ vars.DENICE_GPU_PROOF_ENABLED }}
@@ -58,6 +81,9 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'build_run_id must be an integer.' >&2; exit 2; }
+          if [[ "$INVOKING_EVENT" == pull_request ]]; then
+            [[ "$INVOKING_ACTION" == labeled && "$INVOKING_LABEL" == denice-first-gpu-proof && "$INVOKING_PR" == "$APPROVED_PR" && "$INVOKING_HEAD" == "$APPROVED_HEAD" && "$INVOKING_REPOSITORY" == "$REPOSITORY" && "$BUILD_RUN_ID" == "$APPROVED_RUN" ]] || { echo 'First-proof approval identity mismatch.' >&2; exit 2; }
+          fi
           if [[ "$TARGET" == windows-sandbox ]]; then
             [[ "$SANDBOX_ENABLED" == true && ( "$BUILD_RUN_ID" != 0 || "$WINDOWS_CHECK" == hardware-fixtures ) ]] || { echo 'Sandbox must be configured and supplied an actual CI build.' >&2; exit 2; }
           else
@@ -75,7 +101,22 @@ jobs:
           if [[ "$BUILD_RUN_ID" != 0 ]]; then
             gh api "repos/$REPOSITORY/actions/runs/$BUILD_RUN_ID" > build-run.json
             jq -e '.conclusion == "success" and .path == ".github/workflows/ci.yml"' build-run.json >/dev/null
-            echo "build_sha=$(jq -r .head_sha build-run.json)" >> "$GITHUB_OUTPUT"
+            build_sha=$(jq -r .head_sha build-run.json)
+            if [[ "$LINUX_CHECK" == hardware-fixtures || "$WINDOWS_CHECK" == hardware-fixtures ]]; then
+              gh run download "$BUILD_RUN_ID" --repo "$REPOSITORY" --name linux-media-source-linux-x64 --dir media-source
+              jq -e --arg repository "$REPOSITORY" --arg run "$BUILD_RUN_ID" --arg head "$build_sha" '.repository == $repository and .run_id == $run and .head_sha == $head and (.checkout_sha | test("^[0-9a-f]{40}$")) and (.base_sha | test("^[0-9a-f]{40}$"))' media-source/source.json >/dev/null
+              if [[ "$INVOKING_EVENT" == pull_request ]]; then
+                jq -e --arg pr "$APPROVED_PR" --arg head "$APPROVED_HEAD" '.pr == $pr and .head_sha == $head' media-source/source.json >/dev/null
+                jq -e --argjson pr "$APPROVED_PR" '.event == "pull_request" and any(.pull_requests[]; .number == $pr)' build-run.json >/dev/null
+              fi
+              build_sha=$(jq -r .checkout_sha media-source/source.json)
+              gh api "repos/$REPOSITORY/git/commits/$build_sha" > checkout-commit.json
+              jq -e --arg sha "$build_sha" '.sha == $sha' checkout-commit.json >/dev/null
+              if [[ "$build_sha" != "$(jq -r .head_sha media-source/source.json)" ]]; then
+                jq -e --arg head "$(jq -r .head_sha media-source/source.json)" --arg base "$(jq -r .base_sha media-source/source.json)" '([.parents[].sha] | index($head) != null and index($base) != null)' checkout-commit.json >/dev/null
+              fi
+            fi
+            echo "build_sha=$build_sha" >> "$GITHUB_OUTPUT"
             if [[ "$LINUX_CHECK" == hardware-fixtures && ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) ]]; then
               gh api --paginate --slurp "repos/$REPOSITORY/actions/runs/$BUILD_RUN_ID/artifacts?per_page=100" > media-artifacts.json
               jq -e --arg sha "$(jq -r .head_sha build-run.json)" '[.[].artifacts[] | select(.name == "linux-media-linux-x64")] | length == 1 and .[0].expired == false and .[0].workflow_run.head_sha == $sha' media-artifacts.json >/dev/null || { echo 'Expected one unexpired linux-media-linux-x64 artifact from the selected source SHA.' >&2; exit 2; }

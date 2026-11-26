@@ -31,6 +31,7 @@ name: CI
 on:
   pull_request:
     branches: [dev, main]
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [dev, main]
 
@@ -738,6 +739,16 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Capture immutable native-media checkout provenance
+        env:
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+          SOURCE_PR: ${{ github.event.pull_request.number || 0 }}
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/denice-media-source"
+          jq -n --arg repository "$SOURCE_REPOSITORY" --arg run "$SOURCE_RUN_ID" --arg pr "$SOURCE_PR" --arg head "$SOURCE_HEAD" --arg base "$SOURCE_BASE" --arg checkout "$(git rev-parse HEAD)" '{repository:$repository,run_id:$run,pr:$pr,head_sha:$head,base_sha:$base,checkout_sha:$checkout}' > "$RUNNER_TEMP/denice-media-source/source.json"
       - name: Cache pinned native media payload
         id: media-cache
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -754,6 +765,14 @@ jobs:
         with:
           name: linux-media-${{ matrix.rid }}
           path: eng/obj/native-media/${{ matrix.rid }}/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Retain exact native-media source provenance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-media-source-${{ matrix.rid }}
+          path: ${{ runner.temp }}/denice-media-source/source.json
           if-no-files-found: error
           retention-days: 1
 
@@ -1239,3 +1258,15 @@ jobs:
         if: ${{ !cancelled() }}
         shell: bash
         run: eng/check-release-runtime.sh win-x64 "$RUNNER_TEMP/assets" "$RUNNER_TEMP/release-runtime"
+
+  gpu-proof:
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'denice-first-gpu-proof' && github.event.pull_request.head.repo.full_name == github.repository && format('{0}', github.event.pull_request.number) == vars.DENICE_GPU_PROOF_PR && github.event.pull_request.head.sha == vars.DENICE_GPU_PROOF_HEAD && vars.DENICE_GPU_PROOF_BUILD_RUN != ''
+    uses: ./.github/workflows/desktop-capability.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      target: hosted-both
+      windows_check: hardware-fixtures
+      linux_check: hardware-fixtures
+      build_run_id: ${{ vars.DENICE_GPU_PROOF_BUILD_RUN }}
