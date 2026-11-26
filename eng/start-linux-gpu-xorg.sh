@@ -4,7 +4,7 @@
 # Ephemeral NVIDIA-backed Xorg for the hosted Linux GPU fixture job. Never Xvfb or a software renderer.
 #
 #   probe <evidence-dir>            record driver source and X/EGL components; change nothing; exit 3 when any is missing
-#   config <busid>                  print the headless xorg.conf for an X BusID such as PCI:0@1:0:0
+#   config <busid> <module-dir>     print the headless xorg.conf for an X BusID such as PCI:0@1:0:0
 #   start <evidence-dir> <display>  start Xorg on the NVIDIA GPU, wait for readiness, assert the NVIDIA X driver and GLX;
 #                                   on any failure stop only the processes this invocation launched
 #   stop <evidence-dir>             stop the Xorg recorded by start, from any later shell
@@ -12,19 +12,40 @@
 # Sources: NVIDIA 590.48.01 README chapters 5 (installed components), 6 (X config), 7 (BusID format, log checks),
 # 8 (headless operation, xdpyinfo GLX/NV-GLX), appendix B (UseDisplayDevice, AllowEmptyInitialConfiguration).
 #
+# Ubuntu's xserver-xorg-video-nvidia-<branch> installs nvidia_drv.so in /usr/lib/x86_64-linux-gnu/nvidia/xorg and adds
+# that ModulePath only through an OutputClass matching nvidia-drm, so this configuration names the found directory itself.
+#
 # Test seams (defaults are the real system): DENICE_XORG_MODULE_DIRS (colon-separated), DENICE_X_LOCK_DIR,
-# DENICE_XORG_READY_SECONDS.
+# DENICE_X_SOCKET_DIR, DENICE_XORG_READY_SECONDS.
 set -euo pipefail
 
-IFS=':' read -r -a xorg_module_dirs <<<"${DENICE_XORG_MODULE_DIRS:-/usr/lib/xorg/modules:/usr/lib/x86_64-linux-gnu/xorg/modules}"
+IFS=':' read -r -a xorg_module_dirs <<<"${DENICE_XORG_MODULE_DIRS:-/usr/lib/x86_64-linux-gnu/nvidia/xorg:/usr/lib/xorg/modules:/usr/lib/x86_64-linux-gnu/xorg/modules}"
 x_lock_dir=${DENICE_X_LOCK_DIR:-/tmp}
+x_socket_dir=${DENICE_X_SOCKET_DIR:-/tmp/.X11-unix}
 ready_seconds=${DENICE_XORG_READY_SECONDS:-30}
 
+# Xorg searches each ModulePath and its drivers/ and extensions/ subdirectories, so a driver found under drivers/
+# contributes its parent module root, while Ubuntu's flat nvidia/xorg directory is its own root.
+module_root() {
+  local dir
+  dir=$(dirname "$1")
+  [[ "$(basename "$dir")" == drivers ]] && dir=$(dirname "$dir")
+  printf '%s\n' "$dir"
+}
+
+# Finds a module by file name (a trailing * allows a versioned name) in each module directory, flat or in the standard
+# drivers/ and extensions/ subdirectories.
 find_module() {
-  local relative=$1 dir
+  local pattern=$1 dir sub candidate
+  shopt -s nullglob
   for dir in "${xorg_module_dirs[@]}"; do
-    [[ -e "$dir/$relative" ]] && { printf '%s\n' "$dir/$relative"; return 0; }
+    for sub in "" /drivers /extensions; do
+      for candidate in "$dir$sub"/$pattern; do
+        [[ -f "$candidate" ]] && { shopt -u nullglob; printf '%s\n' "$candidate"; return 0; }
+      done
+    done
   done
+  shopt -u nullglob
   return 1
 }
 
@@ -55,7 +76,13 @@ nvidia_busid() {
 }
 
 write_config() {
+  local busid=$1 module_root=$2
+  echo 'Section "Files"'
+  printf '    ModulePath "%s"\n' "$module_root"
+  [[ "$module_root" == /usr/lib/xorg/modules ]] || echo '    ModulePath "/usr/lib/xorg/modules"'
+  echo 'EndSection'
   cat <<EOF
+
 Section "ServerLayout"
     Identifier "denice-gpu"
     Screen 0 "denice-screen"
@@ -68,7 +95,7 @@ EndSection
 Section "Device"
     Identifier "denice-nvidia"
     Driver "nvidia"
-    BusID "$1"
+    BusID "$busid"
     Option "AllowEmptyInitialConfiguration" "true"
     Option "UseDisplayDevice" "none"
 EndSection
@@ -113,8 +140,8 @@ probe() {
     echo "busid=$busid"
     echo "xorg_binary=$(command -v Xorg || echo missing)"
     echo "xorg_version=$(grep -m 1 'X.Org X Server' <<<"$xorg_version" || echo unavailable)"
-    echo "nvidia_drv=$(find_module drivers/nvidia_drv.so || echo missing)"
-    echo "libglxserver_nvidia=$(find_module extensions/libglxserver_nvidia.so || echo missing)"
+    echo "nvidia_drv=$(find_module nvidia_drv.so || echo missing)"
+    echo "libglxserver_nvidia=$(find_module 'libglxserver_nvidia.so*' || echo missing)"
     echo "libEGL_nvidia=$(library_path libEGL_nvidia.so.0 || echo missing)"
     echo "libGLX_nvidia=$(library_path libGLX_nvidia.so.0 || echo missing)"
     echo "xdpyinfo=$(command -v xdpyinfo || echo missing)"
@@ -123,10 +150,9 @@ probe() {
     device_nodes
   } > "$report"
   command -v Xorg >/dev/null || missing+=("Xorg server (xserver-xorg-core)")
-  find_module drivers/nvidia_drv.so >/dev/null || missing+=("NVIDIA X driver nvidia_drv.so (xserver-xorg-video-nvidia-<branch>)")
-  find_module extensions/libglxserver_nvidia.so >/dev/null || missing+=("NVIDIA GLX server module libglxserver_nvidia.so")
+  find_module nvidia_drv.so >/dev/null || missing+=("NVIDIA X driver nvidia_drv.so (xserver-xorg-video-nvidia-<branch>)")
+  find_module 'libglxserver_nvidia.so*' >/dev/null || missing+=("NVIDIA GLX server module libglxserver_nvidia.so")
   library_path libEGL_nvidia.so.0 >/dev/null || missing+=("NVIDIA EGL vendor library libEGL_nvidia.so.0 (libnvidia-gl-<branch>)")
-  command -v xdpyinfo >/dev/null || missing+=("xdpyinfo (x11-utils)")
   sudo -n true 2>/dev/null || missing+=("non-interactive sudo to start Xorg")
   [[ "$busid" != unavailable ]] || missing+=("NVIDIA PCI device")
   if ((${#missing[@]})); then
@@ -191,31 +217,50 @@ fail_start() {
 }
 
 start() {
-  local out=$1 display=$2 config log launcher deadline pid
+  local out=$1 display=$2 config log launcher deadline pid nvidia_drv socket
   probe "$out"
   [[ ! -e "$(lock_file "$display")" ]] || { echo "Display $display is already locked by $(lock_file "$display"); refusing to start." >&2; return 6; }
   config="$out/xorg-denice.conf"
   log="$out/Xorg${display#:}.log"
-  write_config "$(nvidia_busid)" > "$config"
+  nvidia_drv=$(find_module nvidia_drv.so)
+  write_config "$(nvidia_busid)" "$(module_root "$nvidia_drv")" > "$config"
   echo "$display" > "$out/xorg-display"
   sudo -n Xorg "$display" -config "$config" -noreset -nolisten tcp -logfile "$log" \
     > "$out/xorg.stdout.txt" 2> "$out/xorg.stderr.txt" &
   launcher=$!
   echo "$launcher" > "$out/xorg-launcher.pid"
+  socket="$x_socket_dir/X${display#:}"
   deadline=$((SECONDS + ready_seconds))
-  until DISPLAY=$display xdpyinfo > "$out/xdpyinfo.txt" 2>&1; do
+  # Ready only when all hold: a Unix socket exists, the lock file names this invocation's Xorg, and the root-owned log
+  # shows the NVIDIA driver loaded (README 7.2: 'LoadModule: "nvidia"' and lines beginning "(II) NVIDIA(0)").
+  # A launcher exit fails at once; otherwise the wait is bounded by ready_seconds.
+  local server_up=no driver_loaded=no screen_up=no
+  while :; do
+    server_up=no; driver_loaded=no; screen_up=no
+    [[ -S "$socket" ]] && our_xorg_pid "$out" "$display" >/dev/null && server_up=yes
+    sudo -n grep -q 'LoadModule: "nvidia"' "$log" 2>/dev/null && driver_loaded=yes
+    sudo -n grep -qF '(II) NVIDIA(0)' "$log" 2>/dev/null && screen_up=yes
+    [[ $server_up == yes && $driver_loaded == yes && $screen_up == yes ]] && break
     alive "$launcher" || { fail_start "$out" 4 "Xorg exited before readiness; see $log"; return; }
-    ((SECONDS < deadline)) || { fail_start "$out" 4 "Xorg not ready within $ready_seconds seconds; see $log"; return; }
+    if ((SECONDS >= deadline)); then
+      [[ $server_up == yes ]] || { fail_start "$out" 4 "Xorg not ready within $ready_seconds seconds (no owned Unix socket $socket); see $log"; return; }
+      [[ $driver_loaded == yes ]] || { fail_start "$out" 5 "Xorg did not load the NVIDIA X driver within $ready_seconds seconds."; return; }
+      fail_start "$out" 5 "Xorg has no NVIDIA(0) screen within $ready_seconds seconds."
+      return
+    fi
     sleep 1
   done
-  pid=$(our_xorg_pid "$out" "$display") || { fail_start "$out" 5 "Display $display answered, but its lock file does not name this invocation's Xorg."; return; }
+  pid=$(our_xorg_pid "$out" "$display")
   echo "$pid" > "$out/xorg.pid"
   sudo -n chmod a+r "$log" 2>/dev/null || true
-  # README 7.2: the NVIDIA module must be loaded and its driver lines begin "(II) NVIDIA(0)". README 8: GLX and NV-GLX present.
-  grep -q 'LoadModule: "nvidia"' "$log" || { fail_start "$out" 5 'Xorg did not load the NVIDIA X driver.'; return; }
-  grep -qF '(II) NVIDIA(0)' "$log" || { fail_start "$out" 5 'Xorg has no NVIDIA(0) screen.'; return; }
-  grep -qw 'GLX' "$out/xdpyinfo.txt" || { fail_start "$out" 5 'X display lacks the GLX extension.'; return; }
-  grep -qF 'NV-GLX' "$out/xdpyinfo.txt" || { fail_start "$out" 5 'X display lacks NV-GLX; GLX is not the NVIDIA implementation.'; return; }
+  # README 8: GLX and NV-GLX present, when xdpyinfo is available to ask.
+  if command -v xdpyinfo >/dev/null; then
+    DISPLAY=$display xdpyinfo > "$out/xdpyinfo.txt" 2>&1 || { fail_start "$out" 5 'xdpyinfo could not query the display.'; return; }
+    grep -qw 'GLX' "$out/xdpyinfo.txt" || { fail_start "$out" 5 'X display lacks the GLX extension.'; return; }
+    grep -qF 'NV-GLX' "$out/xdpyinfo.txt" || { fail_start "$out" 5 'X display lacks NV-GLX; GLX is not the NVIDIA implementation.'; return; }
+  else
+    echo "glx_check=deferred: xdpyinfo is not installed; the fixture must report an NVIDIA GL renderer" >> "$out/xorg-prerequisites.txt"
+  fi
   echo "Xorg ready on $display with the NVIDIA X driver (Xorg pid $pid, launcher pid $launcher)."
 }
 
@@ -228,7 +273,7 @@ absolute_dir() {
 
 case "${1:-}" in
   probe) probe "$(absolute_dir "${2:?evidence directory}")" ;;
-  config) write_config "${2:?BusID}" ;;
+  config) write_config "${2:?BusID}" "${3:?NVIDIA X module directory}" ;;
   start) start "$(absolute_dir "${2:?evidence directory}")" "${3:?display such as :99}" ;;
   stop) cleanup "$(absolute_dir "${2:?evidence directory}")" ;;
   *) echo "usage: $0 probe|config|start|stop ..." >&2; exit 2 ;;
