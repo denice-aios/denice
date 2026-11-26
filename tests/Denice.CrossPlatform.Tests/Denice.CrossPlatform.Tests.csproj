@@ -38,4 +38,22 @@
   <!-- References the contract always and exactly one per-OS impl, selected by RuntimeIdentifier / build-host OS. -->
   <Import Project="../../src/Denice.CrossPlatform/PlatformImplementation.targets" />
 
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('osx')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+    <Compile Remove="RecordingSpecTests.MacOS.cs" />
+  </ItemGroup>
+
+  <!-- Native GPU proof is explicitly selected on a Windows graphics runner, not ordinary unit-test hosts. -->
+  <ItemGroup Condition="'$(DeniceDesktopGpuTests)' != 'true' or !$(DenicePlatformRid.StartsWith('win'))">
+    <Compile Remove="DesktopGpuTests.Windows.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(DeniceDesktopGpuTests)' != 'true' or !$(DenicePlatformRid.StartsWith('linux'))">
+    <Compile Remove="DesktopGpuTests.Linux.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('linux'))">
+    <Compile Remove="DmaBufAttributesTests.Linux.cs" />
+    <Compile Remove="CudaAbiTests.Linux.cs" />
+  </ItemGroup>
+
 </Project>

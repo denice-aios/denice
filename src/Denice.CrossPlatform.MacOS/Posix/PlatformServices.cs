@@ -17,18 +17,24 @@ namespace Denice.CrossPlatform;
 /// Boundaries. This is shared POSIX source: macOS and Linux wire the same <see cref="PosixFileSystem"/>, so this file
 /// is linked into the Linux impl unchanged. The Windows impl ships its own <c>PlatformServices.Create()</c>.
 /// </summary>
-internal sealed class PlatformServices : IPlatformServices
+internal sealed partial class PlatformServices : IPlatformServices
 {
+    private readonly IPlatformDesktop? _desktop;
+
     // Private constructor (DN0003, Wall 1): the built OS-divergent file system arrives by
     // constructor injection; only this class's own Create() builds them, so no second container can be assembled to
     // bypass the one door.
     private PlatformServices(IPlatformFileSystem fileSystem)
     {
         FileSystem = fileSystem;
+        _desktop = CreateDesktop();
     }
 
     /// <inheritdoc />
     public IPlatformFileSystem FileSystem { get; }
+
+    /// <inheritdoc />
+    public IPlatformDesktop Desktop => _desktop ?? throw new PlatformNotSupportedException("The desktop has not been implemented for this platform.");
 
     /// <summary>
     /// Builds the platform-capability container for this POSIX OS. It obtains the OS-uniform owned adapters from the one
@@ -42,4 +48,6 @@ internal sealed class PlatformServices : IPlatformServices
         PlatformFileSystemParts parts = PlatformFileSystemComposition.Create();
         return new PlatformServices(PosixFileSystem.Create(parts.Shared, parts.Factory));
     }
+
+    private static partial IPlatformDesktop? CreateDesktop();
 }

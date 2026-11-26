@@ -80,7 +80,7 @@ public sealed class SettingsCliTests : IDisposable
         CliResult result = CliRunner.RunInHome(home, "settings", "reset", "updates.colour");
 
         result.ExitCode.Should().Be(1);
-        result.StandardError.Should().Contain("'updates.colour' is not a setting; the settings are updates.enabled");
+        result.StandardError.Should().Contain("'updates.colour' is not a setting; the settings are browser.debugPort, browser.profile, updates.enabled");
     }
 
     [Fact]

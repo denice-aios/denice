@@ -29,6 +29,12 @@
        on a signed build. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Denice.Engine" />
+    <InternalsVisibleTo Include="Denice.CrossPlatform.Tests" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <DeniceDesktopPlatform>linux</DeniceDesktopPlatform>
+  </PropertyGroup>
+  <Import Project="../../eng/desktop-native.targets" />
 
 </Project>

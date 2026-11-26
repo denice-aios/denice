@@ -21,13 +21,17 @@ internal sealed class PlatformServices : IPlatformServices
     // Private constructor (DN0003, Wall 1): the built OS-divergent file system arrives by
     // constructor injection; only this class's own Create() builds them, so no second container can be assembled to
     // bypass the one door.
-    private PlatformServices(IPlatformFileSystem fileSystem)
+    private PlatformServices(IPlatformFileSystem fileSystem, IPlatformDesktop desktop)
     {
         FileSystem = fileSystem;
+        Desktop = desktop;
     }
 
     /// <inheritdoc />
     public IPlatformFileSystem FileSystem { get; }
+
+    /// <inheritdoc />
+    public IPlatformDesktop Desktop { get; }
 
     /// <summary>
     /// Builds the platform-capability container for Windows. It obtains the OS-uniform owned adapters from the one
@@ -39,6 +43,6 @@ internal sealed class PlatformServices : IPlatformServices
     public static IPlatformServices Create()
     {
         PlatformFileSystemParts parts = PlatformFileSystemComposition.Create();
-        return new PlatformServices(WindowsFileSystem.Create(parts.Shared, parts.Factory));
+        return new PlatformServices(WindowsFileSystem.Create(parts.Shared, parts.Factory), Windows.Desktop.WindowsDesktop.Create());
     }
 }

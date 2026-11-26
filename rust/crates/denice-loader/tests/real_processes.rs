@@ -43,6 +43,8 @@ fn main() {
     // shortcut, which runs denice.exe itself.
     #[cfg(unix)]
     tests.push(("finds its install when started through a link", started_through_a_link));
+    #[cfg(target_os = "macos")]
+    tests.push(("removes external library overrides from the version process", removes_library_override));
     let count = tests.len();
     for (name, test) in tests {
         test();
@@ -64,6 +66,7 @@ fn act_as_version() -> i32 {
         .map(|k| format!("{k}={}", std::env::var(k).unwrap_or_default()))
         .join("\n");
     std::fs::write(dir.join("env"), env).unwrap();
+    std::fs::write(dir.join("library-override"), std::env::var("DYLD_LIBRARY_PATH").unwrap_or_default()).unwrap();
     match words.next() {
         Some("run") => {
             started(dir);
@@ -156,6 +159,20 @@ fn passes_protocol_environment() {
     assert!(env.contains(&format!("{ENV_INSTALL_ROOT}={}", root.display())), "{env}");
     assert!(env.contains(&format!("{ENV_VERSION_DIR}={}", a.display())), "{env}");
     assert!(env.contains(&format!("{ENV_LOADER_VERSION}=")), "{env}");
+}
+
+#[cfg(target_os = "macos")]
+fn removes_library_override() {
+    let i = fresh_install();
+    let a = install(&i.root, A, "run 0");
+    let output = Command::new(&i.program)
+        .env(ROLE, "1")
+        .env("HOME", &i.home)
+        .env("DYLD_LIBRARY_PATH", "/usr/local/lib")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(std::fs::read_to_string(a.join("library-override")).unwrap(), "");
 }
 
 fn restarts_into_newer_version() {

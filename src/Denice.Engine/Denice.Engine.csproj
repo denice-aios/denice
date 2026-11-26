@@ -25,6 +25,7 @@
   <ItemGroup>
     <ProjectReference Include="../Denice.Abstractions/Denice.Abstractions.csproj" />
     <ProjectReference Include="../Denice.Boundaries/Denice.Boundaries.csproj" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <!-- SystemServices.Create() reaches the OS-uniform adapters through the one CrossPlatformAdapters factory (DN0023)

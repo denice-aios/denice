@@ -259,6 +259,16 @@ jobs:
           # signatures.
           for rid in osx-arm64 osx-x64; do
             L="layouts/$rid"; V="$L/versions/$DENICE_ASSET_VERSION"
+            # Seal CEF from the inside out before the release manifest is generated.
+            # Keep the existing .NET and Skia vendor signatures and entry entitlements.
+            CEF="$V/CEF/Chromium Embedded Framework.framework"
+            while IFS= read -r -d '' native; do
+              if file -b "$native" | grep -q 'Mach-O'; then
+                codesign --force --options runtime $TS --keychain "$KC" --sign "$IDENTITY" "$native"
+              fi
+            done < <(find "$CEF/Libraries" -type f -print0)
+            codesign --force --options runtime $TS --keychain "$KC" --sign "$IDENTITY" "$CEF"
+            codesign --verify --deep --strict "$CEF"
             # Sign the root app once and copy it into the version: two separate signatures differ (each carries its
             # own signing time), and ci-stage-layout.sh requires the carried loader to equal the root one.
             # $TS is empty (test) or --timestamp (developer-id), so it is left unquoted on purpose.
@@ -712,8 +722,43 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  linux:
+  linux-media:
     needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            runner: ubuntu-24.04
+          - rid: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Cache pinned native media payload
+        id: media-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: eng/obj/native-media/${{ matrix.rid }}
+          key: linux-media-${{ matrix.rid }}-${{ hashFiles('eng/build-linux-media.sh') }}
+      - name: Build selected stock media dependencies on their native architecture
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        run: bash eng/build-linux-media.sh --rid '${{ matrix.rid }}' --output "$GITHUB_WORKSPACE/eng/obj/native-media/${{ matrix.rid }}"
+      - name: Verify cached or built media payload
+        run: bash eng/build-linux-media.sh --rid '${{ matrix.rid }}' --output "$GITHUB_WORKSPACE/eng/obj/native-media/${{ matrix.rid }}" --verify-output
+      - name: Pass native dependencies to the existing Linux packaging job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-media-${{ matrix.rid }}
+          path: eng/obj/native-media/${{ matrix.rid }}/
+          if-no-files-found: error
+          retention-days: 1
+
+  linux:
+    needs: [version, linux-media]
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -732,6 +777,16 @@ jobs:
       DENICE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Obtain native x64 media dependencies
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: linux-media-linux-x64
+          path: eng/obj/native-media/linux-x64
+      - name: Obtain native ARM64 media dependencies
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: linux-media-linux-arm64
+          path: eng/obj/native-media/linux-arm64
       - name: Install pinned .NET SDK (official script, same as local)
         run: |
           curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"

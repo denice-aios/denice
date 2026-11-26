@@ -1,0 +1,75 @@
+<Project>
+
+  <!-- Imported by the existing per-OS assemblies. The application threads this RID through
+       project references even when the SDK removes RuntimeIdentifier for a library build. -->
+  <PropertyGroup>
+    <DeniceDesktopRid Condition="'$(DenicePlatformRid)' != ''">$(DenicePlatformRid)</DeniceDesktopRid>
+    <DeniceDesktopRid Condition="'$(DeniceDesktopRid)' == '' and '$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</DeniceDesktopRid>
+    <DeniceDesktopRid Condition="'$(DeniceDesktopRid)' == ''">$(DeniceDesktopPlatform)-$([System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLowerInvariant())</DeniceDesktopRid>
+    <_DeniceCefPackageRoot>$(NuGetPackageRoot)cef.runtime.$(DeniceDesktopRid)/$(DeniceCefVersion)/</_DeniceCefPackageRoot>
+    <_DeniceCefContentRoot>$(_DeniceCefPackageRoot)CEF/$(DeniceDesktopRid)/</_DeniceCefContentRoot>
+    <_DeniceCefContentRoot Condition="'$(DeniceDesktopPlatform)' == 'osx'">$(_DeniceCefContentRoot)Chromium Embedded Framework.framework/</_DeniceCefContentRoot>
+    <_DeniceCefPublishRoot>CEF/</_DeniceCefPublishRoot>
+    <_DeniceCefPublishRoot Condition="'$(DeniceDesktopPlatform)' == 'osx'">CEF/Chromium Embedded Framework.framework/</_DeniceCefPublishRoot>
+    <_DeniceSkiaNativePackage Condition="'$(DeniceDesktopPlatform)' == 'osx'">macos</_DeniceSkiaNativePackage>
+    <_DeniceSkiaNativePackage Condition="'$(DeniceDesktopPlatform)' == 'win'">win32</_DeniceSkiaNativePackage>
+    <_DeniceSkiaNativePackage Condition="'$(DeniceDesktopPlatform)' == 'linux'">linux</_DeniceSkiaNativePackage>
+    <_DeniceSkiaNativeRoot>$(NuGetPackageRoot)skiasharp.nativeassets.$(_DeniceSkiaNativePackage)/$(DeniceSkiaVersion)/</_DeniceSkiaNativeRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)../src/Denice.CrossPlatform.MacOS/Desktop/OrbScene.cs" Link="Desktop/OrbScene.cs" Condition="'$(DeniceDesktopPlatform)' != 'osx'" />
+    <Compile Include="$(MSBuildThisFileDirectory)../src/Denice.CrossPlatform.MacOS/Browser/CefPlatformBrowser.cs" Link="Browser/CefPlatformBrowser.cs" Condition="'$(DeniceDesktopPlatform)' != 'osx'" />
+    <PackageReference Include="CefGlue.Next.Core" />
+    <PackageReference Include="cef.runtime.$(DeniceDesktopRid)" ExcludeAssets="build;buildTransitive" />
+    <!-- Skia already brings the Windows and macOS native packages transitively. -->
+    <PackageReference Include="SkiaSharp" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Condition="'$(DeniceDesktopPlatform)' == 'linux'" />
+    <PackageReference Include="Avalonia.Angle.Windows.Natives" GeneratePathProperty="true" Condition="'$(DeniceDesktopPlatform)' == 'win'" />
+    <PackageReference Include="Vortice.Direct3D11" Condition="'$(DeniceDesktopPlatform)' == 'win'" />
+    <PackageReference Include="Vortice.MediaFoundation" Condition="'$(DeniceDesktopPlatform)' == 'win'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="$(_DeniceCefContentRoot)**/*">
+      <Link>$(_DeniceCefPublishRoot)%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(_DeniceCefPackageRoot)LICENSE.txt">
+      <Link>licenses/CEF-LICENSE.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(PkgAvalonia_Angle_Windows_Natives)/LICENSE" Condition="'$(DeniceDesktopPlatform)' == 'win'">
+      <Link>licenses/ANGLE-LICENSE.txt</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(_DeniceSkiaNativeRoot)LICENSE.txt;$(_DeniceSkiaNativeRoot)THIRD-PARTY-NOTICES.txt">
+      <Link>licenses/SkiaSharp-%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(MSBuildThisFileDirectory)licenses/*-LICENSE.txt" Condition="'$(DeniceDesktopPlatform)' == 'win'">
+      <Link>licenses/%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(DeniceLinuxMediaRoot)/**/*" Condition="'$(DeniceDesktopPlatform)' == 'linux' and '$(DeniceLinuxMediaRoot)' != ''">
+      <Link>media/%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="DeniceValidateDesktopNativeAssets" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(DeniceDesktopRid)' != '$(DeniceDesktopPlatform)-x64' and '$(DeniceDesktopRid)' != '$(DeniceDesktopPlatform)-arm64'"
+           Text="Desktop RID $(DeniceDesktopRid) does not match the $(DeniceDesktopPlatform) platform assembly or its supported x64/arm64 architectures." />
+    <Error Condition="!Exists('$(_DeniceCefContentRoot)')"
+           Text="The pinned CEF native payload for $(DeniceDesktopRid) is missing at $(_DeniceCefContentRoot). Restore the target RID before building." />
+    <Error Condition="'$(DeniceDesktopPlatform)' == 'linux' and '$(DeniceLinuxMediaRoot)' != '' and !Exists('$(DeniceLinuxMediaRoot)/build-manifest.json')"
+           Text="The Linux media dependency build is incomplete at $(DeniceLinuxMediaRoot). Run eng/build-linux-media.sh for $(DeniceDesktopRid)." />
+  </Target>
+
+</Project>

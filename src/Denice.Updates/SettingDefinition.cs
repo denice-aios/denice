@@ -9,7 +9,7 @@ namespace Denice.Updates;
 
 /// <summary>
 /// One setting Denice knows: its name, its default, and which values it accepts. Settings are deliberately few and
-/// temporary (they move to the database later), so there are exactly three and every value is a single plain word.
+/// temporary (they move to the database later), and every value is a single plain word.
 /// </summary>
 internal sealed class SettingDefinition
 {
@@ -42,6 +42,15 @@ internal sealed class SettingDefinition
     /// </summary>
     internal const int MaxCheckIntervalHours = 720;
 
+    /// <summary>The local browser cache profile setting.</summary>
+    internal const string BrowserProfileName = "browser.profile";
+
+    /// <summary>The optional localhost browser debugging port.</summary>
+    internal const string BrowserDebugPortName = "browser.debugPort";
+
+    /// <summary>The default local browser profile.</summary>
+    internal const string BrowserProfileDefault = "default";
+
     private const string False = "false";
     private const string PreRelease = "pre-release";
 
@@ -58,6 +67,8 @@ internal sealed class SettingDefinition
     /// <summary>Gets every setting, in the order they are listed and written.</summary>
     internal static IReadOnlyList<SettingDefinition> All { get; } =
     [
+        new(BrowserDebugPortName, "0", "0 to disable, or a port from 1024 to 65535", value => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int port) && (port == 0 || port is >= 1024 and <= 65535)),
+        new(BrowserProfileName, BrowserProfileDefault, "1 to 64 letters, digits, underscores, or hyphens", value => value.Length is > 0 and <= 64 && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '_' or '-')),
         new(EnabledName, True, $"{True} or {False}", value => value is True or False),
         new(ChannelName, ChannelDefault, $"{PreRelease} or {Stable}", value => value is PreRelease or Stable),
         new(

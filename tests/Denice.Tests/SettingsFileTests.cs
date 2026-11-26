@@ -52,6 +52,8 @@ public sealed class SettingsFileTests : IDisposable
     public void WithNoFile_EverySettingHasItsDefault()
     {
         settings.List().Should().Equal(
+            new SettingState("browser.debugPort", "0", "0"),
+            new SettingState("browser.profile", "default", "default"),
             new SettingState("updates.enabled", "true", "true"),
             new SettingState("updates.channel", ChannelDefault, ChannelDefault),
             new SettingState("updates.checkIntervalHours", "6", "6"));
@@ -61,7 +63,48 @@ public sealed class SettingsFileTests : IDisposable
         Exists(settings.FilePath).Should().BeFalse("listing never creates the file");
     }
 
+    [Fact]
+    public void BrowserDebugging_IsDisabledByDefaultAndControlledThroughSettings()
+    {
+        settings.ReadBrowserDebugPort().Should().Be(0);
+        settings.Set("browser.debugPort", "9223");
+        settings.ReadBrowserDebugPort().Should().Be(9223);
+        settings.Reset("browser.debugPort");
+        settings.ReadBrowserDebugPort().Should().Be(0);
+    }
+
     [Theory]
+    [InlineData("80")]
+    [InlineData("65536")]
+    [InlineData("-1")]
+    public void BrowserDebugging_RejectsInvalidPorts(string port)
+    {
+        Action change = () => settings.Set("browser.debugPort", port);
+        change.Should().Throw<InvalidSettingException>();
+    }
+
+    [Fact]
+    public void BrowserProfile_SelectsDirectoryInsideTheSettingsFolder()
+    {
+        settings.Set("browser.profile", "clean-profile");
+        settings.ReadBrowserCachePath().Should().Be(Path.Combine(Path.GetDirectoryName(settings.FilePath)!, "Browser", "clean-profile"));
+        settings.Reset("browser.profile");
+        settings.ReadBrowserCachePath().Should().Be(Path.Combine(Path.GetDirectoryName(settings.FilePath)!, "Browser", "default"));
+    }
+
+    [Theory]
+    [InlineData("../outside")]
+    [InlineData("profile/child")]
+    [InlineData("")]
+    [InlineData("space name")]
+    public void BrowserProfile_RejectsPathsAndInvalidNames(string profile)
+    {
+        Action change = () => settings.Set("browser.profile", profile);
+        change.Should().Throw<InvalidSettingException>();
+    }
+
+    [Theory]
+    [InlineData("browser.profile", "fresh-profile_2")]
     [InlineData("updates.enabled", "false")]
     [InlineData("updates.enabled", "true")]
     [InlineData("updates.channel", "stable")]

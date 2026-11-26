@@ -13,7 +13,13 @@ pub struct ProcessLauncher;
 
 impl Launcher for ProcessLauncher {
     fn run(&self, program: &Path, args: &[OsString], env: &[(&'static str, OsString)]) -> std::io::Result<i32> {
-        let mut child = Command::new(program).args(args).envs(env.iter().map(|(k, v)| (*k, v))).spawn()?;
+        let mut command = Command::new(program);
+        let _ = command.args(args).envs(env.iter().map(|(k, v)| (*k, v)));
+        // ImageIO must resolve Apple's PNG library, not an inherited development override.
+        // Limit the change to the child; the user's shell environment remains untouched.
+        #[cfg(target_os = "macos")]
+        let _ = command.env_remove("DYLD_LIBRARY_PATH");
+        let mut child = command.spawn()?;
         let status = {
             let _ignore = interrupts::IgnoredWhileWaiting::start();
             child.wait()?

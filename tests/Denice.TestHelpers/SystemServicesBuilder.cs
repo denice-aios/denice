@@ -45,6 +45,7 @@ public sealed class SystemServicesBuilder
     private readonly Slot<IFileWriter> _fileWriter = new();
     private readonly Slot<IDirectoryWriter> _directoryWriter = new();
     private readonly Slot<IPlatformFileSystem> _platform = new();
+    private readonly Slot<IPlatformDesktop> _desktop = new();
     private InMemoryFileSystemStore? _store;
 
     private SystemServicesBuilder(bool isFake, ISystemServices? real, InMemoryFileSystemStore? store)
@@ -257,7 +258,8 @@ public sealed class SystemServicesBuilder
 
         IFileSystem fileSystem = FakeFileSystem.Create(
             fileReader, directoryReader, fileWriter, directoryWriter, _real?.FileSystem);
-        IPlatformServices platformServices = FakePlatformServices.Create(platform);
+        IPlatformDesktop? desktop = ResolveOptional(_desktop, () => _real!.Platform.Desktop);
+        IPlatformServices platformServices = FakePlatformServices.Create(platform, desktop);
         return FakeSystemServices.Create(
             fileSystem, environment, random, console, platformServices, buildInfo, clock);
     }
@@ -447,6 +449,24 @@ public sealed class SystemServicesBuilder
         public PlatformBuilder With(IPlatformFileSystem platform)
         {
             _parent._platform.Override(platform);
+            return this;
+        }
+
+        /// <summary>Substitutes the desktop capability.</summary>
+        /// <param name="desktop">The desktop fake to install.</param>
+        /// <returns>This sub-builder, for chaining.</returns>
+        public PlatformBuilder With(IPlatformDesktop desktop)
+        {
+            _parent._desktop.Override(desktop);
+            return this;
+        }
+
+        /// <summary>Wraps the desktop capability.</summary>
+        /// <param name="proxy">The desktop wrapper.</param>
+        /// <returns>This sub-builder, for chaining.</returns>
+        public PlatformBuilder Wrap(Func<IPlatformDesktop, IPlatformDesktop> proxy)
+        {
+            _parent._desktop.AddWrap(proxy);
             return this;
         }
 
@@ -647,19 +667,26 @@ public sealed class SystemServicesBuilder
     /// </summary>
     internal sealed class FakePlatformServices : IPlatformServices
     {
-        private FakePlatformServices(IPlatformFileSystem fileSystem)
+        private readonly IPlatformDesktop? _desktop;
+
+        private FakePlatformServices(IPlatformFileSystem fileSystem, IPlatformDesktop? desktop)
         {
             FileSystem = fileSystem;
+            _desktop = desktop;
         }
 
         /// <inheritdoc />
         public IPlatformFileSystem FileSystem { get; }
 
-        /// <summary>Creates the platform-services fake over the resolved platform file system.</summary>
+        /// <inheritdoc />
+        public IPlatformDesktop Desktop => _desktop ?? throw new InvalidOperationException("Supply a desktop fake through OnPlatform().With().");
+
+        /// <summary>Creates the platform-services fake over the resolved platform capabilities.</summary>
         /// <param name="fileSystem">The resolved platform file system.</param>
+        /// <param name="desktop">The optional desktop capability.</param>
         /// <returns>The platform services, as its interface.</returns>
-        internal static IPlatformServices Create(IPlatformFileSystem fileSystem) =>
-            new FakePlatformServices(fileSystem);
+        internal static IPlatformServices Create(IPlatformFileSystem fileSystem, IPlatformDesktop? desktop) =>
+            new FakePlatformServices(fileSystem, desktop);
     }
 
     // One override slot plus a composed wrap for a single service. Resolve applies the override (or the supplied base)

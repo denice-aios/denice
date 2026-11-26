@@ -130,7 +130,48 @@ internal sealed class Program
         root.Subcommands.Add(BuildVersionCommand(services));
         root.Subcommands.Add(BuildSettingsCommand(services));
         root.Subcommands.Add(BuildUpdateCommand(services));
+        root.Subcommands.Add(BuildDesktopCommand(services));
         return root;
+    }
+
+    private static Command BuildDesktopCommand(ISystemServices services)
+    {
+        var command = new Command("gui", "Open the DENICE desktop.");
+        var record = new Option<string?>("--record") { Description = "Record the complete window to a new MP4 file." };
+        var duration = new Option<double?>("--duration") { Description = "Close after this many seconds and finalize recording." };
+        command.Options.Add(record);
+        command.Options.Add(duration);
+        command.SetAction(parse =>
+        {
+            double? seconds = parse.GetValue(duration);
+            if (seconds.HasValue && (!double.IsFinite(seconds.Value) || seconds.Value <= 0))
+            {
+                services.Console.ErrorWriteLine("--duration must be a positive finite number of seconds.");
+                return 1;
+            }
+
+            try
+            {
+                using ApplicationServer server = ApplicationServer.Start();
+                services.Console.WriteLine($"DENICE interface: {server.Address}");
+                var settings = new SettingsFile(services);
+                int result = services.Platform.Desktop.Run(server.Address, parse.GetValue(record), seconds, services.Clock, settings.ReadBrowserCachePath(), settings.ReadBrowserDebugPort());
+                services.Console.WriteLine(services.Platform.Desktop.LastFrameStatistics);
+                if (services.Platform.Desktop.LastRecordingError is { } recordingError)
+                {
+                    services.Console.ErrorWriteLine($"DENICE recording failed: {recordingError}");
+                    return result == 0 ? 1 : result;
+                }
+
+                return result;
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                services.Console.ErrorWriteLine($"DENICE could not start: {exception.Message}");
+                return 1;
+            }
+        });
+        return command;
     }
 
     /// <summary>
