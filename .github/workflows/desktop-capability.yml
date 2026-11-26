@@ -225,6 +225,18 @@ jobs:
           persist-credentials: false
       - name: Validate controller completion handling without launching a guest
         run: ./eng/windows/test-sandbox-result.ps1
+      # GPU and self-hosted images can resolve `bash` to the WSL launcher in System32 (run 45887460560). Later `shell: bash`
+      # steps need Git for Windows Bash and its `file`, found from the same git.exe that checkout used.
+      - name: Put Git for Windows Bash ahead of the WSL launcher
+        run: |
+          $git = (Get-Command git.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+          $root = Split-Path -Parent $git
+          while ($root -and -not (Test-Path -LiteralPath (Join-Path $root 'bin\bash.exe') -PathType Leaf)) { $root = Split-Path -Parent $root }
+          if (-not $root) { throw "No Git for Windows bin\bash.exe above $git." }
+          $bin = Join-Path $root 'bin'
+          $usr = Join-Path $root 'usr\bin'
+          if (-not (Test-Path -LiteralPath (Join-Path $usr 'file.exe') -PathType Leaf)) { throw "Git for Windows has no $usr\file.exe." }
+          $bin, $usr | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Record application and test source identities
         shell: bash
         env:
