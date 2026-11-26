@@ -40,7 +40,23 @@
 
   <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('osx')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
     <Compile Remove="RecordingSpecTests.MacOS.cs" />
+    <Compile Remove="DesktopExecutionTests.MacOS.cs" />
   </ItemGroup>
+
+  <!-- Cocoa fixtures execute on a child process main thread within this existing test assembly. -->
+  <PropertyGroup Condition="$(DenicePlatformRid.StartsWith('osx')) or ('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+    <OutputType>Exe</OutputType>
+    <StartupObject>Denice.CrossPlatform.Tests.DesktopExecutionTests</StartupObject>
+    <!-- CEF derives its macOS helper path from the executable's enclosing application bundle. -->
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/Denice.CrossPlatform.Tests.app/Contents/MacOS/</OutputPath>
+  </PropertyGroup>
+
+  <Target Name="WriteMacDesktopFixtureBundle" AfterTargets="Build" Condition="'$(StartupObject)' == 'Denice.CrossPlatform.Tests.DesktopExecutionTests'">
+    <WriteLinesToFile File="$(OutputPath)../Info.plist" Overwrite="true"
+      Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&lt;plist version=&quot;1.0&quot;&gt;&lt;dict&gt;&lt;key&gt;CFBundleExecutable&lt;/key&gt;&lt;string&gt;Denice.CrossPlatform.Tests&lt;/string&gt;&lt;key&gt;CFBundleIdentifier&lt;/key&gt;&lt;string&gt;ai.denice.desktop-tests&lt;/string&gt;&lt;key&gt;CFBundlePackageType&lt;/key&gt;&lt;string&gt;APPL&lt;/string&gt;&lt;/dict&gt;&lt;/plist&gt;" />
+  </Target>
 
   <!-- Native GPU proof is explicitly selected on a Windows graphics runner, not ordinary unit-test hosts. -->
   <ItemGroup Condition="'$(DeniceDesktopGpuTests)' != 'true' or !$(DenicePlatformRid.StartsWith('win'))">
