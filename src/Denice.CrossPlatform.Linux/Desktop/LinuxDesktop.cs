@@ -14,6 +14,7 @@ namespace Denice.CrossPlatform.Linux.Desktop;
 internal sealed class LinuxDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, IPlatformBrowserAudioSink, IDisposable
 {
     private readonly IPlatformBrowser _browser;
+    private string? _audioError;
     private LinuxGpuContext? _graphics;
     private LinuxSharedFrame? _main;
     private LinuxSharedFrame? _popup;
@@ -39,6 +40,9 @@ internal sealed class LinuxDesktop : IPlatformDesktop, IPlatformBrowserFrameSink
     public string? LastRecordingError { get; private set; }
 
     /// <inheritdoc />
+    public string? LastAudioError => Volatile.Read(ref _audioError);
+
+    /// <inheritdoc />
     public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Renderer: {_renderer}. Presented {_frames} frames; copied {_imports} CEF DMA-BUF frames. Recording is unavailable.");
 
     /// <inheritdoc />
@@ -46,6 +50,7 @@ internal sealed class LinuxDesktop : IPlatformDesktop, IPlatformBrowserFrameSink
     {
         ArgumentNullException.ThrowIfNull(initialUrl);
         ArgumentNullException.ThrowIfNull(clock);
+        Volatile.Write(ref _audioError, null);
         if (recordingPath is not null)
         {
             LastRecordingError = "Linux recording requires the pending GPU encoder and approved audio capture integration.";
@@ -157,7 +162,12 @@ internal sealed class LinuxDesktop : IPlatformDesktop, IPlatformBrowserFrameSink
     public void OnAudioStopped() => UnexpectedAudioCapture();
 
     /// <inheritdoc />
-    public void OnAudioError(string message) => _callbackError = new IOException(message);
+    public void OnAudioError(string message)
+    {
+        // The first browser audio failure of the run is kept whether or not it recorded; the existing report is unchanged.
+        _ = Interlocked.CompareExchange(ref _audioError, message, null);
+        _callbackError = new IOException(message);
+    }
 
     /// <summary>Creates the Linux desktop service.</summary>
     /// <returns>The desktop with its browser collaborator.</returns>

@@ -8,6 +8,12 @@ public interface IPlatformDesktop
     /// <summary>Gets the most recent recording failure while allowing the desktop to continue.</summary>
     string? LastRecordingError { get; }
 
+    /// <summary>
+    /// Gets the first browser audio failure of the latest run, whether or not it recorded; null when audio had no failure.
+    /// A failure does not stop the run; it is reported after the desktop closes.
+    /// </summary>
+    string? LastAudioError { get; }
+
     /// <summary>Gets the measured rendering and recording timings for the latest run.</summary>
     string LastFrameStatistics { get; }
 

@@ -13,6 +13,7 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
 {
     private readonly Lock _graphics = new();
     private readonly IPlatformBrowser _browser;
+    private string? _audioError;
     private WindowsWindow? _window;
     private WindowsGpuContext? _context;
     private WindowsSharedFrame? _view;
@@ -36,6 +37,9 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
     public string? LastRecordingError { get; private set; }
 
     /// <inheritdoc />
+    public string? LastAudioError => Volatile.Read(ref _audioError);
+
+    /// <inheritdoc />
     public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Rendered {_frames} hardware GPU frames.");
 
     /// <inheritdoc />
@@ -50,6 +54,7 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
 
         WindowsSharedFrame.EnsureCallbackSafety();
         LastRecordingError = null;
+        Volatile.Write(ref _audioError, null);
         _frames = 0;
         _hasView = false;
         _hasPopup = false;
@@ -174,7 +179,12 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
     }
 
     /// <inheritdoc />
-    public void OnAudioError(string message) => LastRecordingError = message;
+    public void OnAudioError(string message)
+    {
+        // The first browser audio failure of the run is kept whether or not it recorded; the existing report is unchanged.
+        _ = Interlocked.CompareExchange(ref _audioError, message, null);
+        LastRecordingError = message;
+    }
 
     /// <summary>Creates the platform desktop with the shared browser lifecycle.</summary>
     /// <returns>The native desktop capability.</returns>

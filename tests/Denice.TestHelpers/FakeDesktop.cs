@@ -10,14 +10,18 @@ public sealed class FakeDesktop : IPlatformDesktop
 {
     private readonly int exit;
 
-    private FakeDesktop(int exit, string? recordingError)
+    private FakeDesktop(int exit, string? recordingError, string? audioError)
     {
         this.exit = exit;
         LastRecordingError = recordingError;
+        LastAudioError = audioError;
     }
 
     /// <inheritdoc />
     public string? LastRecordingError { get; }
+
+    /// <inheritdoc />
+    public string? LastAudioError { get; }
 
     /// <inheritdoc />
     public string LastFrameStatistics => "desktop test completed";
@@ -25,8 +29,9 @@ public sealed class FakeDesktop : IPlatformDesktop
     /// <summary>Creates a desktop result for command-level tests.</summary>
     /// <param name="exit">The result returned by the desktop loop.</param>
     /// <param name="recordingError">The optional recording failure after startup.</param>
+    /// <param name="audioError">The optional browser audio failure of the run.</param>
     /// <returns>The fake desktop capability.</returns>
-    public static IPlatformDesktop Create(int exit, string? recordingError) => new FakeDesktop(exit, recordingError);
+    public static IPlatformDesktop Create(int exit, string? recordingError, string? audioError = null) => new FakeDesktop(exit, recordingError, audioError);
 
     /// <inheritdoc />
     public int Run(Uri initialUrl, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort) => exit;

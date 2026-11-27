@@ -160,7 +160,13 @@ internal sealed class Program
                 if (services.Platform.Desktop.LastRecordingError is { } recordingError)
                 {
                     services.Console.ErrorWriteLine($"DENICE recording failed: {recordingError}");
-                    return result == 0 ? 1 : result;
+                    result = result == 0 ? 1 : result;
+                }
+
+                if (services.Platform.Desktop.LastAudioError is { } audioError)
+                {
+                    services.Console.ErrorWriteLine($"DENICE audio failed: {audioError}");
+                    result = result == 0 ? 1 : result;
                 }
 
                 return result;

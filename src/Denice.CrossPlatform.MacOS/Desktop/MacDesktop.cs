@@ -13,6 +13,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
 {
     private readonly Lock _recordingLock = new();
     private readonly IPlatformBrowser _browser;
+    private string? _audioError;
     private MacGpuWindow? _window;
     private Mp4Recorder? _recorder;
     private int _audioChannels;
@@ -39,6 +40,9 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
     public string? LastRecordingError => _recordingError;
 
     /// <inheritdoc />
+    public string? LastAudioError => Volatile.Read(ref _audioError);
+
+    /// <inheritdoc />
     public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Rendered {_frameCount} frames. Recorder accepted {_capturedVideoFrames} newly captured frames and encoded {_encodedVideoFrames} frames including holds. Mean GPU render: {_renderMilliseconds / Math.Max(1, _frameCount):F2} ms; recording readback: {_readbackMilliseconds / Math.Max(1, _frameCount):F2} ms; encoder submission: {_encodeMilliseconds / Math.Max(1, _frameCount):F2} ms.");
 
     /// <inheritdoc />
@@ -47,6 +51,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         ArgumentNullException.ThrowIfNull(initialUrl);
         ArgumentNullException.ThrowIfNull(clock);
         _recordingError = null;
+        Volatile.Write(ref _audioError, null);
         nint app = MacApplication.Create();
         nint lifetimePool = MacNative.Call(MacNative.Class("NSAutoreleasePool"), "new");
         nint frame = 0;
@@ -172,6 +177,8 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
     /// <inheritdoc />
     public void OnAudioError(string message)
     {
+        // The first browser audio failure of the run is kept whether or not it recorded; the recording report is unchanged.
+        _ = Interlocked.CompareExchange(ref _audioError, message, null);
         lock (_recordingLock)
         {
             if (_recorder is not null)
