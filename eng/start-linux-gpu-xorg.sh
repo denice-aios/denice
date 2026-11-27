@@ -145,6 +145,8 @@ probe() {
     echo "libglxserver_nvidia=$(find_module 'libglxserver_nvidia.so*' || echo missing)"
     echo "libEGL_nvidia=$(library_path libEGL_nvidia.so.0 || echo missing)"
     echo "libGLX_nvidia=$(library_path libGLX_nvidia.so.0 || echo missing)"
+    echo "libEGL=$(library_path libEGL.so.1 || echo missing)"
+    echo "libGLESv2=$(library_path libGLESv2.so.2 || echo missing)"
     echo "xdpyinfo=$(command -v xdpyinfo || echo missing)"
     echo "sudo_noninteractive=$(sudo -n true 2>/dev/null && echo yes || echo no)"
     echo "device_nodes:"
@@ -154,6 +156,9 @@ probe() {
   find_module nvidia_drv.so >/dev/null || missing+=("NVIDIA X driver nvidia_drv.so (xserver-xorg-video-nvidia-<branch>)")
   find_module 'libglxserver_nvidia.so*' >/dev/null || missing+=("NVIDIA GLX server module libglxserver_nvidia.so")
   library_path libEGL_nvidia.so.0 >/dev/null || missing+=("NVIDIA EGL vendor library libEGL_nvidia.so.0 (libnvidia-gl-<branch>)")
+  # The fixtures bind libEGL.so.1 and libGLESv2.so.2 by name (EglNative, GlesNative); run 45915809127 lacked the latter.
+  library_path libEGL.so.1 >/dev/null || missing+=("GLVND EGL dispatcher libEGL.so.1 (libegl1)")
+  library_path libGLESv2.so.2 >/dev/null || missing+=("GLVND GLES dispatcher libGLESv2.so.2 (libgles2)")
   sudo -n true 2>/dev/null || missing+=("non-interactive sudo to start Xorg")
   [[ "$busid" != unavailable ]] || missing+=("NVIDIA PCI device")
   if ((${#missing[@]})); then
