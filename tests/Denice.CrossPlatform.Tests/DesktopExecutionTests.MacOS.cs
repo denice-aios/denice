@@ -16,6 +16,12 @@ namespace Denice.CrossPlatform.Tests;
 /// <summary>Exercises Cocoa on the process main thread using the instrumented product assemblies.</summary>
 public sealed class DesktopExecutionTests(ITestOutputHelper output)
 {
+    private const string SamplerPath = "/usr/bin/sample";
+    private const int SampleSeconds = 5;
+    private static readonly TimeSpan FixtureTimeout = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan SamplerTimeout = TimeSpan.FromSeconds(30);
+
     [SuppressMessage("Denice.Architecture", "DN0011", Justification = "This native integration fixture owns a bounded child process so Cocoa executes on its OS main thread; no product process interface exists. All other environment, file and clock operations use Systemservices.")]
     [Theory]
     [InlineData("compositor")]
@@ -40,22 +46,120 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         Task<string> stderr = process.StandardError.ReadToEndAsync();
         try
         {
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(90), services.Clock);
+            await process.WaitForExitAsync().WaitAsync(FixtureTimeout, services.Clock);
         }
-        catch (TimeoutException)
+        catch (TimeoutException timeout)
         {
-            process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10), services.Clock);
+            Exception? cleanupFailure = await SampleAndStopAsync(services, process, directory);
+            if (cleanupFailure is not null)
+            {
+                throw new AggregateException("The native fixture timed out and could not be stopped.", timeout, cleanupFailure);
+            }
+
             throw;
         }
         finally
         {
-            string log = await stdout + "\n" + await stderr;
+            string log;
+            try
+            {
+                log = await stdout.WaitAsync(CleanupTimeout, services.Clock) + "\n" + await stderr.WaitAsync(CleanupTimeout, services.Clock);
+            }
+            catch (TimeoutException)
+            {
+                log = "The native fixture's output did not close after it was stopped.";
+            }
+
             await services.FileSystem.GetFileWriter().WriteAllBytesAsync(Path.Combine(directory, "execution.log"), Encoding.UTF8.GetBytes(log), CancellationToken.None);
             output.WriteLine(log);
         }
 
         Assert.Equal(0, process.ExitCode);
+    }
+
+    /// <summary>Writes a fixture progress marker so a timed-out child shows the last stage it reached.</summary>
+    private static void Stage(ISystemServices services, string stage) => services.Console.WriteLine("Fixture stage: " + stage);
+
+    /// <summary>Samples a timed-out fixture, then always stops it, whatever happened to the best-effort sample.</summary>
+    /// <returns>The failure to stop the fixture, or null when it exited.</returns>
+    [SuppressMessage("Denice.Architecture", "DN0011", Justification = "Stops this bounded native fixture's own child process; no product process interface exists.")]
+    private static async Task<Exception?> SampleAndStopAsync(ISystemServices services, Process process, string directory)
+    {
+        Exception? stopFailure = null;
+        try
+        {
+            await CaptureHangSampleAsync(services, process.Id, directory).ConfigureAwait(false);
+        }
+        finally
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+                await process.WaitForExitAsync().WaitAsync(CleanupTimeout, services.Clock).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (exception is InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
+            {
+                stopFailure = exception;
+            }
+        }
+
+        return stopFailure;
+    }
+
+    /// <summary>Records the timed-out child's thread stacks with the system sampler before it is killed. Best effort: it never
+    /// throws, it always stops and drains the sampler within its bound, and a failure is written beside the report.</summary>
+    [SuppressMessage("Denice.Architecture", "DN0011", Justification = "Diagnostic for this bounded native fixture: samples its own timed-out child process with the system sampler; no product process interface exists.")]
+    [SuppressMessage("Design", "CA1031", Justification = "Sampling is best effort and must never replace the fixture's timeout failure or prevent its cleanup.")]
+    private static async Task CaptureHangSampleAsync(ISystemServices services, int processId, string directory)
+    {
+        string? failure = null;
+        try
+        {
+            var start = new ProcessStartInfo(SamplerPath) { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+            start.ArgumentList.Add(processId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add(SampleSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            start.ArgumentList.Add("-file");
+            start.ArgumentList.Add(Path.Combine(directory, "hang-sample.txt"));
+            using Process sampler = Process.Start(start) ?? throw new InvalidOperationException("Cannot start the system sampler.");
+            Task<string> samplerOutput = sampler.StandardOutput.ReadToEndAsync();
+            Task<string> samplerError = sampler.StandardError.ReadToEndAsync();
+            try
+            {
+                await sampler.WaitForExitAsync().WaitAsync(SamplerTimeout, services.Clock).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                failure = $"The sampler did not finish within {SamplerTimeout.TotalSeconds} s and was stopped.";
+            }
+            finally
+            {
+                if (!sampler.HasExited)
+                {
+                    sampler.Kill(entireProcessTree: true);
+                    await sampler.WaitForExitAsync().WaitAsync(CleanupTimeout, services.Clock).ConfigureAwait(false);
+                }
+
+                _ = await Task.WhenAll(samplerOutput, samplerError).WaitAsync(CleanupTimeout, services.Clock).ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            failure = "Sampling failed: " + exception.Message;
+        }
+
+        if (failure is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await services.FileSystem.GetFileWriter().WriteAllBytesAsync(Path.Combine(directory, "hang-sample-status.txt"), Encoding.UTF8.GetBytes(failure), CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // The status note is diagnostic only; the timeout failure and fixture cleanup proceed without it.
+        }
     }
 
     /// <summary>Runs only a selected native fixture, on the OS main thread.</summary>
@@ -67,6 +171,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
             return 2;
         }
 
+        Stage(services, $"start {args[0]}, process architecture {services.Environment.GetProcessArchitecture()}");
         if (string.Equals(args[0], "compositor", StringComparison.Ordinal))
         {
             AssertCompositor(services, args[1]);
@@ -86,6 +191,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         string cache = Path.Combine(directory, "cache-" + services.Random.NewGuid().ToString("N"));
         const string html = "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Native fixture</button></body></html>";
         var desktop = MacDesktop.Create();
+        Stage(services, "desktop run");
         int exit = desktop.Run(new Uri("data:text/html," + Uri.EscapeDataString(html)), recording, 2, services.Clock, cache, 0);
         Assert.Equal(0, exit);
         Assert.Null(desktop.LastRecordingError);
@@ -100,7 +206,9 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         try
         {
             _ = MacApplication.Create();
+            Stage(services, "application created");
             using var window = MacGpuWindow.Create();
+            Stage(services, "GPU window created");
             byte[] first = ReadRenderedFrame(window, 0);
             byte[] second = ReadRenderedFrame(window, 1);
             Assert.True(
@@ -110,6 +218,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
             Assert.False(
                 first.AsSpan(center, 3).SequenceEqual(first.AsSpan(0, 3)),
                 "The center of the rendered orb must differ from the background.");
+            Stage(services, "native frames rendered");
             AssertBrowserContent(services, window, directory);
             services.Console.WriteLine($"Native rendered content: {window.RecordingWidth}x{window.RecordingHeight}.");
         }
@@ -122,13 +231,16 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     private static void AssertBrowserContent(ISystemServices services, MacGpuWindow window, string directory)
     {
         const string html = "<html><body style='margin:0;background:transparent'><button onclick=\"this.style.background='lime'\" style='border:0;background:red;width:150px;height:80px'>Click</button></body></html>";
+        Stage(services, "browser create");
         IPlatformBrowser browser = CefPlatformBrowser.Create();
         IPlatformBrowserFrameSink frames = FrameSink.Create(window);
         string cache = Path.Combine(directory, "browser-" + services.Random.NewGuid().ToString("N"));
         try
         {
             browser.Start(new Uri("data:text/html," + Uri.EscapeDataString(html)), MacGpuWindow.Width, MacGpuWindow.Height, frames, (IPlatformBrowserAudioSink)MacDesktop.Create(), cache, 0);
+            Stage(services, "browser started");
             WaitForColor(services, browser, window, red: true);
+            Stage(services, "browser content rendered");
             Assert.True(browser.IsReady);
             browser.MouseMove(40, 40, false);
             browser.MouseClick(40, 40, 0, false, 1);

@@ -227,6 +227,9 @@ jobs:
             evidence/*.lcov
             **/TestResults/**/coverage.cobertura.xml
             **/TestResults/**/*.trx
+            tests/Denice.CrossPlatform.Tests/bin/**/TestArtifacts/*/execution.log
+            tests/Denice.CrossPlatform.Tests/bin/**/TestArtifacts/*/hang-sample.txt
+            tests/Denice.CrossPlatform.Tests/bin/**/TestArtifacts/*/hang-sample-status.txt
       - name: Install cosign (keyless signing)
         if: github.event_name == 'push'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
