@@ -27,6 +27,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
 
     [SuppressMessage("Denice.Architecture", "DN0011", Justification = "This native integration fixture owns a bounded child process so Cocoa executes on its OS main thread; no product process interface exists. All other environment, file and clock operations use Systemservices.")]
     [Theory]
+    [InlineData("browser-audio")]
     [InlineData("compositor")]
     [InlineData("desktop")]
     public async Task NativeDesktopCompletesWithRenderedContent(string scenario)
@@ -171,13 +172,17 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     {
         ISystemServices services = SystemServicesBuilder.Real().Build();
         fixtureStart = services.Clock.GetTimestamp();
-        if (args.Length != 2 || args[0] is not ("compositor" or "desktop"))
+        if (args.Length != 2 || args[0] is not ("browser-audio" or "compositor" or "desktop"))
         {
             return 2;
         }
 
         Stage(services, $"start {args[0]}, process architecture {services.Environment.GetProcessArchitecture()}");
-        if (string.Equals(args[0], "compositor", StringComparison.Ordinal))
+        if (string.Equals(args[0], "browser-audio", StringComparison.Ordinal))
+        {
+            BrowserAudioFixture.Run(services, args[1], stage => Stage(services, stage));
+        }
+        else if (string.Equals(args[0], "compositor", StringComparison.Ordinal))
         {
             AssertCompositor(services, args[1]);
         }
@@ -237,7 +242,10 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     {
         const string html = "<html><body style='margin:0;background:transparent'><button onclick=\"this.style.background='lime'\" style='border:0;background:red;width:150px;height:80px'>Click</button></body></html>";
         Stage(services, "browser create");
-        IPlatformBrowser browser = CefPlatformBrowser.Create();
+
+        // The macOS browser needs its audio mixer; this scenario never starts its output, so nothing reaches a device.
+        using var mixer = MacOS.Browser.BrowserAudioMixer.Create();
+        IPlatformBrowser browser = CefPlatformBrowser.Create(mixer);
         var frameStats = new FrameStats();
         IPlatformBrowserFrameSink frames = FrameSink.Create(window, frameStats);
         string cache = Path.Combine(directory, "browser-" + services.Random.NewGuid().ToString("N"));

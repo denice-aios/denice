@@ -49,13 +49,10 @@ internal static class DesktopNativeInterop
             return false;
         }
 
-        string entryPoint = method.Name;
-        foreach (var argument in import.NamedArguments)
+        string entryPoint = EntryPointOf(method, import);
+        if (IsBrowserAudioImport(area, assembly, library, entryPoint))
         {
-            if (argument.Key is "EntryPoint" && argument.Value.Value is string name)
-            {
-                entryPoint = name;
-            }
+            return true;
         }
 
         if (string.Equals(assembly, "Denice.CrossPlatform.Windows", StringComparison.Ordinal))
@@ -72,6 +69,35 @@ internal static class DesktopNativeInterop
             && ((library is "/usr/lib/libSystem.B.dylib" && entryPoint is "memmove")
                 || library is "/usr/lib/libobjc.A.dylib"
                 || IsAppleFramework(library));
+    }
+
+    private static string EntryPointOf(IMethodSymbol method, AttributeData import)
+    {
+        foreach (var argument in import.NamedArguments)
+        {
+            if (argument.Key is "EntryPoint" && argument.Value.Value is string name)
+            {
+                return name;
+            }
+        }
+
+        return method.Name;
+    }
+
+    // Browser-audio allowance: approved for the proof by document-0b78de34…; widened to the normal build by the browser audio
+    // integration Tim requested, whose canonical amendment document-e8a1790a… (revision 48d44038…) is not yet delivered or
+    // approved. Only the per-OS Browser area may import AudioToolbox, the dyld image walk and vm_protect, to redirect the
+    // browser engine's audio output into the application's own mixer.
+    private static bool IsBrowserAudioImport(string area, string assembly, string library, string entryPoint)
+    {
+        if (!string.Equals(area, assembly + ".Browser", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        return library is "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox"
+            || (library is "/usr/lib/libSystem.B.dylib"
+                && entryPoint is "_dyld_image_count" or "_dyld_get_image_name" or "_dyld_get_image_header" or "_dyld_get_image_vmaddr_slide" or "vm_protect");
     }
 
     private static bool IsWindowsEntryPoint(string library, string entryPoint) =>

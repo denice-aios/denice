@@ -39,6 +39,11 @@ internal static unsafe class MacApplication
         return app;
     }
 
+    /// <summary>Takes the next pending Cocoa event without waiting; running the main run loop also drains the main dispatch queue.</summary>
+    /// <param name="app">The application.</param>
+    /// <returns>The event, or zero when none is pending.</returns>
+    internal static nint NextEvent(nint app) => MacNative.NextEvent(app, MacNative.Selector("nextEventMatchingMask:untilDate:inMode:dequeue:"), nuint.MaxValue, MacNative.Call(MacNative.Class("NSDate"), "distantPast"), MacNative.Text("kCFRunLoopDefaultMode"), 1);
+
     /// <summary>Attaches the CEF protocol after its framework registers the native protocol object.</summary>
     internal static void AttachCefProtocol()
     {

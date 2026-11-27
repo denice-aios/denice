@@ -14,6 +14,11 @@ internal static partial class MacNative
     // The runtime exports objc_msgSend_stret exactly where the indirect convention applies.
     private static readonly bool RectReturnedIndirectly = NativeLibrary.TryGetExport(NativeLibrary.Load(ObjC), "objc_msgSend_stret", out _);
 
+    /// <summary>Writes a fixed diagnostic line in builds with DeniceAudioDiagnostics.</summary>
+    /// <param name="message">A fixed NSString message without format substitutions.</param>
+    [LibraryImport("/System/Library/Frameworks/Foundation.framework/Foundation", EntryPoint = "NSLog")]
+    internal static partial void LogProof(nint message);
+
     /// <summary>Calls the native Cocoa or Metal operation with its ABI-compatible signature.</summary>
     /// <param name="name">The native runtime name.</param>
     /// <returns>The created object or native operation result.</returns>

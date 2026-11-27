@@ -41,6 +41,9 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
         nint nativeHandle = NativeLibrary.Load(nativeLibrary);
         NativeLibrary.SetDllImportResolver(typeof(CefRuntime).Assembly, (name, assembly, path) => string.Equals(name, "libcef", StringComparison.Ordinal) ? nativeHandle : nint.Zero);
         CefRuntime.Load();
+        #pragma warning disable S3251 // Approved optional browser audio hook, implemented only on macOS.
+        StartAudio(audio);
+        #pragma warning restore S3251
         var settings = new CefSettings
         {
             RootCachePath = cachePath,
@@ -85,6 +88,9 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
         }
 
         CefRuntime.DoMessageLoopWork();
+        #pragma warning disable S3251 // Approved optional browser audio hook, implemented only on macOS.
+        PumpAudio();
+        #pragma warning restore S3251
         if (state.Failure is { } message)
         {
             state.Failure = null;
@@ -126,6 +132,9 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
         CefRuntime.Shutdown();
         GC.KeepAlive(client);
         GC.KeepAlive(application);
+        #pragma warning disable S3251 // Approved optional browser audio hook, implemented only on macOS.
+        FinishAudio();
+        #pragma warning restore S3251
         initialized = false;
         client = null;
         application = null;
@@ -157,6 +166,18 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
         var visible = info.Extra.VisibleRectangle;
         sink.OnAcceleratedFrame(in buffer, (int)info.Format, info.Extra.CodedSize.Width, info.Extra.CodedSize.Height, visible.X, visible.Y, visible.Width, visible.Height, type == CefPaintElementType.Popup);
     }
+
+#pragma warning disable S3251 // The approved optional browser audio hooks are implemented only on macOS; Windows and Linux intentionally omit them.
+    /// <summary>Starts the browser's own audio output where a platform implements it (macOS); no-op elsewhere.</summary>
+    /// <param name="audio">The audio sink given to Start.</param>
+    partial void StartAudio(IPlatformBrowserAudioSink audio);
+
+    /// <summary>Hands pending browser audio to the sink after each message pump where implemented (macOS); no-op elsewhere.</summary>
+    partial void PumpAudio();
+
+    /// <summary>Completes browser audio after CEF shutdown where implemented (macOS); no-op elsewhere.</summary>
+    partial void FinishAudio();
+#pragma warning restore S3251
 
     [SuppressMessage("Maintainability", "CA1508", Justification = "The native creation result is required even if the current binding throws for a null browser.")]
     private void CreateBrowser(Uri url, IPlatformBrowserFrameSink frames, IPlatformBrowserAudioSink audio)

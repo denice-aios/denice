@@ -1,5 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -13,6 +14,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
 {
     private readonly Lock _recordingLock = new();
     private readonly IPlatformBrowser _browser;
+    private readonly Browser.BrowserAudioMixer _audio;
     private string? _audioError;
     private MacGpuWindow? _window;
     private Mp4Recorder? _recorder;
@@ -31,9 +33,10 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
     private long _capturedVideoFrames;
     private long _encodedVideoFrames;
 
-    private MacDesktop(IPlatformBrowser browser)
+    private MacDesktop(IPlatformBrowser browser, Browser.BrowserAudioMixer audio)
     {
         _browser = browser;
+        _audio = audio;
     }
 
     /// <inheritdoc />
@@ -43,7 +46,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
     public string? LastAudioError => Volatile.Read(ref _audioError);
 
     /// <inheritdoc />
-    public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Rendered {_frameCount} frames. Recorder accepted {_capturedVideoFrames} newly captured frames and encoded {_encodedVideoFrames} frames including holds. Mean GPU render: {_renderMilliseconds / Math.Max(1, _frameCount):F2} ms; recording readback: {_readbackMilliseconds / Math.Max(1, _frameCount):F2} ms; encoder submission: {_encodeMilliseconds / Math.Max(1, _frameCount):F2} ms.");
+    public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Rendered {_frameCount} frames. Recorder accepted {_capturedVideoFrames} newly captured frames and encoded {_encodedVideoFrames} frames including holds. Mean GPU render: {_renderMilliseconds / Math.Max(1, _frameCount):F2} ms; recording readback: {_readbackMilliseconds / Math.Max(1, _frameCount):F2} ms; encoder submission: {_encodeMilliseconds / Math.Max(1, _frameCount):F2} ms. Browser audio: {(LastAudioError is { } audioError ? "FAILED: " + audioError : "no failures.")}");
 
     /// <inheritdoc />
     public int Run(Uri initialUrl, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort)
@@ -68,6 +71,9 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
 
             _captureOrigin = _recorder?.OriginTimestamp ?? clock.GetTimestamp();
             RenderFrame(frame, clock);
+
+            // The browser's audio output plays before CEF loads, so Chromium's first stream is pulled from its first sample.
+            _audio.Start(clock);
             _browser.Start(initialUrl, MacGpuWindow.Width, MacGpuWindow.Height, this, this, browserCachePath, browserDebugPort);
             browserStarted = true;
             WaitForBrowser(app, frame, clock);
@@ -95,10 +101,11 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
 
             if (browserStarted || !_browser.IsClosed)
             {
-                CloseBrowser(app, clock);
-                _browser.Shutdown();
+                ShutdownBrowser(app, clock);
             }
 
+            // Only after CEF shutdown: no Chromium audio unit can still call into the mixer.
+            _audio.Dispose();
             _window?.Dispose();
             _window = null;
             MacNative.Release(lifetimePool);
@@ -190,7 +197,36 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
 
     /// <summary>Creates the desktop with its browser collaborator.</summary>
     /// <returns>The created object or native operation result.</returns>
-    internal static IPlatformDesktop Create() => new MacDesktop(Browser.CefPlatformBrowser.Create());
+    internal static IPlatformDesktop Create()
+    {
+        var audio = Browser.BrowserAudioMixer.Create();
+        return new MacDesktop(CrossPlatform.Browser.CefPlatformBrowser.Create(audio), audio);
+    }
+
+    private void ShutdownBrowser(nint app, TimeProvider clock)
+    {
+        CloseBrowser(app, clock);
+        LogAudioDiagnostics("before CefRuntime.Shutdown");
+        _browser.Shutdown();
+        LogAudioDiagnostics("after CefRuntime.Shutdown");
+    }
+
+    [Conditional("DENICE_AUDIO_DIAGNOSTICS")]
+    [SuppressMessage("Performance", "CA1822", Justification = "Uses instance data in diagnostic builds (DeniceAudioDiagnostics); empty otherwise.")]
+    private void LogAudioDiagnostics(string stage)
+    {
+#if DENICE_AUDIO_DIAGNOSTICS
+        string mixer = string.Create(CultureInfo.InvariantCulture, $"cycles={_audio.Cycles}, last cycle frames={_audio.LastCycleFrames}, registered={_audio.RegisteredStreams}, speech queued/mixed={_audio.SpeechFramesQueued}/{_audio.SpeechFramesMixed}, failure={_audio.Failure ?? "none"}");
+        MacNative.LogProof(MacNative.Text($"DENICE audio diagnostics {stage}: {Browser.AudioOutputRedirection.Report}; speech: {Browser.SpeechRedirection.Report}; mixer: {mixer}; events: {Browser.AudioDiagnostics.Events}"));
+        if (stage.StartsWith("after", StringComparison.Ordinal))
+        {
+            foreach (string line in _audio.DescribeCycles(0, long.MaxValue))
+            {
+                MacNative.LogProof(MacNative.Text(line));
+            }
+        }
+#endif
+    }
 
     private void WaitForBrowser(nint app, nint frame, TimeProvider clock)
     {
@@ -331,7 +367,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
     {
         while (true)
         {
-            nint evt = MacNative.NextEvent(app, MacNative.Selector("nextEventMatchingMask:untilDate:inMode:dequeue:"), nuint.MaxValue, MacNative.Call(MacNative.Class("NSDate"), "distantPast"), MacNative.Text("kCFRunLoopDefaultMode"), 1);
+            nint evt = MacApplication.NextEvent(app);
             if (evt == 0)
             {
                 break;

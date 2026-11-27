@@ -11,6 +11,11 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <!-- Browser audio diagnostics build (event log, cycle ring, per-stream counters); never set in the normal build. -->
+  <PropertyGroup Condition="'$(DeniceAudioDiagnostics)' == 'true'">
+    <DefineConstants>$(DefineConstants);DENICE_AUDIO_DIAGNOSTICS</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../Denice.Abstractions/Denice.Abstractions.csproj" />
     <ProjectReference Include="../Denice.CrossPlatform/Denice.CrossPlatform.csproj" />

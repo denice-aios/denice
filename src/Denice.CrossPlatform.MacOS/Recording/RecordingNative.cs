@@ -13,6 +13,14 @@ internal static partial class RecordingNative
     private const string CoreVideo = "/System/Library/Frameworks/CoreVideo.framework/CoreVideo";
     private const string CoreFoundation = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
 
+    /// <summary>Reads the same mach-absolute-time clock used by Chromium audio capture.</summary>
+    /// <returns>Host time in nanoseconds.</returns>
+    internal static long HostNanoseconds()
+    {
+        MediaTime time = CMClockGetTime(CMClockGetHostTimeClock());
+        return checked((long)((Int128)time.Value * 1_000_000_000 / time.Timescale));
+    }
+
     /// <summary>Invokes Send with the declared native ABI.</summary>
     /// <param name="receiver">The Objective-C receiver.</param>
     /// <param name="selector">The selector.</param>
@@ -259,4 +267,12 @@ internal static partial class RecordingNative
     [LibraryImport("/usr/lib/libSystem.B.dylib", EntryPoint = "memmove")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     internal static partial nint CopyMemory(nint destination, nint source, nuint length);
+
+    [LibraryImport("/System/Library/Frameworks/CoreMedia.framework/CoreMedia")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    private static partial nint CMClockGetHostTimeClock();
+
+    [LibraryImport("/System/Library/Frameworks/CoreMedia.framework/CoreMedia")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    private static partial MediaTime CMClockGetTime(nint clock);
 }

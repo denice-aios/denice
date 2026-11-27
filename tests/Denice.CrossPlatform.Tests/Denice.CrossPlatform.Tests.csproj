@@ -10,6 +10,8 @@
     <DeniceIsTestProject>true</DeniceIsTestProject>
     <RootNamespace>Denice.CrossPlatform.Tests</RootNamespace>
     <AssemblyName>Denice.CrossPlatform.Tests</AssemblyName>
+    <!-- The browser-audio tests drive the mixer's render entry point with unmanaged Core Audio structures. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,6 +43,11 @@
   <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('osx')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
     <Compile Remove="RecordingSpecTests.MacOS.cs" />
     <Compile Remove="DesktopExecutionTests.MacOS.cs" />
+    <Compile Remove="BrowserAudioTests.MacOS.cs" />
+    <Compile Remove="BrowserAudioMixerTests.MacOS.cs" />
+    <Compile Remove="MixerHarness.MacOS.cs" />
+    <Compile Remove="BrowserAudioFixture.MacOS.cs" />
+    <Compile Remove="StreamRateConverterTests.MacOS.cs" />
   </ItemGroup>
 
   <!-- Cocoa fixtures execute on a child process main thread within this existing test assembly. -->
