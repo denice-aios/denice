@@ -10,7 +10,9 @@
 #   stop <evidence-dir>             stop the Xorg recorded by start, from any later shell
 #
 # Sources: NVIDIA 590.48.01 README chapters 5 (installed components), 6 (X config), 7 (BusID format, log checks),
-# 8 (headless operation, xdpyinfo GLX/NV-GLX), appendix B (UseDisplayDevice, AllowEmptyInitialConfiguration).
+# 8 (headless operation, xdpyinfo GLX/NV-GLX), appendix B (AllowEmptyInitialConfiguration).
+# UseDisplayDevice "none" is deliberately absent: on the hosted T4 the 590.48.01 X driver logged
+# 'UseDisplayDevice "None" is not supported with virtual display' and failed the screen (run 45913443475).
 #
 # Ubuntu's xserver-xorg-video-nvidia-<branch> installs nvidia_drv.so in /usr/lib/x86_64-linux-gnu/nvidia/xorg and adds
 # that ModulePath only through an OutputClass matching nvidia-drm, so this configuration names the found directory itself.
@@ -97,7 +99,6 @@ Section "Device"
     Driver "nvidia"
     BusID "$busid"
     Option "AllowEmptyInitialConfiguration" "true"
-    Option "UseDisplayDevice" "none"
 EndSection
 
 Section "Screen"
