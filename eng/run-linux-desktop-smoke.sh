@@ -22,6 +22,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 EXPECTED = {
+    'Denice.CrossPlatform.Tests.DesktopGpuTests.CefDmaBufFramesImportThroughLinuxSharedFrameAndKeepTheirColors',
     'Denice.CrossPlatform.Tests.DesktopGpuTests.HardwareEncoderFinalizesGpuFramesWithOriginalTimestamps',
     'Denice.CrossPlatform.Tests.DesktopGpuTests.HardwareWindowRendersDistinctFramebuffersAndPresents',
     'Denice.CrossPlatform.Tests.DesktopGpuTests.RecordingDestinationCreatesExclusivelyAndPreservesExistingBytes',
@@ -33,7 +34,7 @@ def require(ok, message):
         raise ValueError(message)
 
 def names(actual):
-    require(collections.Counter(actual) == collections.Counter(EXPECTED), 'Expected exactly the Linux renderer, recording-destination and hardware encoder cases.')
+    require(collections.Counter(actual) == collections.Counter(EXPECTED), 'Expected exactly the Linux renderer, recording-destination, hardware encoder and CEF DMA-BUF import cases.')
 
 def discovery(path):
     text = Path(path).read_text()
@@ -142,7 +143,7 @@ def self_test():
         video.parent.mkdir()
         video.write_bytes(b'synthetic fixture, not video evidence')
         cases = ''.join('<UnitTestResult testName="' + name + '" outcome="Passed" />' for name in sorted(EXPECTED))
-        valid = '<TestRun xmlns="' + NS['t'] + '"><Results>' + cases + '</Results><ResultSummary outcome="Completed"><Counters total="3" executed="3" passed="3" /></ResultSummary></TestRun>'
+        valid = '<TestRun xmlns="' + NS['t'] + '"><Results>' + cases + '</Results><ResultSummary outcome="Completed"><Counters total="' + str(len(EXPECTED)) + '" executed="' + str(len(EXPECTED)) + '" passed="' + str(len(EXPECTED)) + '" /></ResultSummary></TestRun>'
         report.write_text(valid)
         results(root)
         def rejected(action):
@@ -154,7 +155,7 @@ def self_test():
         video.unlink()
         rejected(lambda: results(root))
         video.write_bytes(b'synthetic fixture, not video evidence')
-        for invalid in ('broken XML', valid.replace('outcome="Passed"', 'outcome="NotExecuted"'), valid.replace('executed="3"', 'executed="0"'), valid.replace(sorted(EXPECTED)[0], 'UnknownTest'), valid.replace(sorted(EXPECTED)[0], sorted(EXPECTED)[1]), valid.replace(cases, '')):
+        for invalid in ('broken XML', valid.replace('outcome="Passed"', 'outcome="NotExecuted"'), valid.replace('executed="' + str(len(EXPECTED)) + '"', 'executed="0"'), valid.replace(sorted(EXPECTED)[0], 'UnknownTest'), valid.replace(sorted(EXPECTED)[0], sorted(EXPECTED)[1]), valid.replace(cases, '')):
             report.write_text(invalid)
             rejected(lambda: results(root))
         log = root / 'discovery.txt'

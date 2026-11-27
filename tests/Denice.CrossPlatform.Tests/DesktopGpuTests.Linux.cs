@@ -1,7 +1,9 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using Denice.Abstractions.Contracts;
+using Denice.CrossPlatform.Browser;
 using Denice.CrossPlatform.Desktop;
+using Denice.CrossPlatform.Linux.Browser;
 using Denice.CrossPlatform.Linux.Desktop;
 using Denice.CrossPlatform.Linux.Recording;
 using Denice.CrossPlatform.Posix;
@@ -116,6 +118,141 @@ public sealed class DesktopGpuTests
         Assert.NotEmpty(services.FileSystem.GetFileReader().ReadAllBytes(path));
     }
 
+    [Fact]
+    [Trait("Category", "GpuHardware")]
+    public void CefDmaBufFramesImportThroughLinuxSharedFrameAndKeepTheirColors()
+    {
+        // Real CEF offscreen with shared textures: every accelerated frame goes through the published LinuxSharedFrame
+        // import (DMA-BUF to EGLImage to an owned GLES texture), and the imported pixels are read back and checked.
+        const string html = "<html><body style='margin:0;background:#000'><button onclick=\"this.style.background='lime'\" style='border:0;background:red;width:150px;height:80px'>Click</button></body></html>";
+        ISystemServices services = SystemServicesBuilder.Real().Build();
+        string output = Path.Combine(services.Environment.GetBaseDirectory(), "hardware-fixture-output");
+        services.FileSystem.GetDirectoryWriter().CreateDirectory(output);
+        using var graphics = LinuxGpuContext.Create(OrbScene.Width, OrbScene.Height);
+        using var importer = new LinuxSharedFrame(graphics);
+        var stats = new ImportStats();
+        IPlatformBrowser browser = CefPlatformBrowser.Create();
+        try
+        {
+            browser.Start(new Uri("data:text/html," + Uri.EscapeDataString(html)), OrbScene.Width, OrbScene.Height, ImportingFrameSink.Create(importer, stats), SilentAudioSink.Create(), Path.Combine(output, "cef-import-cache"), 0);
+            WaitForImportedColor(services, graphics, browser, importer, stats, red: true, Path.Combine(output, "cef-import-red.png"));
+            Assert.True(browser.IsReady);
+            browser.MouseMove(40, 40, false);
+            browser.MouseClick(40, 40, 0, false, 1);
+            browser.MouseClick(40, 40, 0, true, 1);
+            WaitForImportedColor(services, graphics, browser, importer, stats, red: false, Path.Combine(output, "cef-import-green.png"));
+            _output.WriteLine($"CEF DMA-BUF frames imported through LinuxSharedFrame: {stats.Imports}; last coded size {stats.LastWidth}x{stats.LastHeight}, CEF format {stats.LastFormat}, planes {stats.LastPlanes}, modifier 0x{stats.LastModifier:x}.");
+            _output.WriteLine("Imported pixels read back: the page's red button, then green after a click. Displayed scanout, audio and encoding of browser frames were not tested.");
+        }
+        finally
+        {
+            CloseBrowser(services, graphics, browser);
+        }
+
+        Assert.Null(stats.Failure);
+    }
+
+    private static void CloseBrowser(ISystemServices services, LinuxGpuContext graphics, IPlatformBrowser browser)
+    {
+        // CEF and the GLES context share this thread, so closure is pumped here rather than awaited.
+        browser.RequestClose();
+        long closing = services.Clock.GetTimestamp();
+        while (!browser.IsClosed && services.Clock.GetElapsedTime(closing).TotalSeconds < 10)
+        {
+            graphics.Window.Pump();
+            browser.Pump();
+            Task.Delay(TimeSpan.FromMilliseconds(5), services.Clock).GetAwaiter().GetResult();
+        }
+
+        Assert.True(browser.IsClosed, "CEF must complete browser closure before shutdown.");
+        browser.Shutdown();
+    }
+
+    private static void WaitForImportedColor(ISystemServices services, LinuxGpuContext graphics, IPlatformBrowser browser, LinuxSharedFrame importer, ImportStats stats, bool red, string evidence)
+    {
+        long start = services.Clock.GetTimestamp();
+        int bestMatches = 0;
+        SKBitmap? last = null;
+        try
+        {
+            while (services.Clock.GetElapsedTime(start).TotalSeconds < 15)
+            {
+                graphics.Window.Pump();
+                browser.Pump();
+                if (stats.Failure is { } failure)
+                {
+                    throw new InvalidOperationException("Importing a CEF frame through LinuxSharedFrame failed.", failure);
+                }
+
+                if (stats.Imports > 0)
+                {
+                    last?.Dispose();
+                    last = ReadImported(graphics, importer);
+                    int matches = CountColor(last, red);
+                    bestMatches = Math.Max(bestMatches, matches);
+                    if (matches > 500)
+                    {
+                        SavePng(services, last, evidence);
+                        return;
+                    }
+                }
+
+                Task.Delay(TimeSpan.FromMilliseconds(5), services.Clock).GetAwaiter().GetResult();
+            }
+
+            if (last is not null)
+            {
+                SavePng(services, last, evidence);
+            }
+
+            Assert.Fail((red ? "The imported browser frame never showed the red button." : "After the click the imported browser frame never showed the green button.")
+                + $" Frames imported: {stats.Imports} (last {stats.LastWidth}x{stats.LastHeight}, format {stats.LastFormat}, planes {stats.LastPlanes}); page ready: {browser.IsReady}; most matching pixels in one readback: {bestMatches}.");
+        }
+        finally
+        {
+            last?.Dispose();
+        }
+    }
+
+    private static SKBitmap ReadImported(LinuxGpuContext graphics, LinuxSharedFrame importer)
+    {
+        SKSurface surface = importer.Surface;
+        SKRectI bounds = surface.Canvas.DeviceClipBounds;
+        graphics.Skia.Flush(true, true);
+        var bitmap = new SKBitmap(new SKImageInfo(bounds.Width, bounds.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        if (!surface.ReadPixels(bitmap.Info, bitmap.GetPixels(), bitmap.RowBytes, 0, 0))
+        {
+            bitmap.Dispose();
+            throw new InvalidOperationException("Reading back the imported browser frame failed.");
+        }
+
+        return bitmap;
+    }
+
+    private static int CountColor(SKBitmap bitmap, bool red)
+    {
+        int matches = 0;
+        ReadOnlySpan<byte> pixels = bitmap.GetPixelSpan();
+        for (int index = 0; index + 3 < pixels.Length; index += 4)
+        {
+            // RGBA8888: red is (255, 0, 0); lime is (0, 255, 0).
+            byte first = pixels[index];
+            byte second = pixels[index + 1];
+            if (pixels[index + 2] < 35 && (red ? first > 220 && second < 35 : first < 35 && second > 220))
+            {
+                matches++;
+            }
+        }
+
+        return matches;
+    }
+
+    private static void SavePng(ISystemServices services, SKBitmap bitmap, string path)
+    {
+        using SKData png = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        services.FileSystem.GetFileWriter().WriteAllBytesAsync(path, png.ToArray(), CancellationToken.None).GetAwaiter().GetResult();
+    }
+
     private static void DrawRecordingPattern(SKCanvas canvas, bool reverse)
     {
         canvas.Clear(SKColors.Black);
@@ -150,5 +287,94 @@ public sealed class DesktopGpuTests
 
         graphics.Present();
         return bitmap;
+    }
+
+    /// <summary>What the importing frame sink saw.</summary>
+    private sealed class ImportStats
+    {
+        internal int Imports { get; set; }
+
+        internal int LastWidth { get; set; }
+
+        internal int LastHeight { get; set; }
+
+        internal int LastFormat { get; set; }
+
+        internal int LastPlanes { get; set; }
+
+        internal ulong LastModifier { get; set; }
+
+        internal Exception? Failure { get; set; }
+    }
+
+    /// <summary>Imports every main-layer CEF frame through the published LinuxSharedFrame path, as the Linux desktop does.</summary>
+    private sealed class ImportingFrameSink : IPlatformBrowserFrameSink
+    {
+        private readonly LinuxSharedFrame _importer;
+        private readonly ImportStats _stats;
+
+        private ImportingFrameSink(LinuxSharedFrame importer, ImportStats stats)
+        {
+            _importer = importer;
+            _stats = stats;
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031", Justification = "A native Chromium callback cannot propagate a managed exception; the fixture rethrows it from its pump loop.")]
+        public void OnAcceleratedFrame(scoped in BrowserGpuBuffer buffer, int format, int width, int height, int visibleX, int visibleY, int visibleWidth, int visibleHeight, bool popup)
+        {
+            if (popup)
+            {
+                return;
+            }
+
+            try
+            {
+                _importer.Copy(in buffer, format, width, height);
+                _stats.Imports++;
+                _stats.LastWidth = width;
+                _stats.LastHeight = height;
+                _stats.LastFormat = format;
+                _stats.LastPlanes = buffer.Planes.Length;
+                _stats.LastModifier = buffer.Modifier;
+            }
+            catch (Exception error)
+            {
+                _stats.Failure ??= error;
+            }
+        }
+
+        public void OnPopup(bool visible, int x, int y, int width, int height)
+        {
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859", Justification = "Contract fakes are created behind their interface (DN0003, DN0006).")]
+        internal static IPlatformBrowserFrameSink Create(LinuxSharedFrame importer, ImportStats stats) => new ImportingFrameSink(importer, stats);
+    }
+
+    /// <summary>Linux CEF keeps page audio itself (no capture handler), so this sink is never called.</summary>
+    private sealed class SilentAudioSink : IPlatformBrowserAudioSink
+    {
+        private SilentAudioSink()
+        {
+        }
+
+        public void OnAudioStarted(int channels, int sampleRate)
+        {
+        }
+
+        public void OnAudioPacket(nint planarFloatPointers, int frames, long pts)
+        {
+        }
+
+        public void OnAudioStopped()
+        {
+        }
+
+        public void OnAudioError(string message)
+        {
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1859", Justification = "Contract fakes are created behind their interface (DN0003, DN0006).")]
+        internal static IPlatformBrowserAudioSink Create() => new SilentAudioSink();
     }
 }
