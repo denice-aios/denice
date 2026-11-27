@@ -247,6 +247,25 @@ jobs:
           set -euo pipefail
           mkdir -p evidence
           printf 'repository=%s\nbuild_run_id=%s\napplication_commit=%s\ntest_checkout_commit=%s\nworkflow_commit=%s\n' "$GITHUB_REPOSITORY" "$BUILD_RUN_ID" "${APPLICATION_SHA:-NOT_EXECUTED}" "$(git rev-parse HEAD)" "$WORKFLOW_SHA" > evidence/source-identities.txt
+      # Approved one-run diagnostic (repository variable DENICE_WINDOWS_DRIVER_MODEL_DIAGNOSTIC=true): ask the NVIDIA driver
+      # for WDDM without a reboot and record the current and pending driver model. No driver installation, no reboot; the
+      # existing fixtures run only if the adapter is then a WDDM hardware adapter.
+      - name: Request WDDM and record the NVIDIA driver model (diagnostic)
+        id: drivermodel
+        if: vars.DENICE_WINDOWS_DRIVER_MODEL_DIAGNOSTIC == 'true' && inputs.target == 'hosted-windows'
+        run: |
+          New-Item -ItemType Directory -Force -Path evidence | Out-Null
+          $query = @('--query-gpu=index,name,pci.bus_id,driver_version,driver_model.current,driver_model.pending', '--format=csv')
+          & nvidia-smi.exe @query 2>&1 | Out-File -Encoding UTF8 evidence/driver-model-before.txt
+          & nvidia-smi.exe -g 0 -dm 0 2>&1 | Out-File -Encoding UTF8 evidence/driver-model-request.txt
+          "exit_code=$LASTEXITCODE" | Out-File -Encoding UTF8 -Append evidence/driver-model-request.txt
+          & nvidia-smi.exe @query 2>&1 | Out-File -Encoding UTF8 evidence/driver-model-after.txt
+          $current = (& nvidia-smi.exe -i 0 --query-gpu=driver_model.current --format=csv,noheader 2>$null | Out-String).Trim()
+          Get-CimInstance Win32_VideoController | Select-Object Name, PNPDeviceID, DriverVersion, Status, VideoProcessor | ConvertTo-Json | Out-File -Encoding UTF8 evidence/video-controllers-after.json
+          $hardware = ($current -eq 'WDDM')
+          "current_driver_model=$current" | Out-File -Encoding UTF8 -Append evidence/driver-model-after.txt
+          "hardware=$($hardware.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          if (-not $hardware) { "Current driver model is '$current', not WDDM: the existing fixtures are skipped." | Out-File -Encoding UTF8 evidence/fixtures-skipped.txt }
       - name: Inspect Windows graphics and desktop session
         run: ./eng/windows/inspect-gpu-host.ps1 -OutputDirectory evidence
       - if: inputs.build_run_id != '0' && inputs.windows_check == 'application'
@@ -297,7 +316,7 @@ jobs:
           Assert-DeniceFixturePayload -PayloadDirectory payload -ExpectedCommit $env:EXPECTED_FIXTURE_COMMIT
           Copy-Item payload/fixture-source.txt, payload/payload-sha256.json evidence/
       - name: Execute isolated Windows hardware fixtures
-        if: inputs.windows_check == 'hardware-fixtures' && inputs.target != 'windows-sandbox'
+        if: inputs.windows_check == 'hardware-fixtures' && inputs.target != 'windows-sandbox' && (vars.DENICE_WINDOWS_DRIVER_MODEL_DIAGNOSTIC != 'true' || steps.drivermodel.outputs.hardware == 'true')
         run: ./eng/windows/run-desktop-smoke.ps1 -PayloadDirectory payload -OutputDirectory evidence -HardwareFixtures -TimeoutSeconds 300
       - name: Execute application directly on hosted GPU runner
         if: inputs.build_run_id != '0' && inputs.windows_check == 'application' && inputs.target != 'windows-sandbox'
