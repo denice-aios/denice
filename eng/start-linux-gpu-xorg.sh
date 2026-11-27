@@ -124,13 +124,21 @@ device_nodes() {
   ((found)) || echo "  none"
 }
 
+# Records unresolved dependencies of a found library, so a missing file and a missing transitive dependency differ.
+unresolved_dependencies() {
+  local path=$1 linked
+  command -v ldd >/dev/null || { echo "ldd-unavailable"; return 0; }
+  linked=$(ldd "$path" 2>&1 || true)
+  grep 'not found' <<<"$linked" | awk '{print $1}' || true
+}
+
 probe() {
   local out=$1 report packages xorg_version busid
   local -a missing=()
   mkdir -p "$out"
   report="$out/xorg-prerequisites.txt"
   libraries=$(shared_libraries)
-  packages=$(dpkg-query -W -f '${Package} ${Version} ${Status}\n' 'nvidia-*' 'libnvidia-*' 'xserver-xorg-video-nvidia*' 'xserver-xorg-core' 'x11-utils' 2>/dev/null || true)
+  packages=$(dpkg-query -W -f '${Package} ${Version} ${Status}\n' 'nvidia-*' 'libnvidia-*' 'xserver-xorg-video-nvidia*' 'xserver-xorg-core' 'x11-utils' 'libglvnd0' 'libegl1' 'libgles2' 'libgl1' 'libopengl0' 2>/dev/null || true)
   xorg_version=$( { Xorg -version 2>&1 || true; } )
   busid=$(nvidia_busid || echo unavailable)
   {
@@ -147,6 +155,9 @@ probe() {
     echo "libGLX_nvidia=$(library_path libGLX_nvidia.so.0 || echo missing)"
     echo "libEGL=$(library_path libEGL.so.1 || echo missing)"
     echo "libGLESv2=$(library_path libGLESv2.so.2 || echo missing)"
+    for name in libEGL.so.1 libGLESv2.so.2; do
+      if path=$(library_path "$name"); then echo "unresolved_dependencies[$name]=$(unresolved_dependencies "$path" | tr '\n' ' ')"; fi
+    done
     echo "xdpyinfo=$(command -v xdpyinfo || echo missing)"
     echo "sudo_noninteractive=$(sudo -n true 2>/dev/null && echo yes || echo no)"
     echo "device_nodes:"
@@ -156,9 +167,16 @@ probe() {
   find_module nvidia_drv.so >/dev/null || missing+=("NVIDIA X driver nvidia_drv.so (xserver-xorg-video-nvidia-<branch>)")
   find_module 'libglxserver_nvidia.so*' >/dev/null || missing+=("NVIDIA GLX server module libglxserver_nvidia.so")
   library_path libEGL_nvidia.so.0 >/dev/null || missing+=("NVIDIA EGL vendor library libEGL_nvidia.so.0 (libnvidia-gl-<branch>)")
-  # The fixtures bind libEGL.so.1 and libGLESv2.so.2 by name (EglNative, GlesNative); run 45915809127 lacked the latter.
+  # The fixtures bind libEGL.so.1 and libGLESv2.so.2 by name (EglNative, GlesNative); run 45915809127 could not load the latter.
   library_path libEGL.so.1 >/dev/null || missing+=("GLVND EGL dispatcher libEGL.so.1 (libegl1)")
   library_path libGLESv2.so.2 >/dev/null || missing+=("GLVND GLES dispatcher libGLESv2.so.2 (libgles2)")
+  local name path dependency
+  for name in libEGL.so.1 libGLESv2.so.2; do
+    path=$(library_path "$name") || continue
+    while IFS= read -r dependency; do
+      [[ -n "$dependency" && "$dependency" != ldd-unavailable ]] && missing+=("dependency $dependency of $name")
+    done <<<"$(unresolved_dependencies "$path")"
+  done
   sudo -n true 2>/dev/null || missing+=("non-interactive sudo to start Xorg")
   [[ "$busid" != unavailable ]] || missing+=("NVIDIA PCI device")
   if ((${#missing[@]})); then
