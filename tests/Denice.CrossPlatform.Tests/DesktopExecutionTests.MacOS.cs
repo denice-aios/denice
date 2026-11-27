@@ -233,19 +233,20 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         const string html = "<html><body style='margin:0;background:transparent'><button onclick=\"this.style.background='lime'\" style='border:0;background:red;width:150px;height:80px'>Click</button></body></html>";
         Stage(services, "browser create");
         IPlatformBrowser browser = CefPlatformBrowser.Create();
-        IPlatformBrowserFrameSink frames = FrameSink.Create(window);
+        var frameStats = new FrameStats();
+        IPlatformBrowserFrameSink frames = FrameSink.Create(window, frameStats);
         string cache = Path.Combine(directory, "browser-" + services.Random.NewGuid().ToString("N"));
         try
         {
             browser.Start(new Uri("data:text/html," + Uri.EscapeDataString(html)), MacGpuWindow.Width, MacGpuWindow.Height, frames, (IPlatformBrowserAudioSink)MacDesktop.Create(), cache, 0);
             Stage(services, "browser started");
-            WaitForColor(services, browser, window, red: true);
+            WaitForColor(services, browser, window, frameStats, red: true);
             Stage(services, "browser content rendered");
             Assert.True(browser.IsReady);
             browser.MouseMove(40, 40, false);
             browser.MouseClick(40, 40, 0, false, 1);
             browser.MouseClick(40, 40, 0, true, 1);
-            WaitForColor(services, browser, window, red: false);
+            WaitForColor(services, browser, window, frameStats, red: false);
         }
         finally
         {
@@ -262,9 +263,10 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         }
     }
 
-    private static void WaitForColor(ISystemServices services, IPlatformBrowser browser, MacGpuWindow window, bool red)
+    private static void WaitForColor(ISystemServices services, IPlatformBrowser browser, MacGpuWindow window, FrameStats frameStats, bool red)
     {
         long start = services.Clock.GetTimestamp();
+        int bestMatches = 0;
         while (services.Clock.GetElapsedTime(start).TotalSeconds < 15)
         {
             browser.Pump();
@@ -278,6 +280,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
                 }
             }
 
+            bestMatches = Math.Max(bestMatches, matches);
             if (matches > 500)
             {
                 return;
@@ -286,7 +289,8 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
             Task.Delay(TimeSpan.FromMilliseconds(5), services.Clock).GetAwaiter().GetResult();
         }
 
-        Assert.Fail(red ? "The composed browser button never became red." : "Clicking the browser button did not render green pixels.");
+        Assert.Fail((red ? "The composed browser button never became red." : "Clicking the browser button did not render green pixels.")
+            + $" Accelerated frames received: {frameStats.Frames} (last {frameStats.LastWidth}x{frameStats.LastHeight}, format {frameStats.LastFormat}, popup {frameStats.LastPopup}); page ready: {browser.IsReady}; most matching pixels in one read: {bestMatches}.");
     }
 
     private static byte[] ReadRenderedFrame(MacGpuWindow window, double seconds)
@@ -311,17 +315,43 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     private sealed class FrameSink : IPlatformBrowserFrameSink
     {
         private readonly MacGpuWindow _window;
+        private readonly FrameStats _stats;
 
-        private FrameSink(MacGpuWindow window) => _window = window;
+        private FrameSink(MacGpuWindow window, FrameStats stats)
+        {
+            _window = window;
+            _stats = stats;
+        }
 
         public void OnAcceleratedFrame(scoped in BrowserGpuBuffer buffer, int format, int width, int height, int visibleX, int visibleY, int visibleWidth, int visibleHeight, bool popup)
         {
+            _stats.Record(format, width, height, popup);
             _window.CopyBrowserSurface(buffer.SharedTexture, format, width, height, visibleX, visibleY, visibleWidth, visibleHeight, popup);
         }
 
         public void OnPopup(bool visible, int x, int y, int width, int height) => _window.Popup(visible, x, y, width, height);
 
         [SuppressMessage("Performance", "CA1859", Justification = "Contract factories return their interface under the project ownership rules.")]
-        internal static IPlatformBrowserFrameSink Create(MacGpuWindow window) => new FrameSink(window);
+        internal static IPlatformBrowserFrameSink Create(MacGpuWindow window, FrameStats stats) => new FrameSink(window, stats);
+    }
+
+    /// <summary>Counts the accelerated browser frames the fixture receives, so a missing-content failure says whether frames arrived.</summary>
+    private sealed class FrameStats
+    {
+        internal int Frames { get; private set; }
+
+        internal int LastWidth { get; private set; }
+
+        internal int LastHeight { get; private set; }
+
+        internal int LastFormat { get; private set; }
+
+        internal bool LastPopup { get; private set; }
+
+        internal void Record(int format, int width, int height, bool popup)
+        {
+            Frames++;
+            (LastFormat, LastWidth, LastHeight, LastPopup) = (format, width, height, popup);
+        }
     }
 }
