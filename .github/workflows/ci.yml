@@ -883,6 +883,8 @@ jobs:
           eng/build-install-layout.sh linux-x64 layouts/linux-x64
       - name: The Linux Rust programs need no newer glibc than Denice Runtime's .NET (rust/REQUIREMENTS.md F12)
         run: |
+          # The runner image's package index can name a binutils build the archive has removed (404); refresh it first.
+          sudo apt-get update -q
           sudo apt-get install -y -q binutils-x86-64-linux-gnu
           eng/check-glibc.sh layouts/linux-arm64 linux-arm64
           OBJDUMP=x86_64-linux-gnu-objdump eng/check-glibc.sh layouts/linux-x64 linux-x64
