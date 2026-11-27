@@ -76,6 +76,7 @@
   <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('linux')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Linux')))">
     <Compile Remove="DmaBufAttributesTests.Linux.cs" />
     <Compile Remove="CudaAbiTests.Linux.cs" />
+    <Compile Remove="DesktopBehaviorTests.Linux.cs" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,9 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using Denice.Abstractions.Contracts;
 using Denice.CrossPlatform.Windows.Desktop;
 using Denice.CrossPlatform.Windows.Recording;
+using Denice.TestHelpers;
 using SkiaSharp;
 using Xunit;
 
@@ -74,5 +76,15 @@ public sealed class DesktopBehaviorTests
                 Assert.StartsWith("No hardware D3D11 adapter with video support is available; software rendering is not substituted.", refusal.Message, StringComparison.Ordinal);
             }
         }
+    }
+
+    [Fact]
+    public void RecordingIsRefusedBeforeAnyNativeDesktopStarts()
+    {
+        TimeProvider clock = SystemServicesBuilder.Real().Build().Clock;
+        IPlatformDesktop desktop = WindowsDesktop.Create();
+        PlatformNotSupportedException refusal = Assert.Throws<PlatformNotSupportedException>(
+            () => desktop.Run(new Uri("http://127.0.0.1/"), "capture.mp4", 1, clock, "cache", 0));
+        Assert.Equal("Windows MP4 recording is not yet connected to the hardware compositor.", refusal.Message);
     }
 }
