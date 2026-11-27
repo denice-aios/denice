@@ -84,6 +84,7 @@
     <Compile Remove="DmaBufAttributesTests.Linux.cs" />
     <Compile Remove="CudaAbiTests.Linux.cs" />
     <Compile Remove="DesktopBehaviorTests.Linux.cs" />
+    <Compile Remove="GlesBindingTests.Linux.cs" />
   </ItemGroup>
 
 </Project>

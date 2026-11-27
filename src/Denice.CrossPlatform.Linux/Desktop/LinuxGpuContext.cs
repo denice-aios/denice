@@ -19,6 +19,12 @@ internal sealed class LinuxGpuContext : IDisposable
     private LinuxWindow? _window;
     private bool _disposed;
 
+    /// <summary>Gets the client EGL version string (EGL_NO_DISPLAY) read when GLES functions were resolved.</summary>
+    internal static string EglClientVersion => GlesNative.ClientVersion;
+
+    /// <summary>Gets the client EGL extension string (EGL_NO_DISPLAY) read when GLES functions were resolved.</summary>
+    internal static string EglClientExtensions => GlesNative.ClientExtensions;
+
     /// <summary>Gets the EGL display borrowed by image importers.</summary>
     internal nint Display { get; private set; }
 
@@ -183,6 +189,9 @@ internal sealed class LinuxGpuContext : IDisposable
         Require(Display == 0 ? 0 : 1, "open the X11 EGL display");
         Require(EglNative.Initialize(Display, out _, out _), "initialize the X11 EGL display");
         Extensions = Marshal.PtrToStringUTF8(EglNative.QueryString(Display, 0x3055)) ?? string.Empty;
+
+        // Every GLES function is resolved through EGL here, after eglInitialize and before any GL call.
+        GlesNative.Bind(Extensions);
         Require(EglNative.BindApi(0x30A0), "select GLES");
         int[] attributes = [0x3024, 8, 0x3023, 8, 0x3022, 8, 0x3021, 8, 0x3033, 4, 0x3040, 0x40, 0x3038];
         Require(EglNative.ChooseConfig(Display, attributes, out nint config, 1, out int count), "choose an RGBA8 GLES3 configuration");

@@ -167,11 +167,11 @@ probe() {
   find_module nvidia_drv.so >/dev/null || missing+=("NVIDIA X driver nvidia_drv.so (xserver-xorg-video-nvidia-<branch>)")
   find_module 'libglxserver_nvidia.so*' >/dev/null || missing+=("NVIDIA GLX server module libglxserver_nvidia.so")
   library_path libEGL_nvidia.so.0 >/dev/null || missing+=("NVIDIA EGL vendor library libEGL_nvidia.so.0 (libnvidia-gl-<branch>)")
-  # The fixtures bind libEGL.so.1 and libGLESv2.so.2 by name (EglNative, GlesNative); run 45915809127 could not load the latter.
+  # The fixtures bind libEGL.so.1 by name (EglNative) and resolve their GLES functions through eglGetProcAddress
+  # (GlesNative.Bind), so libGLESv2.so.2 is only recorded above as an observed fact, not required.
   library_path libEGL.so.1 >/dev/null || missing+=("GLVND EGL dispatcher libEGL.so.1 (libegl1)")
-  library_path libGLESv2.so.2 >/dev/null || missing+=("GLVND GLES dispatcher libGLESv2.so.2 (libgles2)")
   local name path dependency
-  for name in libEGL.so.1 libGLESv2.so.2; do
+  for name in libEGL.so.1; do
     path=$(library_path "$name") || continue
     while IFS= read -r dependency; do
       [[ -n "$dependency" && "$dependency" != ldd-unavailable ]] && missing+=("dependency $dependency of $name")

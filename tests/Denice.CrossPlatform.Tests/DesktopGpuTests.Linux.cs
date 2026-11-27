@@ -37,6 +37,8 @@ public sealed class DesktopGpuTests
             Assert.False(first.Bytes.AsSpan().SequenceEqual(second.Bytes));
             _output.WriteLine("GL renderer: " + graphics.Renderer);
             _output.WriteLine("EGL extensions: " + graphics.Extensions);
+            _output.WriteLine("EGL client version: " + LinuxGpuContext.EglClientVersion);
+            _output.WriteLine("EGL client extensions: " + LinuxGpuContext.EglClientExtensions);
             _output.WriteLine("Distinct GPU framebuffers and successful EGL presentation calls; displayed scanout, CEF import, audio and encoding were not tested.");
         }
 
