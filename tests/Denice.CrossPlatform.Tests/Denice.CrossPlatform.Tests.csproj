@@ -72,7 +72,8 @@
     <Compile Remove="DesktopGpuTests.Linux.cs" />
   </ItemGroup>
 
-  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('linux'))">
+  <!-- Linux unit tests that need no graphics device run on every Linux test leg (RID first, build-host OS fallback). -->
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('linux')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Linux')))">
     <Compile Remove="DmaBufAttributesTests.Linux.cs" />
     <Compile Remove="CudaAbiTests.Linux.cs" />
   </ItemGroup>
