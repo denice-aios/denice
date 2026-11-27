@@ -22,6 +22,9 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SamplerTimeout = TimeSpan.FromSeconds(30);
 
+    // Set once at the start of the fixture child's Main, so its stage markers carry elapsed time.
+    private static long fixtureStart;
+
     [SuppressMessage("Denice.Architecture", "DN0011", Justification = "This native integration fixture owns a bounded child process so Cocoa executes on its OS main thread; no product process interface exists. All other environment, file and clock operations use Systemservices.")]
     [Theory]
     [InlineData("compositor")]
@@ -78,7 +81,8 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     }
 
     /// <summary>Writes a fixture progress marker so a timed-out child shows the last stage it reached.</summary>
-    private static void Stage(ISystemServices services, string stage) => services.Console.WriteLine("Fixture stage: " + stage);
+    private static void Stage(ISystemServices services, string stage) =>
+        services.Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Fixture stage at {services.Clock.GetElapsedTime(fixtureStart).TotalSeconds:F2} s: {stage}"));
 
     /// <summary>Samples a timed-out fixture, then always stops it, whatever happened to the best-effort sample.</summary>
     /// <returns>The failure to stop the fixture, or null when it exited.</returns>
@@ -166,6 +170,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     private static int Main(string[] args)
     {
         ISystemServices services = SystemServicesBuilder.Real().Build();
+        fixtureStart = services.Clock.GetTimestamp();
         if (args.Length != 2 || args[0] is not ("compositor" or "desktop"))
         {
             return 2;
@@ -267,9 +272,23 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     {
         long start = services.Clock.GetTimestamp();
         int bestMatches = 0;
+        bool sawFrame = false;
+        bool sawReady = false;
         while (services.Clock.GetElapsedTime(start).TotalSeconds < 15)
         {
             browser.Pump();
+            if (!sawFrame && frameStats.Frames > 0)
+            {
+                sawFrame = true;
+                Stage(services, $"{(red ? "red" : "green")} wait: accelerated frame seen, {frameStats.Frames} so far, last {frameStats.LastWidth}x{frameStats.LastHeight}");
+            }
+
+            if (!sawReady && browser.IsReady)
+            {
+                sawReady = true;
+                Stage(services, $"{(red ? "red" : "green")} wait: page ready");
+            }
+
             byte[] pixels = ReadRenderedFrame(window, 1);
             int matches = 0;
             for (int index = 0; index < pixels.Length; index += 4)
