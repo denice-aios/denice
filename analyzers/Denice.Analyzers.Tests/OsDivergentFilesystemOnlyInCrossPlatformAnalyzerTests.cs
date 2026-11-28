@@ -345,6 +345,52 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         }
     }
 
+    [Theory]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "dl_iterate_phdr", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "dl_iterate_phdr", false, true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "mprotect", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "getpagesize", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "setenv", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "unlink", true, true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libpulse.so.0", "pa_stream_new", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libpulse.so.0", "pa_stream_new", false, true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Desktop", "libpulse.so.0", "pa_stream_new", true, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "libpulse.so.0", "pa_stream_new", true, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "VirtualProtect", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "VirtualProtect", false, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "GetProcAddress", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "SetEvent", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "ole32", "CoCreateInstance", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "ole32", "CoTaskMemAlloc", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Desktop", "ole32", "CoCreateInstance", true, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "DeleteFileW", true, true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Browser", "libc.so.6", "mprotect", true, true)]
+    public async Task AudioRedirectionProofImports_AreAllowedOnlyInTheProofBuildsBrowserArea(string assembly, string area, string library, string entryPoint, bool proofBuild, bool reported)
+    {
+        string source = $$"""
+            using System.Runtime.InteropServices;
+            namespace {{area}}
+            {
+                public sealed class Capability
+                {
+                    [DllImport("{{library}}", EntryPoint = "{{entryPoint}}")]
+                    private static extern void Native();
+                    public void Run() => Native();
+                }
+            }
+            """;
+        string[] symbols = proofBuild ? ["DENICE_AUDIO_REDIRECTION_PROOF"] : [];
+        var diagnostics = await AnalyzerRunner.RunWithSymbolsAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, assembly, symbols);
+        if (reported)
+        {
+            Assert.Equal("DN0101", Assert.Single(diagnostics).Id);
+        }
+        else
+        {
+            Assert.Empty(diagnostics);
+        }
+    }
+
     [Fact]
     public async Task DesktopCapability_DoesNotAcquireFilesystemOrLastErrorOwnership()
     {

@@ -50,7 +50,7 @@ internal static class DesktopNativeInterop
         }
 
         string entryPoint = EntryPointOf(method, import);
-        if (IsBrowserAudioImport(area, assembly, library, entryPoint))
+        if (IsBrowserAudioImport(area, assembly, library, entryPoint) || IsAudioRedirectionProofImport(context, area, assembly, library, entryPoint))
         {
             return true;
         }
@@ -98,6 +98,28 @@ internal static class DesktopNativeInterop
         return library is "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox"
             || (library is "/usr/lib/libSystem.B.dylib"
                 && entryPoint is "_dyld_image_count" or "_dyld_get_image_name" or "_dyld_get_image_header" or "_dyld_get_image_vmaddr_slide" or "vm_protect");
+    }
+
+    // Browser-audio redirection proof allowance: approved with windows-linux-audio-proof.md ("the proof-scoped analyzer
+    // allowances", remaining-decisions.md, Approved 2026-11-27). It applies only where the compile-selected proof symbol
+    // DENICE_AUDIO_REDIRECTION_PROOF is defined, so normal builds keep the restriction, and only in the per-OS Browser area.
+    private static bool IsAudioRedirectionProofImport(OperationAnalysisContext context, string area, string assembly, string library, string entryPoint)
+    {
+        if (!string.Equals(area, assembly + ".Browser", StringComparison.Ordinal)
+            || !context.Operation.Syntax.SyntaxTree.Options.PreprocessorSymbolNames.Contains("DENICE_AUDIO_REDIRECTION_PROOF", StringComparer.Ordinal))
+        {
+            return false;
+        }
+
+        if (string.Equals(assembly, "Denice.CrossPlatform.Linux", StringComparison.Ordinal))
+        {
+            return (library is "libc.so.6" && entryPoint is "dl_iterate_phdr" or "mprotect" or "getpagesize" or "setenv")
+                || (library is "libpulse.so.0" && entryPoint.StartsWith("pa_", StringComparison.Ordinal));
+        }
+
+        return string.Equals(assembly, "Denice.CrossPlatform.Windows", StringComparison.Ordinal)
+            && ((library is "kernel32" && entryPoint is "VirtualProtect" or "GetProcAddress" or "SetEvent")
+                || (library is "ole32" && entryPoint is "CoCreateInstance" or "CoTaskMemAlloc"));
     }
 
     private static bool IsWindowsEntryPoint(string library, string entryPoint) =>
