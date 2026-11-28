@@ -196,5 +196,10 @@ internal sealed unsafe partial class ElfJumpSlots
     [LibraryImport(LibC, EntryPoint = "getpagesize")]
     private static partial int GetPageSizeNative();
 
+    /// <summary>
+    /// The single point that depends on the pending libc getpagesize allowance (not yet approved): every JUMP_SLOT patch
+    /// (<see cref="Patch"/>: dlsym and every snd_pcm_* slot) aligns its mprotect call with this page size.
+    /// </summary>
+    /// <returns>The page size.</returns>
     private static nint GetPageSize() => GetPageSizeNative();
 }

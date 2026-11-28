@@ -85,7 +85,7 @@ internal static unsafe partial class ComNative
     /// <returns>The CoTaskMem copy.</returns>
     internal static nint TaskString(string text)
     {
-        nint memory = CoTaskMemAlloc((nuint)((text.Length + 1) * 2));
+        nint memory = AllocateTaskMemory((nuint)((text.Length + 1) * 2));
         fixed (char* source = text)
         {
             new ReadOnlySpan<char>(source, text.Length).CopyTo(new Span<char>((void*)memory, text.Length));
@@ -103,7 +103,7 @@ internal static unsafe partial class ComNative
     /// <returns>The CoTaskMem format.</returns>
     internal static nint TaskFormat(int rate, int channels, int bits, bool floating)
     {
-        nint memory = CoTaskMemAlloc(40);
+        nint memory = AllocateTaskMemory(40);
         byte* format = (byte*)memory;
         new Span<byte>(format, 40).Clear();
         *(ushort*)format = 0xFFFE;
@@ -134,9 +134,19 @@ internal static unsafe partial class ComNative
     [LibraryImport("ole32", EntryPoint = "CoCreateInstance")]
     internal static partial int CoCreateInstance(Guid* clsid, nint outer, uint context, Guid* iid, nint* instance);
 
-    /// <summary>CoTaskMemAlloc: COM callers free GetId and GetMixFormat results with CoTaskMemFree.</summary>
+    /// <summary>
+    /// The single point that depends on the pending ole32 CoTaskMemAlloc allowance (not yet approved): COM callers free
+    /// the GetId, GetMixFormat and ISpStreamFormat::GetFormat results with CoTaskMemFree, so they must come from the COM
+    /// task allocator. Every caller goes through <see cref="TaskString"/> or <see cref="TaskFormat"/>.
+    /// </summary>
     /// <param name="bytes">The size.</param>
     /// <returns>The memory.</returns>
+    private static nint AllocateTaskMemory(nuint bytes)
+    {
+        nint memory = CoTaskMemAlloc(bytes);
+        return memory != 0 ? memory : throw new InvalidOperationException("CoTaskMemAlloc returned no memory for a COM out parameter.");
+    }
+
     [LibraryImport("ole32", EntryPoint = "CoTaskMemAlloc")]
-    internal static partial nint CoTaskMemAlloc(nuint bytes);
+    private static partial nint CoTaskMemAlloc(nuint bytes);
 }
