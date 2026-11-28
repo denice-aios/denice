@@ -484,6 +484,30 @@ jobs:
           cp downloaded-fixtures/linux-hardware-fixtures.tar.gz.sha256 evidence/
           bash eng/run-linux-desktop-smoke.sh --fixture-extract downloaded-fixtures/linux-hardware-fixtures.tar.gz payload
           bash eng/run-linux-desktop-smoke.sh --fixture-verify payload "$EXPECTED_FIXTURE_COMMIT"
+      - name: Install the Ubuntu 24.04 system libraries CEF and the desktop need, then require every CEF dependency to resolve
+        run: |
+          set -euo pipefail
+          # Test-host provisioning only (the product does not install system packages). Source: DT_NEEDED of the pinned
+          # cef.runtime.linux-x64 156.0.15 ELFs plus libSkiaSharp.so, and libraries libcef.so opens at runtime
+          # (handoff/linux-cef-deps/AUDIT.md).
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            libasound2t64 libatk1.0-0t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libcairo2 libcups2t64 libdbus-1-3 \
+            libdrm2 libexpat1 libfontconfig1 libgbm1 libglib2.0-0t64 libnspr4 libnss3 libpango-1.0-0 libudev1 \
+            libx11-6 libx11-xcb1 libxcb1 libxcb-dri3-0 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 \
+            libxkbcommon0 libxrandr2 libxshmfence1 libegl1 libgles2 libgl1 libpulse0 libpci3 libicu74 \
+            2>&1 | tee evidence/apt-desktop-prerequisites.txt
+          shopt -s nullglob globstar
+          : > evidence/cef-ldd.txt
+          for elf in payload/**/CEF/libcef.so payload/**/CEF/chrome-sandbox payload/**/CEF/libvk_swiftshader.so payload/**/libSkiaSharp.so; do
+            { echo "== $elf"; ldd "$elf"; } >> evidence/cef-ldd.txt 2>&1
+          done
+          grep -q '^== ' evidence/cef-ldd.txt || { echo '::error::No CEF ELF found under payload/'; exit 2; }
+          for lib in libEGL.so.1 libGLESv2.so.2 libGL.so.1 libpulse.so.0 libX11-xcb.so.1 libxcb-dri3.so.0 libXcursor.so.1; do
+            ldconfig -p | grep -q " $lib " || echo "runtime-missing $lib" >> evidence/cef-ldd.txt
+          done
+          if grep -E 'not found|runtime-missing' evidence/cef-ldd.txt; then echo '::error::CEF system libraries still missing (above)'; exit 1; fi
+          echo 'missing=none' >> evidence/cef-ldd.txt
       - name: Start ephemeral Xorg on the NVIDIA GPU (probes first; installs nothing; never Xvfb)
         if: inputs.linux_check == 'hardware-fixtures'
         run: |
