@@ -1,5 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System.Collections.Concurrent;
+using System.Threading.Channels;
 using Denice.Abstractions.Contracts;
 using Denice.Engine;
 using FluentAssertions;
@@ -22,31 +24,35 @@ public sealed class ApplicationSupervisorTests : IAsyncLifetime
     public Task DisposeAsync() => _host.DisposeAsync().AsTask();
 
     [Fact]
-    public void FailedStartsRetryWithTheApprovedBackOff()
+    public async Task FailedStartsRetryWithTheApprovedBackOff()
     {
         for (int index = 0; index < 7; index++)
         {
             _host.Fails("busy");
         }
 
-        IApplicationSession session = ApplicationSupervisor.Create(_host, _clock, null);
+        // The supervisor's own timer requests are read directly, so the result does not depend on worker scheduling.
+        var timers = Channel.CreateUnbounded<TimeSpan>();
+        IApplicationSession session = ApplicationSupervisor.Create(_host, ObservedClock.Create(_clock, timers.Writer), null);
         session.Start();
-        var starts = new List<TimeSpan>();
-        DateTimeOffset origin = _clock.GetUtcNow();
-        int seen = 0;
-        Until(() =>
+        var backoff = new List<TimeSpan>();
+        while (backoff.Count < 6)
         {
-            if (_host.Started > seen)
+            // A supervisor that ended early fails the test instead of leaving the read waiting.
+            Task<TimeSpan> next = timers.Reader.ReadAsync().AsTask();
+            (await Task.WhenAny(next, session.Stopped)).Should().BeSameAs(next);
+            TimeSpan due = await next;
+            if (due != TimeSpan.FromSeconds(10))
             {
-                seen = _host.Started;
-                starts.Add(_clock.GetUtcNow() - origin);
+                // The ten-second timers are the per-attempt start limits; every other timer is a retry delay.
+                backoff.Add(due);
+                _clock.Advance(due);
             }
+        }
 
-            return seen >= 7;
-        });
         session.RequestStop();
-        IEnumerable<double> gaps = starts.Zip(starts.Skip(1), (first, second) => (second - first).TotalMilliseconds);
-        gaps.Should().Equal([250, 500, 1000, 2000, 5000, 5000], (actual, expected) => Math.Abs(actual - expected) <= Step.TotalMilliseconds);
+        backoff.Should().Equal(
+            TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
         session.State.Address.Should().BeNull();
         session.State.Error.Should().Contain("busy");
     }
@@ -56,13 +62,15 @@ public sealed class ApplicationSupervisorTests : IAsyncLifetime
     {
         _host.Fails("not yet");
         _ = _host.Serves(5001);
-        var ready = new List<Uri>();
-        IApplicationSession session = ApplicationSupervisor.Create(_host, _clock, address => ready.Add(address));
+
+        // The callback runs on the worker after the ready state is published, so the test waits for the callback itself.
+        var ready = new ConcurrentQueue<Uri>();
+        IApplicationSession session = ApplicationSupervisor.Create(_host, _clock, ready.Enqueue);
         session.Start();
-        Until(() => session.State.Address is not null);
+        Until(() => !ready.IsEmpty);
         session.State.Address.Should().Be(new Uri("http://127.0.0.1:5001/"));
         session.State.Error.Should().BeNull();
-        ready.Should().ContainSingle();
+        ready.Should().Equal(new Uri("http://127.0.0.1:5001/"));
         session.RequestStop();
         Until(() => session.Stopped.IsCompleted);
     }
