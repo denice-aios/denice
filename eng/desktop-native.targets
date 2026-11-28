@@ -11,6 +11,10 @@
     <_DeniceCefContentRoot Condition="'$(DeniceDesktopPlatform)' == 'osx'">$(_DeniceCefContentRoot)Chromium Embedded Framework.framework/</_DeniceCefContentRoot>
     <_DeniceCefPublishRoot>CEF/</_DeniceCefPublishRoot>
     <_DeniceCefPublishRoot Condition="'$(DeniceDesktopPlatform)' == 'osx'">CEF/Chromium Embedded Framework.framework/</_DeniceCefPublishRoot>
+    <!-- Linux CEF reads icudtl.dat, the .pak files and locales/ from libcef.so's directory, as the Windows payload ships
+         them; the Linux package keeps them in Resources/, where CEF aborts at startup ("Invalid file descriptor to ICU data
+         received", measured with the published linux-x64 layout and the shared browser settings). -->
+    <_DeniceCefResourcesBesideLibrary Condition="'$(DeniceDesktopPlatform)' == 'linux'">$(_DeniceCefContentRoot)Resources/</_DeniceCefResourcesBesideLibrary>
     <_DeniceSkiaNativePackage Condition="'$(DeniceDesktopPlatform)' == 'osx'">macos</_DeniceSkiaNativePackage>
     <_DeniceSkiaNativePackage Condition="'$(DeniceDesktopPlatform)' == 'win'">win32</_DeniceSkiaNativePackage>
     <_DeniceSkiaNativePackage Condition="'$(DeniceDesktopPlatform)' == 'linux'">linux</_DeniceSkiaNativePackage>
@@ -31,7 +35,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="$(_DeniceCefContentRoot)**/*">
+    <Content Include="$(_DeniceCefContentRoot)**/*" Exclude="$(_DeniceCefResourcesBesideLibrary)**/*">
+      <Link>$(_DeniceCefPublishRoot)%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="$(_DeniceCefResourcesBesideLibrary)**/*" Condition="'$(_DeniceCefResourcesBesideLibrary)' != ''">
       <Link>$(_DeniceCefPublishRoot)%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

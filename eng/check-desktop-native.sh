@@ -12,8 +12,8 @@ case "$RID" in
   osx-arm64) ARCH='arm64'; KIND='Mach-O'; CEF='CEF/Chromium Embedded Framework.framework/Chromium Embedded Framework'; SKIA='libSkiaSharp.dylib'; RESOURCE='CEF/Chromium Embedded Framework.framework/Resources' ;;
   win-x64) ARCH='x86-64'; KIND='PE32+'; CEF='CEF/libcef.dll'; SKIA='libSkiaSharp.dll'; RESOURCE='CEF' ;;
   win-arm64) ARCH='Aarch64'; KIND='PE32+'; CEF='CEF/libcef.dll'; SKIA='libSkiaSharp.dll'; RESOURCE='CEF' ;;
-  linux-x64) ARCH='x86-64'; KIND='ELF 64-bit'; CEF='CEF/libcef.so'; SKIA='libSkiaSharp.so'; RESOURCE='CEF/Resources' ;;
-  linux-arm64) ARCH='aarch64'; KIND='ELF 64-bit'; CEF='CEF/libcef.so'; SKIA='libSkiaSharp.so'; RESOURCE='CEF/Resources' ;;
+  linux-x64) ARCH='x86-64'; KIND='ELF 64-bit'; CEF='CEF/libcef.so'; SKIA='libSkiaSharp.so'; RESOURCE='CEF' ;;
+  linux-arm64) ARCH='aarch64'; KIND='ELF 64-bit'; CEF='CEF/libcef.so'; SKIA='libSkiaSharp.so'; RESOURCE='CEF' ;;
   *) echo "desktop-native: unsupported RID $RID" >&2; exit 2 ;;
 esac
 require_file() {
