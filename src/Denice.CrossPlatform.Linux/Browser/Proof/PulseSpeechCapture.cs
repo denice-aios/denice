@@ -22,6 +22,7 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
     private readonly float[] _scratch = new float[MixerCore.SampleRate];
     private readonly PulseConnection _connection;
     private readonly TimeProvider _clock;
+    private readonly SpeechBurstTracker _bursts = new(256);
     private readonly List<uint> _modules = [];
     private GCHandle _self;
     private nint _stream;
@@ -50,8 +51,15 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
     /// <summary>Gets the frames the mixer took from the capture.</summary>
     internal long FramesMixed => _ring.Mixed;
 
+    /// <summary>Gets each sounding burst's capture and first-mix times, with the queue's state at capture.</summary>
+    internal IReadOnlyList<SpeechBurstTracker.Burst> Bursts => _bursts.Bursts;
+
     /// <inheritdoc />
-    public void MixInto(Span<float> left, Span<float> right, long hostNanoseconds, long cycle) => _ = _ring.MixInto(left, right);
+    public void MixInto(Span<float> left, Span<float> right, long hostNanoseconds, long cycle)
+    {
+        _ = _ring.MixInto(left, right);
+        _bursts.OnMixed(_ring.Mixed, hostNanoseconds);
+    }
 
     /// <inheritdoc />
     public void Dispose()
@@ -241,7 +249,11 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
 
             if (_armed)
             {
+                long queuedFrom = _ring.Written;
+                long pending = _ring.Pending;
                 _ = _ring.Write(samples, samples);
+                long host = (long)(_clock.GetTimestamp() * (1_000_000_000.0 / _clock.TimestampFrequency));
+                _bursts.OnCaptured(samples, queuedFrom, pending, _ring.Overflows, host);
             }
 
             Interlocked.Add(ref _framesCaptured, frames);
