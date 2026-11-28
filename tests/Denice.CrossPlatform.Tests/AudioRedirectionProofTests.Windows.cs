@@ -44,6 +44,9 @@ public sealed class AudioRedirectionProofTests
             IPlatformBrowser browser = CefPlatformBrowser.CreateWithAudioProof(core, clock);
             evidence = AudioProofDriver.Run(services, browser, core, Path.Combine(directory, "cache"), label, text => Stage(services, directory, text));
             output.Stop();
+            facts["fakeOutputCycles"] = output.Cycles;
+            facts["fakeOutputWakes"] = output.Wakes;
+            facts["fakeOutputLargestBurstCycles"] = output.LargestBurst;
         }
 
         JsonObject report = AudioProofReport.Write(services, directory, evidence, core, facts, AudioProofReport.MediaReference(services), RampAnalysis.Precision.Float);

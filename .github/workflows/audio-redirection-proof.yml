@@ -79,8 +79,11 @@ jobs:
         if: always()
         run: |
           mkdir -p "$RUNNER_TEMP/l2-evidence"
+          # The container's user owns each pass's evidence/cache (run 46103627848: cp hit "Permission denied" and bash -e
+          # ended the loop after the first pass); the CEF cache is not evidence, so it is left out and every pass is copied.
           for pass in baseline pipewire pulseaudio alsa; do
-            [ -d "$RUNNER_TEMP/l2/$pass/run" ] && cp -R "$RUNNER_TEMP/l2/$pass/run" "$RUNNER_TEMP/l2-evidence/$pass"
+            [ -d "$RUNNER_TEMP/l2/$pass/run" ] || { echo "no run directory for $pass"; continue; }
+            rsync -a --exclude evidence/cache "$RUNNER_TEMP/l2/$pass/run/" "$RUNNER_TEMP/l2-evidence/$pass/" || echo "copy of $pass incomplete"
           done
           for pass in baseline pipewire pulseaudio alsa; do
             echo "=== $pass"

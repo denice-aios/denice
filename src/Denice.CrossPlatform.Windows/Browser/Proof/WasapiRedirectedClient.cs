@@ -20,6 +20,7 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     private const uint SilentBuffer = 0x2;
     private const int UnsupportedFormat = unchecked((int)0x88890008);
     private const int NotInitialized = unchecked((int)0x88890001);
+    private const int MinimumBufferFrames = MixerCore.SampleRate / 25;
     private readonly RedirectedRing _ring = new(MixerCore.SampleRate * 2);
     private readonly TimeProvider _clock;
     private readonly string _device;
@@ -54,8 +55,11 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
             return UnsupportedFormat;
         }
 
-        _bufferFrames = (uint)Math.Clamp(bufferDuration * MixerCore.SampleRate / 10_000_000, 960, MixerCore.SampleRate);
-        _ring.PrebufferFrames = 240;
+        // At least 40 ms: Chromium refills in whole 10 ms packets only when one fits, and a mixer clock that wakes coarsely
+        // (about 15.6 ms on a default Windows timer) renders two or three 5 ms cycles at once. A 20 ms buffer could not hold
+        // that burst plus the unfillable part of a packet and underran (run 46103627848); 40 ms absorbs it.
+        _bufferFrames = (uint)Math.Clamp(bufferDuration * MixerCore.SampleRate / 10_000_000, MinimumBufferFrames, MixerCore.SampleRate);
+        _ring.PrebufferFrames = MinimumBufferFrames / 2;
         _buffer = Marshal.AllocHGlobal((int)_bufferFrames * _channels * (_bits / 8));
         AudioProofLog.Note($"IAudioClient.Initialize on {_device}: flags 0x{flags:x} (event-driven={(flags & EventCallback) != 0}), buffer {bufferDuration} -> {_bufferFrames} frames, period {periodicity}, {DescribeFormat(format)}");
         Mixer?.Register(this);

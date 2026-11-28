@@ -20,9 +20,17 @@ internal sealed class FakeMixerOutput : IMixerOutput
     private CancellationTokenSource? _stop;
     private Task? _loop;
     private long _cycles;
+    private long _wakes;
+    private long _largestBurst;
 
     /// <summary>Gets the cycles rendered so far.</summary>
     internal long Cycles => Interlocked.Read(ref _cycles);
+
+    /// <summary>Gets the times the loop woke from its wait (each wake renders one or more cycles).</summary>
+    internal long Wakes => Interlocked.Read(ref _wakes);
+
+    /// <summary>Gets the most cycles rendered back to back after one wake, which shows the clock's wake granularity.</summary>
+    internal long LargestBurst => Interlocked.Read(ref _largestBurst);
 
     /// <inheritdoc />
     public void Start(IMixerRender render, TimeProvider clock)
@@ -62,16 +70,26 @@ internal sealed class FakeMixerOutput : IMixerOutput
     {
         long origin = clock.GetTimestamp();
         long cycle = 0;
+        long burst = 0;
         while (!stop.IsCancellationRequested)
         {
             render.RenderCycle(_left, _right, (long)(clock.GetTimestamp() * (1_000_000_000.0 / clock.TimestampFrequency)));
             _ = Interlocked.Increment(ref _cycles);
             cycle++;
+            burst++;
             TimeSpan wait = (Period * cycle) - clock.GetElapsedTime(origin);
             if (wait <= TimeSpan.Zero)
             {
                 continue;
             }
+
+            if (burst > Interlocked.Read(ref _largestBurst))
+            {
+                Interlocked.Exchange(ref _largestBurst, burst);
+            }
+
+            burst = 0;
+            _ = Interlocked.Increment(ref _wakes);
 
             try
             {
