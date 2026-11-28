@@ -16,7 +16,7 @@ namespace Denice.CrossPlatform.Tests;
 /// DENICE_AUDIO_PROOF_OUT. The explicit-device case selects the first audio output that is not "default" or
 /// "communications" (or the one whose label contains DENICE_AUDIO_EXPLICIT_LABEL).
 /// </summary>
-public sealed class AudioRedirectionProofTests
+public sealed partial class AudioRedirectionProofTests
 {
     private readonly ITestOutputHelper _output;
     private readonly List<string> _progress = [];

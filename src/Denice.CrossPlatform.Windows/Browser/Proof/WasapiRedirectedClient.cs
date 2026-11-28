@@ -10,7 +10,10 @@ namespace Denice.CrossPlatform.Windows.Browser;
 /// The DENICE IAudioClient, IAudioRenderClient and IAudioClock a wrapped render endpoint activates for Chromium. It
 /// reports a 48 kHz float stereo mix format, accepts shared event-driven Initialize, signals Chromium's event once per
 /// mixer cycle, reports frames not yet mixed as padding and queues what Chromium releases for the mixer. Its clock
-/// reports frames mixed against the QPC time of the latest cycle.
+/// reports frames mixed since the last Reset against the QPC time of the latest cycle: as WASAPI documents, Reset
+/// "resets the audio clock stream position to 0". Chromium re-seeds its written-frame count at every Start and takes
+/// the output delay as written minus played, so a position that kept counting across Reset made that delay zero and
+/// let the page's output clock run ahead of the mix (run 46174966091).
 /// </summary>
 [GeneratedComClass]
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S6640", Justification = "Audio redirection proof: WASAPI buffers and formats are unmanaged.")]
@@ -40,6 +43,7 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     private long _released;
     private long _releasedSounding;
     private long _counter;
+    private long _positionBase;
 
     /// <summary>Initializes a new instance of the <see cref="WasapiRedirectedClient"/> class.</summary>
     /// <param name="clock">The injected clock (QPC timestamps on Windows).</param>
@@ -154,6 +158,9 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
         long discarded = _ring.Pending;
         long discardedSounding = _ring.PendingSounding;
         _ring.RequestFlush();
+
+        // Chromium resets only a stopped stream, so nothing is mixed while the base moves.
+        Interlocked.Exchange(ref _positionBase, _ring.Mixed);
         AudioProofLog.Note($"IAudioClient.Reset on {_device} at {HostMilliseconds():F1} ms: discarded {discarded} queued frames ({discardedSounding} sounding); {Accounting()}");
         return ComNative.Ok;
     }
@@ -230,7 +237,7 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     /// <inheritdoc />
     public int GetPosition(ulong* position, ulong* counter)
     {
-        long mixed = _ring.Mixed;
+        long mixed = _ring.Mixed - Interlocked.Read(ref _positionBase);
         long reportedCounter = Interlocked.Read(ref _counter);
         *position = (ulong)mixed;
         if (counter != null)
@@ -347,7 +354,7 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
 
     /// <summary>One GetPosition answer, for the diagnostic history.</summary>
     /// <param name="HostMilliseconds">When Chromium asked, on the host clock.</param>
-    /// <param name="Position">The position returned (frames mixed).</param>
+    /// <param name="Position">The position returned (frames mixed since the last Reset).</param>
     /// <param name="CounterMilliseconds">The QPC counter returned, in milliseconds.</param>
     /// <param name="Written">Frames Chromium had released by then.</param>
     /// <param name="Queued">Frames released but not yet mixed by then.</param>
