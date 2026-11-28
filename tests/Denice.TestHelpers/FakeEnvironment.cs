@@ -1,6 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using Denice.Abstractions.Contracts;
 
@@ -125,4 +126,9 @@ public sealed class FakeEnvironment : IEnvironment
 
     /// <inheritdoc />
     public Architecture GetOSArchitecture() => _osArchitecture;
+
+    /// <inheritdoc />
+    /// <remarks>The fake never ends the test process: it throws <see cref="FakeFailFastException"/> carrying the message.</remarks>
+    [DoesNotReturn]
+    public void FailFast(string message) => throw new FakeFailFastException(message);
 }

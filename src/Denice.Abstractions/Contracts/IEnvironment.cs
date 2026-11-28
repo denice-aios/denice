@@ -1,5 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Denice.Abstractions.Contracts;
@@ -67,4 +68,12 @@ public interface IEnvironment
     /// </summary>
     /// <returns>The CPU architecture of the operating system.</returns>
     Architecture GetOSArchitecture();
+
+    /// <summary>
+    /// Ends the process at once, without unwinding or running finalizers, after recording <paramref name="message"/> in the
+    /// operating system's error report — for a state in which continuing could corrupt memory another component still owns.
+    /// </summary>
+    /// <param name="message">Why the process must end.</param>
+    [DoesNotReturn]
+    void FailFast(string message);
 }

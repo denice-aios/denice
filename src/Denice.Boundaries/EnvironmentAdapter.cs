@@ -54,6 +54,10 @@ internal sealed class EnvironmentAdapter : IEnvironment
     /// <inheritdoc />
     public Architecture GetOSArchitecture() => RuntimeInformation.OSArchitecture;
 
+    /// <inheritdoc />
+    [DoesNotReturn]
+    public void FailFast(string message) => Environment.FailFast(message);
+
     /// <summary>
     /// Creates the environment adapter.
     /// </summary>

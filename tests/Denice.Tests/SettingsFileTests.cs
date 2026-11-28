@@ -53,6 +53,7 @@ public sealed class SettingsFileTests : IDisposable
     {
         settings.List().Should().Equal(
             new SettingState("browser.debugPort", "0", "0"),
+            new SettingState("browser.gpuCopyTimeoutSeconds", "10", "10"),
             new SettingState("browser.profile", "default", "default"),
             new SettingState("updates.enabled", "true", "true"),
             new SettingState("updates.channel", ChannelDefault, ChannelDefault),
@@ -80,6 +81,30 @@ public sealed class SettingsFileTests : IDisposable
     public void BrowserDebugging_RejectsInvalidPorts(string port)
     {
         Action change = () => settings.Set("browser.debugPort", port);
+        change.Should().Throw<InvalidSettingException>();
+    }
+
+    [Fact]
+    public void BrowserGpuCopyTimeout_IsTenSecondsByDefaultAndControlledThroughSettings()
+    {
+        settings.ReadBrowserGpuCopyTimeout().Should().Be(TimeSpan.FromSeconds(10));
+        settings.Set("browser.gpuCopyTimeoutSeconds", "1");
+        settings.ReadBrowserGpuCopyTimeout().Should().Be(TimeSpan.FromSeconds(1));
+        settings.Set("browser.gpuCopyTimeoutSeconds", "300");
+        settings.ReadBrowserGpuCopyTimeout().Should().Be(TimeSpan.FromSeconds(300));
+        settings.Reset("browser.gpuCopyTimeoutSeconds");
+        settings.ReadBrowserGpuCopyTimeout().Should().Be(TimeSpan.FromSeconds(10));
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("301")]
+    [InlineData("-1")]
+    [InlineData("1.5")]
+    [InlineData("ten")]
+    public void BrowserGpuCopyTimeout_RejectsValuesOutsideOneToThreeHundredSeconds(string seconds)
+    {
+        Action change = () => settings.Set("browser.gpuCopyTimeoutSeconds", seconds);
         change.Should().Throw<InvalidSettingException>();
     }
 

@@ -48,6 +48,12 @@ internal sealed class SettingDefinition
     /// <summary>The optional localhost browser debugging port.</summary>
     internal const string BrowserDebugPortName = "browser.debugPort";
 
+    /// <summary>How long the Windows browser compositor waits for one GPU frame copy before ending the process.</summary>
+    internal const string BrowserGpuCopyTimeoutSecondsName = "browser.gpuCopyTimeoutSeconds";
+
+    /// <summary>The largest browser GPU copy deadline, in seconds.</summary>
+    internal const int MaxBrowserGpuCopyTimeoutSeconds = 300;
+
     /// <summary>The default local browser profile.</summary>
     internal const string BrowserProfileDefault = "default";
 
@@ -68,6 +74,11 @@ internal sealed class SettingDefinition
     internal static IReadOnlyList<SettingDefinition> All { get; } =
     [
         new(BrowserDebugPortName, "0", "0 to disable, or a port from 1024 to 65535", value => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int port) && (port == 0 || port is >= 1024 and <= 65535)),
+        new(
+            BrowserGpuCopyTimeoutSecondsName,
+            "10",
+            $"a whole number of seconds from 1 to {MaxBrowserGpuCopyTimeoutSeconds.ToString(CultureInfo.InvariantCulture)}",
+            value => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds) && seconds is >= 1 and <= MaxBrowserGpuCopyTimeoutSeconds),
         new(BrowserProfileName, BrowserProfileDefault, "1 to 64 letters, digits, underscores, or hyphens", value => value.Length is > 0 and <= 64 && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '_' or '-')),
         new(EnabledName, True, $"{True} or {False}", value => value is True or False),
         new(ChannelName, ChannelDefault, $"{PreRelease} or {Stable}", value => value is PreRelease or Stable),

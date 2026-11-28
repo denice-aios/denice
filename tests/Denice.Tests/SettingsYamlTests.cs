@@ -122,7 +122,7 @@ public sealed class SettingsYamlTests
     [InlineData("'updates.enabled': true", 1, "quoted setting names are not supported*")]
     [InlineData("updates.enabled: @on", 1, "'@' cannot start a name or a value.")]
     [InlineData("updates.enabled: true\nupdates.channel: stable\nupdates.enabled: false", 3, "updates.enabled is already set on line 1*")]
-    [InlineData("updates.colour: red", 1, "'updates.colour' is not a setting; the settings are browser.debugPort, browser.profile, updates.enabled, updates.channel, updates.checkIntervalHours.")]
+    [InlineData("updates.colour: red", 1, "'updates.colour' is not a setting; the settings are browser.debugPort, browser.gpuCopyTimeoutSeconds, browser.profile, updates.enabled, updates.channel, updates.checkIntervalHours.")]
     [InlineData("Updates.Enabled: true", 1, "'Updates.Enabled' is not a setting*")]
     [InlineData("updates.enabled:true", 1, "expected 'name: value'*")]
     [InlineData("updates.enabled", 1, "expected 'name: value'*")]

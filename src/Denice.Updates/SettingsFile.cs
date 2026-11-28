@@ -93,6 +93,16 @@ public sealed class SettingsFile
             : 0;
     }
 
+    /// <summary>Reads how long the Windows browser compositor waits for one GPU frame copy, 10 seconds by default.</summary>
+    /// <returns>The deadline, from 1 to 300 seconds.</returns>
+    public TimeSpan ReadBrowserGpuCopyTimeout()
+    {
+        IReadOnlyDictionary<string, string> values = Locked(Load);
+        return TimeSpan.FromSeconds(values.TryGetValue(SettingDefinition.BrowserGpuCopyTimeoutSecondsName, out string? seconds)
+            ? int.Parse(seconds, CultureInfo.InvariantCulture)
+            : 10);
+    }
+
     /// <summary>Reads the typed update settings.</summary>
     /// <returns>The update settings, each set value or else its default.</returns>
     public UpdateSettings ReadUpdateSettings() => UpdateSettings.From(Locked(Load));
