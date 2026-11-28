@@ -48,10 +48,22 @@ echo "build exit=$?" >"$OUT/build-exit.txt"
 # The Linux packaging publishes icudtl.dat, the .pak files and locales beside libcef.so (3ab198f); the build must show it.
 CEFDIR=tests/Denice.CrossPlatform.Tests/bin/Release/net10.0/$RID/CEF
 [ -f "$CEFDIR/icudtl.dat" ] && [ -f "$CEFDIR/locales/en-US.pak" ] || echo "CEF resources are not beside libcef.so in $CEFDIR" >>"$OUT/build.log"
+# A stall before the test host starts leaves no test log or diag folder, so 60 s before the time limit a watchdog keeps a
+# process snapshot (state, kernel wait channel and open descriptors of each dotnet process) in timeout-ps.txt.
+( sleep 1440
+  { date -u; ps -eo pid,ppid,etimes,stat,pcpu,rss,args
+    for pid in $(pgrep -f dotnet); do
+      echo "== $pid $(tr '\0' ' ' < /proc/$pid/cmdline 2>/dev/null)"
+      grep -E '^(State|Threads|VmRSS)' /proc/$pid/status 2>/dev/null
+      echo "wchan: $(cat /proc/$pid/wchan 2>/dev/null); fds: $(ls /proc/$pid/fd 2>/dev/null | wc -l)"
+      for t in /proc/$pid/task/*; do echo "  thread $(basename $t) $(cat $t/comm 2>/dev/null) $(cat $t/wchan 2>/dev/null)"; done
+    done; } >"$OUT/timeout-ps.txt" 2>&1 ) &
+WATCHDOG=$!
 DENICE_AUDIO_PROOF_OUT=$OUT/evidence perl -e 'alarm 1500; exec @ARGV' dotnet test tests/Denice.CrossPlatform.Tests/Denice.CrossPlatform.Tests.csproj \
   -c Release -r $RID -p:DeniceAudioRedirectionProof=true --no-build --filter Category=AudioRedirectionProof \
-  --logger "console;verbosity=detailed" --diag "$OUT/diag/vstest.log" --blame >"$OUT/test.log" 2>&1
+  --logger "console;verbosity=detailed" --diag "$OUT/diag/vstest.log" --blame --blame-hang-timeout 20m --blame-hang-dump-type mini >"$OUT/test.log" 2>&1
 echo "test exit=$?" | tee "$OUT/test-exit.txt"
+kill $WATCHDOG 2>/dev/null
 if [ "$SERVER" = none ]; then
   python3 /p/compare_alsa.py "$OUT" | tee "$OUT/compare-alsa.txt"
 fi
