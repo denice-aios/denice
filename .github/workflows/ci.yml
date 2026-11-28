@@ -83,15 +83,21 @@ jobs:
         # Staged branch GPU policy (Tim): working = default merges (pull requests), no GPU; fast = internal releases,
         # Linux GPU; dev = beta, Windows GPU; main = public, all GPU. Which GPU each stage runs lives in eng/coverage-gate.sh;
         # this only names the stage. (No `fast` branch or trigger exists yet; a push to it would be the fast stage.)
+        # A pull request is judged at the stage it promotes into (its base branch), so a promotion PR into fast, dev or
+        # main is never green on working's rules; ordinary PRs into working are the working stage.
         env:
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
+          BASE: ${{ github.base_ref }}
         run: |
-          case "$EVENT:$REF" in
-            pull_request:*) stage=working ;;
-            push:refs/heads/fast) stage=fast ;;
-            push:refs/heads/dev) stage=dev ;;
-            push:refs/heads/main) stage=main ;;
+          case "$EVENT:$REF:$BASE" in
+            pull_request:*:working) stage=working ;;
+            pull_request:*:fast) stage=fast ;;
+            pull_request:*:dev) stage=dev ;;
+            pull_request:*:main) stage=main ;;
+            push:refs/heads/fast:*) stage=fast ;;
+            push:refs/heads/dev:*) stage=dev ;;
+            push:refs/heads/main:*) stage=main ;;
             *) echo "::error::no coverage stage for event '$EVENT' on '$REF'."; exit 1 ;;
           esac
           echo "stage=$stage" >> "$GITHUB_OUTPUT"
