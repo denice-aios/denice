@@ -188,7 +188,7 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
 
     /// <summary>Creates the platform desktop with the shared browser lifecycle.</summary>
     /// <returns>The native desktop capability.</returns>
-    internal static IPlatformDesktop Create() => new WindowsDesktop(Browser.CefPlatformBrowser.Create());
+    internal static IPlatformDesktop Create() => new WindowsDesktop(CrossPlatform.Browser.CefPlatformBrowser.Create());
 
     private void RunFrames(WindowsWindow window, OrbScene scene, long origin, double? durationSeconds, TimeProvider clock)
     {
