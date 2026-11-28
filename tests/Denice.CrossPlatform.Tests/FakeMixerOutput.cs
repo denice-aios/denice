@@ -6,7 +6,7 @@ namespace Denice.CrossPlatform.Tests;
 
 /// <summary>
 /// A test-only mixer output with no device: a background loop renders one 5 ms cycle (240 frames at 48 kHz) on the
-/// injected clock's schedule, so the mixer core runs at real-time pace on any OS, including hosts with no audio endpoint.
+/// injected clock's schedule, stamped with the clock's time, so the mixer core runs at real-time pace on any OS, including hosts with no audio endpoint.
 /// Nothing reaches any device.
 /// </summary>
 internal sealed class FakeMixerOutput : IMixerOutput
@@ -64,8 +64,7 @@ internal sealed class FakeMixerOutput : IMixerOutput
         long cycle = 0;
         while (!stop.IsCancellationRequested)
         {
-            TimeSpan due = Period * cycle;
-            render.RenderCycle(_left, _right, due.Ticks * 100);
+            render.RenderCycle(_left, _right, (long)(clock.GetTimestamp() * (1_000_000_000.0 / clock.TimestampFrequency)));
             _ = Interlocked.Increment(ref _cycles);
             cycle++;
             TimeSpan wait = (Period * cycle) - clock.GetElapsedTime(origin);

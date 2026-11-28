@@ -65,6 +65,19 @@
       Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&lt;plist version=&quot;1.0&quot;&gt;&lt;dict&gt;&lt;key&gt;CFBundleExecutable&lt;/key&gt;&lt;string&gt;Denice.CrossPlatform.Tests&lt;/string&gt;&lt;key&gt;CFBundleIdentifier&lt;/key&gt;&lt;string&gt;ai.denice.desktop-tests&lt;/string&gt;&lt;key&gt;CFBundlePackageType&lt;/key&gt;&lt;string&gt;APPL&lt;/string&gt;&lt;/dict&gt;&lt;/plist&gt;" />
   </Target>
 
+  <!-- The Windows and Linux browser-audio redirection proofs (DeniceAudioRedirectionProof, windows-linux-audio-proof.md):
+       the shared case driver and each OS's fixture compile only in that build, against its proof library. -->
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' != 'true'">
+    <Compile Remove="AudioProof/**" />
+    <Compile Remove="AudioRedirectionProofTests.*.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true' and !$(DenicePlatformRid.StartsWith('linux'))">
+    <Compile Remove="AudioRedirectionProofTests.Linux.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true' and !$(DenicePlatformRid.StartsWith('win'))">
+    <Compile Remove="AudioRedirectionProofTests.Windows.cs" />
+  </ItemGroup>
+
   <!-- Windows desktop behavior that needs no graphics adapter runs on every Windows test leg. -->
   <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('win')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Windows')))">
     <Compile Remove="DesktopBehaviorTests.Windows.cs" />

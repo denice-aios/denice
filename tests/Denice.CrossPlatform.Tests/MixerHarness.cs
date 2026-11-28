@@ -21,6 +21,9 @@ internal static partial class MixerHarness
 
         internal List<float[]> Packets { get; } = [];
 
+        /// <summary>Gets each packet's presentation time in milliseconds on the host clock, in the same order as <see cref="Packets"/>.</summary>
+        internal List<long> PacketTimes { get; } = [];
+
         /// <summary>Gets the right channel of each packet, in the same order as <see cref="Packets"/>.</summary>
         internal List<float[]> RightPackets { get; } = [];
 
@@ -85,6 +88,7 @@ internal static partial class MixerHarness
         public void OnAudioPacket(nint planarFloatPointers, int frames, long pts)
         {
             _log.Packets.Add(new Span<float>(*(float**)planarFloatPointers, frames).ToArray());
+            _log.PacketTimes.Add(pts);
             _log.RightPackets.Add(new Span<float>(*((float**)planarFloatPointers + 1), frames).ToArray());
             _log.PacketSpeech.Add(_log.SpeechProgress());
         }

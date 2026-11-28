@@ -28,6 +28,7 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
     private uint _module = uint.MaxValue;
     private long _framesCaptured;
     private long _soundingFrames;
+    private volatile bool _armed;
 
     private PulseSpeechCapture(PulseConnection connection, TimeProvider clock, string sink)
     {
@@ -104,6 +105,12 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
 
         AudioProofLog.Note("SPEECHD_ADDRESS=unix_socket:" + socketPath);
     }
+
+    /// <summary>
+    /// Starts queuing the monitor's samples for the mixer. Until then they are counted and dropped, so the mix receives no
+    /// backlog captured before the source joined it (a full queue of earlier silence measured as a 2.8 s speech lag).
+    /// </summary>
+    internal void Arm() => _armed = true;
 
     [LibraryImport("libc.so.6", EntryPoint = "setenv", StringMarshalling = StringMarshalling.Utf8)]
     private static partial int SetEnvironment(string name, string value, int overwrite);
@@ -232,7 +239,11 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
                 sounding += Math.Abs(sample) > 1e-4f ? 1 : 0;
             }
 
-            _ = _ring.Write(samples, samples);
+            if (_armed)
+            {
+                _ = _ring.Write(samples, samples);
+            }
+
             Interlocked.Add(ref _framesCaptured, frames);
             Interlocked.Add(ref _soundingFrames, sounding);
             _ = PulseNative.StreamDrop(stream);
