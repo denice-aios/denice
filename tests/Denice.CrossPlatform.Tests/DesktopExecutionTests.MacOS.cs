@@ -20,6 +20,12 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
 {
     private const string SamplerPath = "/usr/bin/sample";
     private const int SampleSeconds = 5;
+
+    /// <summary>The recovery page for the opt-in audio check: a one-second 440 Hz tone 0.5 s after each load.</summary>
+    private const string RecoveryTonePage = "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Recovery fixture</button>"
+        + "<script>const c=new AudioContext({sampleRate:48000});c.resume().then(()=>{const o=c.createOscillator(),g=c.createGain();g.gain.value=0.25;o.frequency.value=440;"
+        + "o.connect(g).connect(c.destination);o.start(c.currentTime+0.5);o.stop(c.currentTime+1.5);});</script></body></html>";
+
     private static readonly TimeSpan FixtureTimeout = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SamplerTimeout = TimeSpan.FromSeconds(30);
@@ -83,6 +89,15 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
 
         Assert.Equal(0, process.ExitCode);
     }
+
+    /// <summary>
+    /// Records a tone, the scripted outage's silence, and a tone again after the restart reloads the page. It plays two
+    /// one-second 440 Hz tones on the default output, so it runs only when an audible run is approved. Check the MP4 with
+    /// ffmpeg: two tone segments with silence between them, and one continuous audio track.
+    /// </summary>
+    /// <returns>The fixture run.</returns>
+    [Fact(Skip = "Audible: plays two one-second 440 Hz tones on the default output device; run only with Tim's approval.")]
+    public Task RecordingCarriesAudioAcrossARecovery() => NativeDesktopCompletesWithRenderedContent("recovery-audio");
 
     /// <summary>Writes a fixture progress marker so a timed-out child shows the last stage it reached.</summary>
     private static void Stage(ISystemServices services, string stage) =>
@@ -182,7 +197,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
             return 0;
         }
 
-        if (args.Length != 2 || args[0] is not ("browser-audio" or "compositor" or "desktop" or "recovery"))
+        if (args.Length != 2 || args[0] is not ("browser-audio" or "compositor" or "desktop" or "recovery" or "recovery-audio"))
         {
             return 2;
         }
@@ -196,9 +211,9 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         {
             AssertCompositor(services, args[1]);
         }
-        else if (string.Equals(args[0], "recovery", StringComparison.Ordinal))
+        else if (args[0] is "recovery" or "recovery-audio")
         {
-            AssertRecoveryContinuity(services, args[1]);
+            AssertRecoveryContinuity(services, args[1], tone: string.Equals(args[0], "recovery-audio", StringComparison.Ordinal));
         }
         else
         {
@@ -228,11 +243,11 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     /// Records through a scripted server outage and restart: the window, browser and recording must stay alive, the
     /// recording must keep one continuous 60 FPS timeline, and the run must end normally after its duration.
     /// </summary>
-    private static void AssertRecoveryContinuity(ISystemServices services, string directory)
+    private static void AssertRecoveryContinuity(ISystemServices services, string directory, bool tone)
     {
         string recording = Path.Combine(directory, "recovery-" + services.Random.NewGuid().ToString("N") + ".mp4");
         string cache = Path.Combine(directory, "cache-" + services.Random.NewGuid().ToString("N"));
-        const string html = "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Recovery fixture</button></body></html>";
+        string html = tone ? RecoveryTonePage : "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Recovery fixture</button></body></html>";
         IApplicationSession session = ScriptedOutageSession.Create(new Uri("data:text/html," + Uri.EscapeDataString(html)), services.Clock, TimeSpan.FromSeconds(2.5), TimeSpan.FromSeconds(4));
         var desktop = MacDesktop.Create();
         Stage(services, "recovery run");
