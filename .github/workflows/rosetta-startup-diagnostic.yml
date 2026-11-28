@@ -47,15 +47,18 @@ jobs:
       - name: Cold and warm compositor runs, sampled
         env:
           DOTNET_ROOT: ${{ runner.temp }}/dotnet-x64
+        # GitHub runs steps with `bash -e`; a sampler or fixture exiting non-zero must not end the measurement (run 46085368486).
+        shell: bash --noprofile --norc {0}
         run: |
-          set -uo pipefail
+          set -u +e
           bundle=tests/Denice.CrossPlatform.Tests/bin/Release/net10.0/Denice.CrossPlatform.Tests.app/Contents/MacOS
           # bounded_sample <pid> <file>: /usr/bin/sample for 5 s, stopped after 30 s, skipped once the process has exited.
           bounded_sample() {
             kill -0 "$1" 2>/dev/null || { echo "process exited before this sample" > "$2.status"; return; }
             /usr/bin/sample "$1" 5 -file "$2" >/dev/null 2>&1 & local sampler=$!
-            for _ in $(seq 1 30); do kill -0 "$sampler" 2>/dev/null || return; sleep 1; done
+            for _ in $(seq 1 30); do kill -0 "$sampler" 2>/dev/null || return 0; sleep 1; done
             kill -KILL "$sampler" 2>/dev/null; echo "sampler did not finish within 30 s" > "$2.status"
+            return 0
           }
           # run_fixture <name> <bound seconds> <sample seconds...>
           run_fixture() {
