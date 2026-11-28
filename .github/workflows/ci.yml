@@ -30,12 +30,15 @@ name: CI
 
 on:
   # Pull requests into every policy branch get CI (working: ordinary checks; fast/dev/main: their GPU stages). Pushes,
-  # and so releases, stay limited to dev and main until fast's internal channel exists (handoff/landing-plan/PLAN.md).
+  # and so releases, stay limited to dev and main until fast's internal channel exists (handoff/landing-plan/PLAN.md);
+  # working pushes run CI but never release.
   pull_request:
     branches: [working, fast, dev, main]
     types: [opened, synchronize, reopened, labeled]
+  # working pushes build and upload the normal artifacts with releases suppressed (ship=false below);
+  # dev publishes pre-releases and main public releases.
   push:
-    branches: [dev, main]
+    branches: [working, dev, main]
 
 permissions:
   contents: read
@@ -95,6 +98,7 @@ jobs:
             pull_request:*:fast) stage=fast ;;
             pull_request:*:dev) stage=dev ;;
             pull_request:*:main) stage=main ;;
+            push:refs/heads/working:*) stage=working ;;
             push:refs/heads/fast:*) stage=fast ;;
             push:refs/heads/dev:*) stage=dev ;;
             push:refs/heads/main:*) stage=main ;;
@@ -107,7 +111,9 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           ship=true
-          if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+          # working is the default branch for quick merges: its pushes build and upload artifacts but never release.
+          if [ "${{ github.ref }}" = refs/heads/working ]; then ship=false; fi
+          if [ "$ship" = true ] && [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             changed="$(git diff --name-only "$BEFORE" "$GITHUB_SHA")"
             if [ -n "$changed" ] && ! grep -vE '(^docs/|\.md$)' <<< "$changed" > /dev/null; then ship=false; fi
           fi
@@ -116,7 +122,7 @@ jobs:
       - id: id
         # pull_request => channel 'pr-<number>' (pr-build-version-channel: a PR build is not a pre-release, and the
         # number makes each build's evidence identifiable). push to dev => 'dev'; push to main => '' (no prerelease).
-        run: eng/compute-build-id.sh "${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref == 'refs/heads/dev' && 'dev' || '') }}"
+        run: eng/compute-build-id.sh "${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref == 'refs/heads/dev' && 'dev' || (github.ref == 'refs/heads/working' && 'working' || '')) }}"
       - name: Capture immutable ordinary CI checkout provenance
         env:
           SOURCE_REPOSITORY: ${{ github.repository }}
