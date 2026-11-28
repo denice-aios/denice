@@ -229,6 +229,7 @@ public sealed class AudioRedirectionProofTests
         {
             facts["speechCapturedFrames"] = speech.FramesCaptured;
             facts["speechSoundingFrames"] = speech.SoundingFrames;
+            facts["speechTrimmedFrames"] = speech.TrimmedFrames;
             facts["speechFramesMixed"] = speech.FramesMixed;
             facts["speechSink"] = speech.Sink;
             facts["speechBursts"] = SpeechBursts(speech, evidence.PageOffsetMilliseconds);

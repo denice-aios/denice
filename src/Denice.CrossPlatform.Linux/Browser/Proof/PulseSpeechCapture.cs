@@ -30,6 +30,7 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
     private long _framesCaptured;
     private long _soundingFrames;
     private volatile bool _armed;
+    private long _trimmedFrames;
 
     private PulseSpeechCapture(PulseConnection connection, TimeProvider clock, string sink)
     {
@@ -47,6 +48,9 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
 
     /// <summary>Gets the captured frames that were not silent.</summary>
     internal long SoundingFrames => Interlocked.Read(ref _soundingFrames);
+
+    /// <summary>Gets the silent captured frames dropped to keep the queue at its target latency.</summary>
+    internal long TrimmedFrames => Interlocked.Read(ref _trimmedFrames);
 
     /// <summary>Gets the frames the mixer took from the capture.</summary>
     internal long FramesMixed => _ring.Mixed;
@@ -247,7 +251,14 @@ internal sealed unsafe partial class PulseSpeechCapture : IRedirectedSource, IDi
                 sounding += Math.Abs(sample) > 1e-4f ? 1 : 0;
             }
 
-            if (_armed)
+            // The monitor's clock can run faster than the mixer's output clock (measured on PipeWire: the queue grew to
+            // 0.82-0.94 s by the first utterance). A fully silent block is dropped while more than twice the prebuffer
+            // is queued, so the queue returns to its target during silence; sounding samples are never dropped.
+            if (_armed && sounding == 0 && _ring.Pending > 2L * _ring.PrebufferFrames)
+            {
+                Interlocked.Add(ref _trimmedFrames, frames);
+            }
+            else if (_armed)
             {
                 long queuedFrom = _ring.Written;
                 long pending = _ring.Pending;
