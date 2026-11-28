@@ -8,7 +8,9 @@ namespace Denice.CrossPlatform.Linux.Browser;
 /// <summary>
 /// The Linux mixer output when no PulseAudio-compatible server is reachable: one 48 kHz float stereo playback PCM on the
 /// ALSA "default" device, through DENICE's own libasound imports (not libcef.so's redirected slots). A writer thread
-/// renders one 240-frame cycle at a time and blocks in snd_pcm_writei, which paces it at the device's rate.
+/// renders one 240-frame cycle at a time and blocks in snd_pcm_writei, which paces it at the device's rate. A device that
+/// never blocks (the ALSA null or file plugin with no sound card) would let the writer run unpaced, so the writer also
+/// waits on the clock whenever it is more than <see cref="AheadLimitFrames"/> ahead of real time.
 /// </summary>
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S6640", Justification = "Audio redirection proof: libasound takes unmanaged buffers.")]
 internal sealed unsafe partial class LinuxAlsaOutput : IMixerOutput
@@ -17,6 +19,9 @@ internal sealed unsafe partial class LinuxAlsaOutput : IMixerOutput
     private const int Frames = 240;
     private const int FloatLittleEndian = 14;
     private const int Interleaved = 3;
+
+    /// <summary>The frames the writer may run ahead of real time before it waits: two cycles.</summary>
+    private const int AheadLimitFrames = 2 * Frames;
     private readonly float[] _left = new float[Frames];
     private readonly float[] _right = new float[Frames];
     private readonly float[] _interleaved = new float[Frames * 2];
@@ -25,6 +30,7 @@ internal sealed unsafe partial class LinuxAlsaOutput : IMixerOutput
     private volatile bool _stopping;
     private long _cycles;
     private long _errors;
+    private long _paced;
 
     /// <summary>Gets the cycles written so far.</summary>
     internal long Cycles => Interlocked.Read(ref _cycles);
@@ -73,7 +79,7 @@ internal sealed unsafe partial class LinuxAlsaOutput : IMixerOutput
         _ = Drop(_pcm);
         _ = Close(_pcm);
         _pcm = 0;
-        AudioProofLog.Note($"DENICE ALSA output stopped after {Cycles} cycles, {Interlocked.Read(ref _errors)} write errors");
+        AudioProofLog.Note($"DENICE ALSA output stopped after {Cycles} cycles, {Interlocked.Read(ref _errors)} write errors, {Interlocked.Read(ref _paced)} clock waits");
     }
 
     /// <inheritdoc />
@@ -99,8 +105,10 @@ internal sealed unsafe partial class LinuxAlsaOutput : IMixerOutput
 
     private void Run(IMixerRender render, TimeProvider clock)
     {
+        long started = clock.GetTimestamp();
         while (!_stopping)
         {
+            PaceAgainstClock(clock, started);
             long host = (long)(clock.GetTimestamp() * (1_000_000_000.0 / clock.TimestampFrequency));
             render.RenderCycle(_left, _right, host);
             for (int frame = 0; frame < Frames; frame++)
@@ -120,6 +128,17 @@ internal sealed unsafe partial class LinuxAlsaOutput : IMixerOutput
             }
 
             _ = Interlocked.Increment(ref _cycles);
+        }
+    }
+
+    /// <summary>Waits while the frames written so far are more than two cycles ahead of the clock.</summary>
+    private void PaceAgainstClock(TimeProvider clock, long started)
+    {
+        long ahead = AlsaPacing.FramesAhead(Interlocked.Read(ref _cycles) * Frames, clock.GetElapsedTime(started), MixerCore.SampleRate);
+        if (ahead > AheadLimitFrames)
+        {
+            _ = Interlocked.Increment(ref _paced);
+            Task.Delay(TimeSpan.FromSeconds((double)(ahead - Frames) / MixerCore.SampleRate), clock).GetAwaiter().GetResult();
         }
     }
 }

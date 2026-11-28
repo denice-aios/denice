@@ -91,6 +91,16 @@ public sealed class AudioProofAnalysisTests
     }
 
     [Fact]
+    public void AlsaPacing_CountsFramesWrittenBeyondTheClock()
+    {
+        // A writer that never blocks is paced once it is more than two 240-frame cycles ahead of real time.
+        Assert.Equal(0, AlsaPacing.FramesAhead(48_000, TimeSpan.FromSeconds(1), 48_000));
+        Assert.Equal(480, AlsaPacing.FramesAhead(48_480, TimeSpan.FromSeconds(1), 48_000));
+        Assert.Equal(-240, AlsaPacing.FramesAhead(47_760, TimeSpan.FromSeconds(1), 48_000));
+        Assert.Equal((5_738_686 * 240L) - 48_000, AlsaPacing.FramesAhead(5_738_686 * 240L, TimeSpan.FromSeconds(1), 48_000));
+    }
+
+    [Fact]
     [Trait("Category", "AudioRedirectionProof")]
     public void AlsaAccounting_ReportsFreeSpaceAndDelayFromTheQueue()
     {

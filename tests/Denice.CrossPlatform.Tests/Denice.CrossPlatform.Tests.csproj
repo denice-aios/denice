@@ -82,6 +82,7 @@
     <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/RedirectedRing.cs" Link="AudioProof/Pure/RedirectedRing.cs" />
     <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/PcmMath.cs" Link="AudioProof/Pure/PcmMath.cs" />
     <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/SpeechBurstTracker.cs" Link="AudioProof/Pure/SpeechBurstTracker.cs" />
+    <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/AlsaPacing.cs" Link="AudioProof/Pure/AlsaPacing.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true' and !$(DenicePlatformRid.StartsWith('linux'))">
     <Compile Remove="AudioRedirectionProofTests.Linux.cs" />

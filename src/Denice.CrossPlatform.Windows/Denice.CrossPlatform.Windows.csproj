@@ -44,6 +44,7 @@
     <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/RedirectedRing.cs" Link="Browser/Proof/Shared/RedirectedRing.cs" />
     <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/PcmMath.cs" Link="Browser/Proof/Shared/PcmMath.cs" />
     <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/SpeechBurstTracker.cs" Link="Browser/Proof/Shared/SpeechBurstTracker.cs" />
+    <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/AlsaPacing.cs" Link="Browser/Proof/Shared/AlsaPacing.cs" />
   </ItemGroup>
 
   <!-- PlatformServices.Create() is internal (platform-create-internal); Denice.Engine reaches this one door
