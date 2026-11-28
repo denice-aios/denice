@@ -129,16 +129,25 @@ public sealed class StreamRateConverterTests(ITestOutputHelper output)
             _ = timestamp.Pull(converter, 512);
         }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int cycle = 0; cycle < 10000; cycle++)
+        // One-time runtime work (tiered recompilation, stub creation) can land in a window and allocate a few thousand bytes
+        // once (CI run 46100513422 saw 2624). A per-pull allocation shows in every window as at least 10,000 objects, so the
+        // render path passes only when every window stays under one byte per pull and a window allocates exactly zero.
+        var windows = new List<long>();
+        for (int window = 0; window < 3 && (windows.Count == 0 || windows[^1] != 0); window++)
         {
-            _ = timestamp.Pull(converter, 512);
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            for (int cycle = 0; cycle < 10000; cycle++)
+            {
+                _ = timestamp.Pull(converter, 512);
+            }
+
+            windows.Add(GC.GetAllocatedBytesForCurrentThread() - before);
         }
 
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         FakeSource.Recording = true;
-        output.WriteLine($"managed bytes allocated over 10000 pulls: {allocated}");
-        Assert.Equal(0, allocated);
+        output.WriteLine($"managed bytes allocated per 10000-pull window: {string.Join(", ", windows)}");
+        Assert.All(windows, allocated => Assert.True(allocated < 10000, $"A 10000-pull window allocated {allocated} bytes."));
+        Assert.Equal(0, windows[^1]);
     }
 
     private static float[] Convert(nint source, int channels, uint[] labels, int cycle, int total) => Convert(source, channels, labels, cycle, total, out _);
