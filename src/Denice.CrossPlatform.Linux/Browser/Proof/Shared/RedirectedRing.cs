@@ -18,6 +18,7 @@ internal sealed class RedirectedRing
     private long _underruns;
     private long _overflows;
     private long _mixed;
+    private long _mixedSounding;
     private bool _playing;
 
     /// <summary>Initializes a new instance of the <see cref="RedirectedRing"/> class.</summary>
@@ -39,6 +40,19 @@ internal sealed class RedirectedRing
 
     /// <summary>Gets every frame mixed.</summary>
     internal long Mixed => Interlocked.Read(ref _mixed);
+
+    /// <summary>Gets every mixed frame with a non-zero sample in either channel.</summary>
+    internal long MixedSounding => Interlocked.Read(ref _mixedSounding);
+
+    /// <summary>Gets the frames written and not yet mixed or flushed that have a non-zero sample in either channel.</summary>
+    internal long PendingSounding
+    {
+        get
+        {
+            long from = Math.Max(Volatile.Read(ref _read), Volatile.Read(ref _flushTo));
+            return CountSounding(from, Volatile.Read(ref _written));
+        }
+    }
 
     /// <summary>Gets the cycles in which a playing stream ran out of frames.</summary>
     internal long Underruns => Interlocked.Read(ref _underruns);
@@ -71,6 +85,22 @@ internal sealed class RedirectedRing
         return frames;
     }
 
+    /// <summary>Counts the frames in [from, to) with a non-zero sample in either channel.</summary>
+    /// <param name="from">The first frame position.</param>
+    /// <param name="to">The position after the last frame.</param>
+    /// <returns>The sounding frames.</returns>
+    internal long CountSounding(long from, long to)
+    {
+        long count = 0;
+        for (long position = Math.Max(from, to - _left.Length); position < to; position++)
+        {
+            int slot = (int)(position % _left.Length);
+            count += _left[slot] != 0 || _right[slot] != 0 ? 1 : 0;
+        }
+
+        return count;
+    }
+
     /// <summary>Writer: discards every frame written so far that the reader has not mixed.</summary>
     internal void RequestFlush() => Volatile.Write(ref _flushTo, Volatile.Read(ref _written));
 
@@ -91,12 +121,16 @@ internal sealed class RedirectedRing
         _playing = true;
         int frames = (int)Math.Min(Math.Min(left.Length, right.Length), available);
         int offset = (int)(read % _left.Length);
+        int sounding = 0;
         for (int frame = 0; frame < frames; frame++)
         {
             int slot = (offset + frame) % _left.Length;
             left[frame] += _left[slot];
             right[frame] += _right[slot];
+            sounding += _left[slot] != 0 || _right[slot] != 0 ? 1 : 0;
         }
+
+        Interlocked.Add(ref _mixedSounding, sounding);
 
         Volatile.Write(ref _read, read + frames);
         Interlocked.Add(ref _mixed, frames);

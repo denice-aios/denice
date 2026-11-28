@@ -31,6 +31,8 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     private bool _floating;
     private BorrowedEvent? _event;
     private volatile bool _started;
+    private long _released;
+    private long _releasedSounding;
     private long _counter;
 
     /// <summary>Initializes a new instance of the <see cref="WasapiRedirectedClient"/> class.</summary>
@@ -135,14 +137,17 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     public int Stop()
     {
         _started = false;
-        AudioProofLog.Note($"IAudioClient.Stop on {_device}: frames mixed {_ring.Mixed}, underruns {_ring.Underruns}");
+        AudioProofLog.Note($"IAudioClient.Stop on {_device} at {HostMilliseconds():F1} ms: {Accounting()}, underruns {_ring.Underruns}");
         return ComNative.Ok;
     }
 
     /// <inheritdoc />
     public int Reset()
     {
+        long discarded = _ring.Pending;
+        long discardedSounding = _ring.PendingSounding;
         _ring.RequestFlush();
+        AudioProofLog.Note($"IAudioClient.Reset on {_device} at {HostMilliseconds():F1} ms: discarded {discarded} queued frames ({discardedSounding} sounding); {Accounting()}");
         return ComNative.Ok;
     }
 
@@ -196,6 +201,14 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
             AudioProofLog.Count("ReleaseBuffer AUDCLNT_BUFFERFLAGS_SILENT");
         }
 
+        long sounding = 0;
+        for (int frame = 0; frame < count; frame++)
+        {
+            sounding += left[frame] != 0 || right[frame] != 0 ? 1 : 0;
+        }
+
+        Interlocked.Add(ref _released, count);
+        Interlocked.Add(ref _releasedSounding, sounding);
         _ = _ring.Write(left, right);
         return ComNative.Ok;
     }
@@ -284,6 +297,12 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     }
 
     private float Sample(int index) => _floating ? ((float*)_buffer)[index] : ((short*)_buffer)[index] / 32768f;
+
+    /// <summary>Released, mixed and queued frames of this stream, each with its sounding count.</summary>
+    private string Accounting() =>
+        $"released {Interlocked.Read(ref _released)} ({Interlocked.Read(ref _releasedSounding)} sounding), mixed {_ring.Mixed} ({_ring.MixedSounding} sounding), queued {_ring.Pending} ({_ring.PendingSounding} sounding)";
+
+    private double HostMilliseconds() => _clock.GetTimestamp() * 1000.0 / _clock.TimestampFrequency;
 
     /// <summary>The fields of a WAVEFORMATEX or WAVEFORMATEXTENSIBLE the client needs.</summary>
     [StructLayout(LayoutKind.Auto)]
