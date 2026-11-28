@@ -1,5 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 
 namespace Denice.CrossPlatform.MacOS.Recording;
@@ -8,6 +9,9 @@ namespace Denice.CrossPlatform.MacOS.Recording;
 internal sealed class Mp4Recorder : IDisposable
 {
     private const int MaximumHeldFramesPerSubmission = 8;
+    private const int PixelBufferAllocationLimit = 8;
+    private const int AllocationThresholdExceeded = -6689;
+    private const string DictionarySelector = "dictionary";
 
     private static readonly nint Framework = NativeLibrary.Load(RecordingNative.AvFoundation);
     private readonly Lock _gate = new();
@@ -19,6 +23,7 @@ internal sealed class Mp4Recorder : IDisposable
     private MediaHandle? _writerHandle;
     private MediaHandle? _videoHandle;
     private MediaHandle? _adaptorHandle;
+    private MediaHandle? _allocationSettings;
     private RecordedAudio? _audio;
     private long? _audioOrigin;
     private long _audioStartSample;
@@ -31,7 +36,11 @@ internal sealed class Mp4Recorder : IDisposable
     private bool _audioStreamActive;
     private long _lastFrame = -1;
     private long _lastRequestedFrame = -1;
-    private nint _previousPixelBuffer;
+    [SuppressMessage("Usage", "CA2213", Justification = "Release disposes the retained previous buffer, either synchronously from Finish or after its native finalization task completes.")]
+    private MediaHandle? _previousPixelBuffer;
+    [SuppressMessage("Usage", "CA2213", Justification = "Release disposes a pending buffer on failure; successful submission transfers its SafeHandle ownership to the previous buffer, which Release disposes.")]
+    private MediaHandle? _pendingPixelBuffer;
+    private long _pendingFrame = -1;
 
     private Mp4Recorder(string destination, int width, int height, TimeProvider clock, int fps)
     {
@@ -67,6 +76,9 @@ internal sealed class Mp4Recorder : IDisposable
     /// <summary>Gets encoded samples including held copies of the last captured image.</summary>
     internal long EncodedFrames { get; private set; }
 
+    /// <summary>Gets the number of frames skipped because the fixed buffer pool was fully retained.</summary>
+    internal long PoolBackpressureCount { get; private set; }
+
     private MediaHandle Writer => _writerHandle!;
 
     private MediaHandle VideoInput => _videoHandle!;
@@ -97,10 +109,40 @@ internal sealed class Mp4Recorder : IDisposable
     {
         lock (_gate)
         {
-            ObjectDisposedException.ThrowIf(_finished, this);
-            if (frameIndex <= _lastRequestedFrame || stride < checked(_width * 4) || bgra == 0)
+            if (stride < checked(_width * 4) || bgra == 0)
             {
-                throw new ArgumentException("Recording frames must have increasing timestamps and complete BGRA rows.", nameof(frameIndex));
+                throw new ArgumentException("Recording frames require complete BGRA rows.", nameof(bgra));
+            }
+
+            nint pixelBuffer = AcquireVideoBuffer(frameIndex);
+            if (pixelBuffer == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                CopyPixels(pixelBuffer, bgra, stride);
+                AppendVideoBuffer(pixelBuffer, frameIndex);
+            }
+            finally
+            {
+                RecordingNative.CFRelease(pixelBuffer);
+            }
+        }
+    }
+
+    /// <summary>Obtains an encoder-owned, Metal-compatible buffer for a completed GPU frame.</summary>
+    /// <param name="frameIndex">The increasing recording timestamp.</param>
+    /// <returns>An owned buffer, or zero when the encoder applies backpressure.</returns>
+    internal nint AcquireVideoBuffer(long frameIndex)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_finished, this);
+            if (frameIndex <= _lastRequestedFrame)
+            {
+                throw new ArgumentException("Recording timestamps must increase.", nameof(frameIndex));
             }
 
             _lastRequestedFrame = frameIndex;
@@ -111,43 +153,29 @@ internal sealed class Mp4Recorder : IDisposable
             }
 
             _audio?.Drain();
-            if (!FillHeldFrames(frameIndex))
+
+            // Real-time encoder backpressure drops this frame while preserving its time gap.
+            return DrainPendingFrame() ? CreatePixelBuffer() : 0;
+        }
+    }
+
+    /// <summary>Submits a completed GPU buffer while retaining its own reference.</summary>
+    /// <param name="pixelBuffer">The owned completed pixel buffer.</param>
+    /// <param name="frameIndex">The timestamp supplied when acquiring the buffer.</param>
+    internal void AppendVideoBuffer(nint pixelBuffer, long frameIndex)
+    {
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_finished, this);
+            EnsureWriting();
+            if (_pendingPixelBuffer is not null)
             {
-                return;
+                throw new InvalidOperationException("The preceding captured frame must drain before another buffer is submitted.");
             }
 
-            if (RecordingNative.BoolMessage(VideoInput, RecordingNative.Selector("isReadyForMoreMediaData")) == 0)
-            {
-                // Real-time encoder backpressure drops this frame while preserving its time gap.
-                return;
-            }
-
-            int result = RecordingNative.CVPixelBufferCreate(0, (nuint)_width, (nuint)_height, 0x42475241, 0, out nint pixelBuffer);
-            if (result != 0)
-            {
-                throw new IOException($"Cannot allocate recording pixel buffer: {result}.");
-            }
-
-            try
-            {
-                CopyPixels(pixelBuffer, bgra, stride);
-                SubmitPixelBuffer(pixelBuffer, frameIndex);
-                if (_previousPixelBuffer != 0)
-                {
-                    RecordingNative.CFRelease(_previousPixelBuffer);
-                }
-
-                _previousPixelBuffer = pixelBuffer;
-                pixelBuffer = 0;
-                FramesWritten++;
-            }
-            finally
-            {
-                if (pixelBuffer != 0)
-                {
-                    RecordingNative.CFRelease(pixelBuffer);
-                }
-            }
+            _pendingPixelBuffer = MediaHandle.Own(RecordingNative.CFRetain(pixelBuffer), coreFoundation: true);
+            _pendingFrame = frameIndex;
+            _ = DrainPendingFrame();
         }
     }
 
@@ -243,7 +271,7 @@ internal sealed class Mp4Recorder : IDisposable
             Task<byte>? finalization = null;
             try
             {
-                if (_lastFrame < 0)
+                if (_lastFrame < 0 && _pendingPixelBuffer is null)
                 {
                     _ = RecordingNative.Send(Writer, "cancelWriting");
                     throw new IOException("Recording contains no composed video frames.");
@@ -297,6 +325,45 @@ internal sealed class Mp4Recorder : IDisposable
         return new IOException($"{message}: {detail} ({domainText} {RecordingNative.Send(error, "code")}). {metadataText}");
     }
 
+    private nint CreatePixelBuffer()
+    {
+        nint pool = RecordingNative.Send(Adaptor, "pixelBufferPool");
+        int result = RecordingNative.CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(0, pool, _allocationSettings!, out nint pixelBuffer);
+        if (result == AllocationThresholdExceeded)
+        {
+            PoolBackpressureCount++;
+            return 0;
+        }
+
+        if (result != 0)
+        {
+            throw new IOException($"Cannot allocate recording pixel buffer: {result}.");
+        }
+
+        return pixelBuffer;
+    }
+
+    private bool DrainPendingFrame()
+    {
+        if (_pendingPixelBuffer is null)
+        {
+            return true;
+        }
+
+        if (!FillHeldFrames(_pendingFrame) || RecordingNative.BoolMessage(VideoInput, RecordingNative.Selector("isReadyForMoreMediaData")) == 0)
+        {
+            return false;
+        }
+
+        SubmitPixelBuffer(_pendingPixelBuffer, _pendingFrame);
+        _previousPixelBuffer?.Dispose();
+        _previousPixelBuffer = _pendingPixelBuffer;
+        _pendingPixelBuffer = null;
+        _pendingFrame = -1;
+        FramesWritten++;
+        return true;
+    }
+
     private void CopyPixels(nint pixelBuffer, nint bgra, int stride)
     {
         int result = RecordingNative.CVPixelBufferLockBaseAddress(pixelBuffer, 0);
@@ -323,7 +390,7 @@ internal sealed class Mp4Recorder : IDisposable
     private void DrainHeldFrames()
     {
         long started = _clock.GetTimestamp();
-        while (!FillHeldFrames(_lastRequestedFrame + 1))
+        while (!DrainPendingFrame() || !FillHeldFrames(_lastRequestedFrame + 1))
         {
             EnsureWriting();
             if (_clock.GetElapsedTime(started) > TimeSpan.FromSeconds(5))
@@ -338,7 +405,7 @@ internal sealed class Mp4Recorder : IDisposable
     private bool FillHeldFrames(long nextFrame)
     {
         int submitted = 0;
-        while (_previousPixelBuffer != 0 && _lastFrame + 1 < nextFrame)
+        while (_previousPixelBuffer is not null && _lastFrame + 1 < nextFrame)
         {
             if (submitted == MaximumHeldFramesPerSubmission || RecordingNative.BoolMessage(VideoInput, RecordingNative.Selector("isReadyForMoreMediaData")) == 0)
             {
@@ -352,7 +419,7 @@ internal sealed class Mp4Recorder : IDisposable
         return true;
     }
 
-    private void SubmitPixelBuffer(nint pixelBuffer, long frameIndex)
+    private void SubmitPixelBuffer(MediaHandle pixelBuffer, long frameIndex)
     {
         if (RecordingNative.AppendPixelBuffer(Adaptor, RecordingNative.Selector("appendPixelBuffer:withPresentationTime:"), pixelBuffer, new MediaTime(frameIndex, _fps)) == 0)
         {
@@ -390,7 +457,7 @@ internal sealed class Mp4Recorder : IDisposable
                 throw NativeError("Cannot create MP4 recording", error);
             }
 
-            nint settings = RecordingNative.Send(RecordingNative.GetClass("NSMutableDictionary"), "dictionary");
+            nint settings = RecordingNative.Send(RecordingNative.GetClass("NSMutableDictionary"), DictionarySelector);
             Put(settings, Constant("AVVideoCodecKey"), Constant("AVVideoCodecTypeH264"));
             Put(settings, Constant("AVVideoWidthKey"), RecordingNative.Number(_width));
             Put(settings, Constant("AVVideoHeightKey"), RecordingNative.Number(_height));
@@ -403,7 +470,7 @@ internal sealed class Mp4Recorder : IDisposable
             }
 
             _ = RecordingNative.Send(Writer, "addInput:", VideoInput);
-            nint adaptor = RecordingNative.MessageTwo(RecordingNative.GetClass("AVAssetWriterInputPixelBufferAdaptor"), RecordingNative.Selector("assetWriterInputPixelBufferAdaptorWithAssetWriterInput:sourcePixelBufferAttributes:"), VideoInput, 0);
+            nint adaptor = RecordingNative.MessageTwo(RecordingNative.GetClass("AVAssetWriterInputPixelBufferAdaptor"), RecordingNative.Selector("assetWriterInputPixelBufferAdaptorWithAssetWriterInput:sourcePixelBufferAttributes:"), VideoInput, PixelBufferAttributes());
             _adaptorHandle = MediaHandle.Own(RecordingNative.Send(adaptor, "retain"));
             _audio = RecordedAudio.Create(Writer, Framework, _clock);
             RecordingNative.TimeMessage(Writer, RecordingNative.Selector("setMovieFragmentInterval:"), new MediaTime(1, 1));
@@ -417,6 +484,28 @@ internal sealed class Mp4Recorder : IDisposable
         finally
         {
             _ = RecordingNative.Send(pool, "drain");
+        }
+    }
+
+    private nint PixelBufferAttributes()
+    {
+        nint framework = NativeLibrary.Load(RecordingNative.CoreVideo);
+        try
+        {
+            nint attributes = RecordingNative.Send(RecordingNative.GetClass("NSMutableDictionary"), DictionarySelector);
+            Put(attributes, RecordingNative.Constant(framework, "kCVPixelBufferPixelFormatTypeKey"), RecordingNative.Number(0x42475241));
+            Put(attributes, RecordingNative.Constant(framework, "kCVPixelBufferWidthKey"), RecordingNative.Number(_width));
+            Put(attributes, RecordingNative.Constant(framework, "kCVPixelBufferHeightKey"), RecordingNative.Number(_height));
+            Put(attributes, RecordingNative.Constant(framework, "kCVPixelBufferMetalCompatibilityKey"), RecordingNative.Number(1));
+            Put(attributes, RecordingNative.Constant(framework, "kCVPixelBufferIOSurfacePropertiesKey"), RecordingNative.Send(RecordingNative.GetClass("NSDictionary"), DictionarySelector));
+            nint allocation = RecordingNative.Send(RecordingNative.GetClass("NSMutableDictionary"), DictionarySelector);
+            Put(allocation, RecordingNative.Constant(framework, "kCVPixelBufferPoolAllocationThresholdKey"), RecordingNative.Number(PixelBufferAllocationLimit));
+            _allocationSettings = MediaHandle.Own(RecordingNative.Send(allocation, "retain"));
+            return attributes;
+        }
+        finally
+        {
+            NativeLibrary.Free(framework);
         }
     }
 
@@ -439,14 +528,16 @@ internal sealed class Mp4Recorder : IDisposable
 
     private void Release()
     {
-        if (_previousPixelBuffer != 0)
-        {
-            RecordingNative.CFRelease(_previousPixelBuffer);
-            _previousPixelBuffer = 0;
-        }
+        _pendingPixelBuffer?.Dispose();
+        _pendingPixelBuffer = null;
+        _pendingFrame = -1;
+        _previousPixelBuffer?.Dispose();
+        _previousPixelBuffer = null;
 
         _audio?.Dispose();
         _audio = null;
+        _allocationSettings?.Dispose();
+        _allocationSettings = null;
         _adaptorHandle?.Dispose();
         _videoHandle?.Dispose();
         _writerHandle?.Dispose();

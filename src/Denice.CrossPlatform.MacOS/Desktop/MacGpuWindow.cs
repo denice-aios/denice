@@ -147,14 +147,7 @@ internal sealed class MacGpuWindow : IDisposable
             _ => throw new InvalidOperationException($"Unsupported Chromium GPU color format {format}."),
         };
         nuint metalFormat = colorType == SKColorType.Bgra8888 ? 80u : 70u;
-        nint descriptor = MacNative.TextureDescriptor(MacNative.Class("MTLTextureDescriptor"), MacNative.Selector("texture2DDescriptorWithPixelFormat:width:height:mipmapped:"), metalFormat, (nuint)width, (nuint)height, 0);
-        MacNative.Call(descriptor, "setUsage:", 1);
-        MacNative.Call(descriptor, "setStorageMode:", 0);
-        nint texture = MacNative.Send(_device, MacNative.Selector("newTextureWithDescriptor:iosurface:plane:"), descriptor, surface, 0);
-        if (texture == 0)
-        {
-            throw new InvalidOperationException("Cannot import Chromium's IOSurface as a Metal texture.");
-        }
+        nint texture = ImportSurface(surface, metalFormat, width, height, 1);
 
         try
         {
@@ -208,7 +201,7 @@ internal sealed class MacGpuWindow : IDisposable
 
         nint texture = MacNative.Call(drawable, "texture");
         using var backend = new GRBackendTexture(width, height, false, new GRMtlTextureInfo(texture));
-        using SKSurface destination = SKSurface.Create(_context, backend, GRSurfaceOrigin.TopLeft, SKColorType.Bgra8888);
+        using SKSurface destination = WrapSurface(backend);
         EnsurePresentationSurface(width, height);
         using (SKImage scene = _scene.Snapshot())
         {
@@ -249,6 +242,33 @@ internal sealed class MacGpuWindow : IDisposable
         if (!_recording.ReadPixels(new SKImageInfo(RecordingWidth, RecordingHeight, SKColorType.Bgra8888, SKAlphaType.Premul), destination, stride, 0, 0))
         {
             throw new IOException("Cannot read the composed GPU frame for recording.");
+        }
+    }
+
+    /// <summary>Copies the completed presentation directly into the encoder's GPU-backed buffer.</summary>
+    /// <param name="pixelBuffer">The encoder-owned Core Video buffer.</param>
+    internal void CopyRecordingFrame(nint pixelBuffer)
+    {
+        if (_presentation is null)
+        {
+            throw new IOException("No completed window frame is available for recording.");
+        }
+
+        nint surface = Recording.RecordingNative.CVPixelBufferGetIOSurface(pixelBuffer);
+        nint texture = ImportSurface(surface, 80, RecordingWidth, RecordingHeight, 5);
+
+        try
+        {
+            using var backend = new GRBackendTexture(RecordingWidth, RecordingHeight, false, new GRMtlTextureInfo(texture));
+            using SKSurface target = WrapSurface(backend);
+            using SKImage presentation = _presentation.Snapshot();
+            DrawAspectFit(target.Canvas, presentation, RecordingWidth, RecordingHeight);
+            target.Flush();
+            _context.Flush(true, true);
+        }
+        finally
+        {
+            MacNative.Release(texture);
         }
     }
 
@@ -300,6 +320,18 @@ internal sealed class MacGpuWindow : IDisposable
         float scale = Math.Min(width / (float)image.Width, height / (float)image.Height);
         var target = SKRect.Create((width - (image.Width * scale)) / 2, (height - (image.Height * scale)) / 2, image.Width * scale, image.Height * scale);
         canvas.DrawImage(image, target, SKSamplingOptions.Default);
+    }
+
+    private SKSurface WrapSurface(GRBackendTexture texture) =>
+        SKSurface.Create(_context, texture, GRSurfaceOrigin.TopLeft, SKColorType.Bgra8888);
+
+    private nint ImportSurface(nint surface, nuint format, int width, int height, nint usage)
+    {
+        nint descriptor = MacNative.TextureDescriptor(MacNative.Class("MTLTextureDescriptor"), MacNative.Selector("texture2DDescriptorWithPixelFormat:width:height:mipmapped:"), format, (nuint)width, (nuint)height, 0);
+        MacNative.Call(descriptor, "setUsage:", usage);
+        MacNative.Call(descriptor, "setStorageMode:", 0);
+        nint texture = MacNative.Send(_device, MacNative.Selector("newTextureWithDescriptor:iosurface:plane:"), descriptor, surface, 0);
+        return texture != 0 ? texture : throw new IOException("Cannot import the shared IOSurface as a Metal texture.");
     }
 
     private void EnsurePresentationSurface(int width, int height)

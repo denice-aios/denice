@@ -55,7 +55,7 @@ public sealed class RecordingSpecTests : IDisposable
             Assert.InRange(recorder.EncodedFrames, 1, 9);
             recorder.Finish();
             Assert.Equal(601, recorder.EncodedFrames);
-            Assert.Equal(1, recorder.FramesWritten);
+            Assert.Equal(2, recorder.FramesWritten);
         }
         finally
         {

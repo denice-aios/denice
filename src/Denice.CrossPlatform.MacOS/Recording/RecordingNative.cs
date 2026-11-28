@@ -9,8 +9,10 @@ internal static partial class RecordingNative
 {
     /// <summary>The system AVFoundation framework binary.</summary>
     internal const string AvFoundation = "/System/Library/Frameworks/AVFoundation.framework/AVFoundation";
+
+    /// <summary>The system Core Video framework binary.</summary>
+    internal const string CoreVideo = "/System/Library/Frameworks/CoreVideo.framework/CoreVideo";
     private const string ObjC = "/usr/lib/libobjc.A.dylib";
-    private const string CoreVideo = "/System/Library/Frameworks/CoreVideo.framework/CoreVideo";
     private const string CoreFoundation = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
 
     /// <summary>Reads the same mach-absolute-time clock used by Chromium audio capture.</summary>
@@ -204,24 +206,29 @@ internal static partial class RecordingNative
     /// <summary>Invokes AppendPixelBuffer with the declared native ABI.</summary>
     /// <param name="receiver">The Objective-C receiver.</param>
     /// <param name="selector">The registered Objective-C selector.</param>
-    /// <param name="buffer">The pixel buffer.</param>
+    /// <param name="buffer">The retained pixel buffer.</param>
     /// <param name="time">The media timestamp.</param>
     /// <returns>The native result.</returns>
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
-    internal static partial byte AppendPixelBuffer(MediaHandle receiver, nint selector, nint buffer, MediaTime time);
+    internal static partial byte AppendPixelBuffer(MediaHandle receiver, nint selector, MediaHandle buffer, MediaTime time);
 
-    /// <summary>Invokes CVPixelBufferCreate with the declared native ABI.</summary>
-    /// <param name="allocator">The Core Foundation allocator, or zero for default.</param>
-    /// <param name="width">The pixel width.</param>
-    /// <param name="height">The pixel height.</param>
-    /// <param name="format">The native media format.</param>
-    /// <param name="attributes">The optional pixel buffer attributes.</param>
-    /// <param name="buffer">The pixel buffer.</param>
-    /// <returns>The native result.</returns>
+    /// <summary>Allocates a reusable pixel buffer subject to a fixed allocation threshold.</summary>
+    /// <param name="allocator">The default allocator.</param>
+    /// <param name="pool">The writer's pixel buffer pool.</param>
+    /// <param name="attributes">The retained allocation limit.</param>
+    /// <param name="buffer">The owned output buffer.</param>
+    /// <returns>The Core Video status.</returns>
     [LibraryImport(CoreVideo)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
-    internal static partial int CVPixelBufferCreate(nint allocator, nuint width, nuint height, uint format, nint attributes, out nint buffer);
+    internal static partial int CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(nint allocator, nint pool, MediaHandle attributes, out nint buffer);
+
+    /// <summary>Obtains the IOSurface backing a Metal-compatible pixel buffer.</summary>
+    /// <param name="buffer">The pixel buffer.</param>
+    /// <returns>The borrowed IOSurface.</returns>
+    [LibraryImport(CoreVideo)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    internal static partial nint CVPixelBufferGetIOSurface(nint buffer);
 
     /// <summary>Invokes CVPixelBufferLockBaseAddress with the declared native ABI.</summary>
     /// <param name="buffer">The pixel buffer.</param>
@@ -252,6 +259,13 @@ internal static partial class RecordingNative
     [LibraryImport(CoreVideo)]
     [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
     internal static partial nuint CVPixelBufferGetBytesPerRow(nint buffer);
+
+    /// <summary>Retains a Core Foundation object.</summary>
+    /// <param name="value">The native object.</param>
+    /// <returns>The retained object.</returns>
+    [LibraryImport(CoreFoundation)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.SafeDirectories)]
+    internal static partial nint CFRetain(nint value);
 
     /// <summary>Invokes CFRelease with the declared native ABI.</summary>
     /// <param name="value">The native value.</param>

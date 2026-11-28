@@ -3,7 +3,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using System.Runtime.InteropServices;
 using Denice.Abstractions.Contracts;
 using Denice.CrossPlatform.MacOS.Recording;
 
@@ -26,7 +25,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
     private Exception? _graphicsError;
     private int _frameCount;
     private double _renderMilliseconds;
-    private double _readbackMilliseconds;
+    private double _gpuCopyMilliseconds;
     private double _encodeMilliseconds;
     private long _captureOrigin;
     private long _lastFrameIndex = -1;
@@ -46,7 +45,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
     public string? LastAudioError => Volatile.Read(ref _audioError);
 
     /// <inheritdoc />
-    public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Rendered {_frameCount} frames. Recorder accepted {_capturedVideoFrames} newly captured frames and encoded {_encodedVideoFrames} frames including holds. Mean GPU render: {_renderMilliseconds / Math.Max(1, _frameCount):F2} ms; recording readback: {_readbackMilliseconds / Math.Max(1, _frameCount):F2} ms; encoder submission: {_encodeMilliseconds / Math.Max(1, _frameCount):F2} ms. Browser audio: {(LastAudioError is { } audioError ? "FAILED: " + audioError : "no failures.")}");
+    public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Rendered {_frameCount} frames. Recorder accepted {_capturedVideoFrames} newly captured frames and encoded {_encodedVideoFrames} frames including holds. Mean GPU render: {_renderMilliseconds / Math.Max(1, _frameCount):F2} ms; recording GPU copy: {_gpuCopyMilliseconds / Math.Max(1, _frameCount):F2} ms; encoder submission: {_encodeMilliseconds / Math.Max(1, _frameCount):F2} ms. Browser audio: {(LastAudioError is { } audioError ? "FAILED: " + audioError : "no failures.")}");
 
     /// <inheritdoc />
     public int Run(IApplicationSession application, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort, TimeSpan browserGpuCopyTimeout)
@@ -57,20 +56,19 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         Volatile.Write(ref _audioError, null);
         nint app = MacApplication.Create();
         nint lifetimePool = MacNative.Call(MacNative.Class("NSAutoreleasePool"), "new");
-        nint frame = 0;
         bool browserStarted = false;
         try
         {
             _window = MacGpuWindow.Create();
-            frame = StartRecording(recordingPath, clock);
+            StartRecording(recordingPath, clock);
             _captureOrigin = _recorder?.OriginTimestamp ?? clock.GetTimestamp();
-            RenderFrame(frame, clock);
+            RenderFrame(clock);
 
             // The browser's audio output plays before CEF loads, so Chromium's first stream is pulled from its first sample.
             _audio.Start(clock);
             _browser.Start(application.StartupPage, MacGpuWindow.Width, MacGpuWindow.Height, this, this, browserCachePath, browserDebugPort);
             browserStarted = true;
-            RunFrames(app, frame, new CrossPlatform.Browser.ApplicationPageFollower(application, _browser, clock), durationSeconds, clock);
+            RunFrames(app, new CrossPlatform.Browser.ApplicationPageFollower(application, _browser, clock), durationSeconds, clock);
 
             // Stop the session before the browser closes and the recording finalizes, so no retry navigates after close.
             application.RequestStop();
@@ -91,10 +89,6 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         {
             application.RequestStop();
             FinishRecording();
-            if (frame != 0)
-            {
-                Marshal.FreeHGlobal(frame);
-            }
 
             if (browserStarted || !_browser.IsClosed)
             {
@@ -200,17 +194,16 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         return new MacDesktop(CrossPlatform.Browser.CefPlatformBrowser.Create(audio), audio);
     }
 
-    /// <summary>Starts the optional recorder and returns its frame buffer, or zero without recording.</summary>
-    private nint StartRecording(string? recordingPath, TimeProvider clock)
+    /// <summary>Starts the optional recorder.</summary>
+    private void StartRecording(string? recordingPath, TimeProvider clock)
     {
         if (recordingPath is null)
         {
-            return 0;
+            return;
         }
 
         _recorder = Mp4Recorder.Create(recordingPath, _window!.RecordingWidth, _window.RecordingHeight, clock);
         _recordingActive = true;
-        return Marshal.AllocHGlobal(checked(_window.RecordingWidth * _window.RecordingHeight * 4));
     }
 
     private void ShutdownBrowser(nint app, TimeProvider clock)
@@ -238,7 +231,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
 #endif
     }
 
-    private void RunFrames(nint app, nint frame, CrossPlatform.Browser.ApplicationPageFollower follower, double? durationSeconds, TimeProvider clock)
+    private void RunFrames(nint app, CrossPlatform.Browser.ApplicationPageFollower follower, double? durationSeconds, TimeProvider clock)
     {
         while (_window!.IsOpen && !_browser.IsClosed
             && (!durationSeconds.HasValue || follower.FirstApplicationReady is not { } ready || clock.GetElapsedTime(ready).TotalSeconds < durationSeconds.Value))
@@ -250,7 +243,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
                 _browser.Pump();
                 ThrowGraphicsError();
                 follower.Tick(_hasBrowserFrame);
-                RenderFrame(frame, clock);
+                RenderFrame(clock);
             }
             finally
             {
@@ -261,7 +254,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         }
     }
 
-    private void RenderFrame(nint frame, TimeProvider clock)
+    private void RenderFrame(TimeProvider clock)
     {
         double seconds = clock.GetElapsedTime(_captureOrigin).TotalSeconds;
         long frameIndex = (long)(seconds * 60);
@@ -273,12 +266,12 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         long renderStart = clock.GetTimestamp();
         _window!.Render(seconds);
         _renderMilliseconds += clock.GetElapsedTime(renderStart).TotalMilliseconds;
-        RecordFrame(frame, frameIndex, clock);
+        RecordFrame(frameIndex, clock);
         _frameCount++;
         _lastFrameIndex = frameIndex;
     }
 
-    private void RecordFrame(nint frame, long frameIndex, TimeProvider clock)
+    private void RecordFrame(long frameIndex, TimeProvider clock)
     {
         lock (_recordingLock)
         {
@@ -286,12 +279,23 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
             {
                 try
                 {
-                    long readbackStart = clock.GetTimestamp();
-                    _window!.ReadFrame(frame, _window.RecordingWidth * 4);
-                    _readbackMilliseconds += clock.GetElapsedTime(readbackStart).TotalMilliseconds;
-                    long encodeStart = clock.GetTimestamp();
-                    _recorder.AppendVideo(frame, _window.RecordingWidth * 4, frameIndex);
-                    _encodeMilliseconds += clock.GetElapsedTime(encodeStart).TotalMilliseconds;
+                    nint pixelBuffer = _recorder.AcquireVideoBuffer(frameIndex);
+                    if (pixelBuffer != 0)
+                    {
+                        try
+                        {
+                            long copyStart = clock.GetTimestamp();
+                            _window!.CopyRecordingFrame(pixelBuffer);
+                            _gpuCopyMilliseconds += clock.GetElapsedTime(copyStart).TotalMilliseconds;
+                            long encodeStart = clock.GetTimestamp();
+                            _recorder.AppendVideoBuffer(pixelBuffer, frameIndex);
+                            _encodeMilliseconds += clock.GetElapsedTime(encodeStart).TotalMilliseconds;
+                        }
+                        finally
+                        {
+                            RecordingNative.CFRelease(pixelBuffer);
+                        }
+                    }
                 }
                 catch (IOException exception) when (_recorder.FramesWritten > 0)
                 {
