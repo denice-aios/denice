@@ -134,15 +134,9 @@ internal static unsafe partial class ComNative
     [LibraryImport("ole32", EntryPoint = "CoCreateInstance")]
     internal static partial int CoCreateInstance(Guid* clsid, nint outer, uint context, Guid* iid, nint* instance);
 
-    /// <summary>CoTaskMemAlloc.</summary>
+    /// <summary>CoTaskMemAlloc: COM callers free GetId and GetMixFormat results with CoTaskMemFree.</summary>
     /// <param name="bytes">The size.</param>
     /// <returns>The memory.</returns>
     [LibraryImport("ole32", EntryPoint = "CoTaskMemAlloc")]
     internal static partial nint CoTaskMemAlloc(nuint bytes);
-
-    /// <summary>SetEvent.</summary>
-    /// <param name="handle">The event.</param>
-    /// <returns>Nonzero on success.</returns>
-    [LibraryImport("kernel32", EntryPoint = "SetEvent")]
-    internal static partial int SetEvent(nint handle);
 }

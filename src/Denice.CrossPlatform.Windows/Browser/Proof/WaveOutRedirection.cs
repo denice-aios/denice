@@ -141,28 +141,39 @@ internal static unsafe class WaveOutRedirection
     [UnmanagedCallersOnly]
     private static uint Close(nint handle)
     {
-        WaveOutSource? source;
-        lock (Gate)
+        WaveOutSource? source = null;
+        try
         {
-            _ = Handles.Remove(handle, out source);
-        }
+            lock (Gate)
+            {
+                _ = Handles.Remove(handle, out source);
+            }
 
-        if (source is not null)
+            if (source is not null)
+            {
+                context?.Mixer.Unregister(source);
+                Marshal.FreeHGlobal(handle);
+                AudioProofLog.Note($"waveOutClose: frames mixed {source.Ring.Mixed}");
+            }
+        }
+        finally
         {
-            context?.Mixer.Unregister(source);
-            Marshal.FreeHGlobal(handle);
-            AudioProofLog.Note($"waveOutClose: frames mixed {source.Ring.Mixed}");
+            source?.Dispose();
         }
 
         return Ok;
     }
 
     /// <summary>One redirected wave-out handle.</summary>
-    private sealed class WaveOutSource(int channels, int bits, nint completion) : IRedirectedSource
+    private sealed class WaveOutSource(int channels, int bits, nint completion) : IRedirectedSource, IDisposable
     {
+        private readonly BorrowedEvent? _completion = BorrowedEvent.Create(completion);
+
         internal RedirectedRing Ring { get; } = new(MixerCore.SampleRate * 2) { PrebufferFrames = 960 };
 
         internal bool Paused { get; set; }
+
+        public void Dispose() => _completion?.Dispose();
 
         public void MixInto(Span<float> left, Span<float> right, long hostNanoseconds, long cycle)
         {
@@ -191,13 +202,7 @@ internal static unsafe class WaveOutRedirection
             }
         }
 
-        internal void Signal()
-        {
-            if (completion != 0)
-            {
-                _ = ComNative.SetEvent(completion);
-            }
-        }
+        internal void Signal() => _completion?.Set();
 
         private float Sample(nint data, int index) => bits == 16 ? ((short*)data)[index] / 32768f : ((float*)data)[index];
     }

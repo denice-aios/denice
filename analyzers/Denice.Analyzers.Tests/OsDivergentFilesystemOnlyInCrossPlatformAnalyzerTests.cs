@@ -359,7 +359,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "VirtualProtect", true, false)]
     [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "VirtualProtect", false, true)]
     [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "GetProcAddress", true, false)]
-    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "SetEvent", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "SetEvent", true, true)]
     [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "ole32", "CoCreateInstance", true, false)]
     [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "ole32", "CoTaskMemAlloc", true, false)]
     [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Desktop", "ole32", "CoCreateInstance", true, true)]

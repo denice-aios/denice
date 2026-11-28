@@ -118,7 +118,7 @@ internal static class DesktopNativeInterop
         }
 
         return string.Equals(assembly, "Denice.CrossPlatform.Windows", StringComparison.Ordinal)
-            && ((library is "kernel32" && entryPoint is "VirtualProtect" or "GetProcAddress" or "SetEvent")
+            && ((library is "kernel32" && entryPoint is "VirtualProtect" or "GetProcAddress")
                 || (library is "ole32" && entryPoint is "CoCreateInstance" or "CoTaskMemAlloc"));
     }
 

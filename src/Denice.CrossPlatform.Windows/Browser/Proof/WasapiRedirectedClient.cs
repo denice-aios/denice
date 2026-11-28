@@ -28,7 +28,7 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     private int _channels;
     private int _bits;
     private bool _floating;
-    private nint _event;
+    private BorrowedEvent? _event;
     private volatile bool _started;
     private long _counter;
 
@@ -145,7 +145,8 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     /// <inheritdoc />
     public int SetEventHandle(nint handle)
     {
-        _event = handle;
+        _event?.Dispose();
+        _event = BorrowedEvent.Create(handle);
         return ComNative.Ok;
     }
 
@@ -231,16 +232,15 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
 
         _ = _ring.MixInto(left, right);
         Interlocked.Exchange(ref _counter, (long)ComNative.Counter100ns(_clock));
-        if (_event != 0)
-        {
-            _ = ComNative.SetEvent(_event);
-        }
+        _event?.Set();
     }
 
     /// <inheritdoc />
     public void Dispose()
     {
         Mixer?.Unregister(this);
+        _event?.Dispose();
+        _event = null;
         if (_buffer != 0)
         {
             Marshal.FreeHGlobal(_buffer);
