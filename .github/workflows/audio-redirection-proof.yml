@@ -72,6 +72,15 @@ jobs:
       - name: Redirected proof — PulseAudio
         if: always()
         run: bash eng/audio-proof/linux/run-pass.sh pulseaudio "$RUNNER_TEMP/l2/pulseaudio" 0 "$RUNNER_TEMP/l2/baseline/run/out-sink.f32"
+      - name: Load the kernel ALSA loopback card (approved test device; nothing reaches hardware)
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/l2-evidence"
+          if ! sudo modprobe snd-aloop; then
+            sudo apt-get update -q && sudo apt-get install -y -q "linux-modules-extra-$(uname -r)" && sudo modprobe snd-aloop
+          fi
+          { uname -r; cat /proc/asound/cards; ls -l /dev/snd; } 2>&1 | tee "$RUNNER_TEMP/l2-evidence/host-asound.txt"
+          grep -q Loopback /proc/asound/cards || { echo "::error::No ALSA Loopback card after loading snd-aloop"; exit 1; }
       - name: Redirected proof — ALSA (no sound server)
         if: always()
         run: bash eng/audio-proof/linux/run-pass.sh alsa "$RUNNER_TEMP/l2/alsa" 0 "$RUNNER_TEMP/l2/baseline/run/out-sink.f32"

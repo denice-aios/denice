@@ -18,8 +18,11 @@ if [ -n "$REFERENCE" ]; then
   REF_ARGS=(-v "$OUT/media-reference.f32":/ref/media-reference.f32:ro -e DENICE_AUDIO_PROOF_MEDIA_REFERENCE=/ref/media-reference.f32)
   REF_ENV="DENICE_AUDIO_PROOF_MEDIA_REFERENCE=/ref/media-reference.f32"
 fi
-perl -e 'alarm 2400; exec @ARGV' docker run --rm --shm-size=1g \
+# The ALSA pass reaches the host's kernel loopback card (snd-aloop) when one is loaded; other passes use null sinks only.
+DEV_ARGS=()
+if [ "$PASS" = alsa ] && [ -d /dev/snd ]; then DEV_ARGS=(--device /dev/snd); fi
+perl -e 'alarm 2400; exec @ARGV' docker run --rm --shm-size=1g "${DEV_ARGS[@]}" \
   -e DENICE_AUDIO_SERVER=$SERVER -e DENICE_AUDIO_PROOF_BASELINE=$BASELINE -e REF_ENV="$REF_ENV" "${REF_ARGS[@]}" \
   -v "$SRC":/src -v "$OUT/run":/out -v "$OUT/p":/p:ro -v denice-audio-proof-nuget:/nuget \
-  denice-audio-proof:$PASS bash -c 'chmod 777 /nuget; useradd -m -u 1500 tester; chown -R tester /src; su tester -c "$REF_ENV DENICE_AUDIO_SERVER=$DENICE_AUDIO_SERVER DENICE_AUDIO_PROOF_BASELINE=$DENICE_AUDIO_PROOF_BASELINE bash /p/inner.sh"'
+  denice-audio-proof:$PASS bash -c 'chmod 777 /nuget; [ -d /dev/snd ] && chmod a+rw /dev/snd/*; useradd -m -u 1500 tester; chown -R tester /src; su tester -c "$REF_ENV DENICE_AUDIO_SERVER=$DENICE_AUDIO_SERVER DENICE_AUDIO_PROOF_BASELINE=$DENICE_AUDIO_PROOF_BASELINE bash /p/inner.sh"'
 echo "container exit=$?"
