@@ -8,8 +8,11 @@ public interface IPlatformBrowser
     /// <summary>Gets a value indicating whether all browsers have closed.</summary>
     bool IsClosed { get; }
 
-    /// <summary>Gets a value indicating whether the main document completed loading.</summary>
+    /// <summary>Gets a value indicating whether the current main-document navigation completed loading.</summary>
     bool IsReady { get; }
+
+    /// <summary>Gets the failure of the current main-document navigation, or null; Navigate clears it.</summary>
+    string? LastLoadError { get; }
 
     /// <summary>Starts transparent GPU rendering. The sink must finish reading each borrowed surface before returning.</summary>
     /// <param name="url">The document URL.</param>
@@ -24,7 +27,7 @@ public interface IPlatformBrowser
     /// <summary>Runs pending browser work on the main thread.</summary>
     void Pump();
 
-    /// <summary>Changes the document without replacing the browser.</summary>
+    /// <summary>Changes the document without replacing the browser; resets readiness and LastLoadError.</summary>
     /// <param name="url">The document URL.</param>
     void Navigate(Uri url);
 

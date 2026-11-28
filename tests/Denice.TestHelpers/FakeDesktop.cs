@@ -34,5 +34,5 @@ public sealed class FakeDesktop : IPlatformDesktop
     public static IPlatformDesktop Create(int exit, string? recordingError, string? audioError = null) => new FakeDesktop(exit, recordingError, audioError);
 
     /// <inheritdoc />
-    public int Run(Uri initialUrl, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort) => exit;
+    public int Run(IApplicationSession application, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort, TimeSpan browserGpuCopyTimeout) => exit;
 }

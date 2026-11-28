@@ -2,6 +2,7 @@
 
 using System.Globalization;
 using Denice.Abstractions.Contracts;
+using Denice.CrossPlatform.Browser;
 using Denice.CrossPlatform.Desktop;
 using SkiaSharp;
 using Xilium.CefGlue;
@@ -43,9 +44,9 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
     public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Rendered {_frames} hardware GPU frames.");
 
     /// <inheritdoc />
-    public int Run(Uri initialUrl, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort)
+    public int Run(IApplicationSession application, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort, TimeSpan browserGpuCopyTimeout)
     {
-        ArgumentNullException.ThrowIfNull(initialUrl);
+        ArgumentNullException.ThrowIfNull(application);
         ArgumentNullException.ThrowIfNull(clock);
         if (recordingPath is not null)
         {
@@ -77,11 +78,13 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
             long origin = clock.GetTimestamp();
             Render(_scene, 0);
             startAttempted = true;
-            _browser.Start(initialUrl, OrbScene.Width, OrbScene.Height, this, this, browserCachePath, browserDebugPort);
-            RunFrames(_window, _scene, origin, durationSeconds, clock);
+            _browser.Start(application.StartupPage, OrbScene.Width, OrbScene.Height, this, this, browserCachePath, browserDebugPort);
+            RunFrames(_window, _scene, new ApplicationPageFollower(application, _browser, clock), origin, durationSeconds, clock);
         }
         finally
         {
+            // Stop the session before the browser closes, so no retry navigates after close.
+            application.RequestStop();
             if (startAttempted)
             {
                 CloseBrowser(clock);
@@ -190,9 +193,8 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
     /// <returns>The native desktop capability.</returns>
     internal static IPlatformDesktop Create() => new WindowsDesktop(CrossPlatform.Browser.CefPlatformBrowser.Create());
 
-    private void RunFrames(WindowsWindow window, OrbScene scene, long origin, double? durationSeconds, TimeProvider clock)
+    private void RunFrames(WindowsWindow window, OrbScene scene, ApplicationPageFollower follower, long origin, double? durationSeconds, TimeProvider clock)
     {
-        long? ready = null;
         long lastFrame = -1;
         while (window.IsOpen && !_browser.IsClosed)
         {
@@ -204,23 +206,14 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
             }
 
             double elapsed = clock.GetElapsedTime(origin).TotalSeconds;
-            if (ready is null)
+            bool hasView;
+            lock (_graphics)
             {
-                lock (_graphics)
-                {
-                    if (_browser.IsReady && _hasView)
-                    {
-                        ready = clock.GetTimestamp();
-                    }
-                }
-
-                if (ready is null && elapsed >= 15)
-                {
-                    throw new IOException("Chromium did not deliver a loaded application GPU frame within fifteen seconds.");
-                }
+                hasView = _hasView;
             }
 
-            if (ready.HasValue && durationSeconds.HasValue && clock.GetElapsedTime(ready.Value).TotalSeconds >= durationSeconds.Value)
+            follower.Tick(hasView);
+            if (follower.FirstApplicationReady is { } ready && durationSeconds.HasValue && clock.GetElapsedTime(ready).TotalSeconds >= durationSeconds.Value)
             {
                 break;
             }

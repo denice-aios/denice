@@ -49,9 +49,9 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
     public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Rendered {_frameCount} frames. Recorder accepted {_capturedVideoFrames} newly captured frames and encoded {_encodedVideoFrames} frames including holds. Mean GPU render: {_renderMilliseconds / Math.Max(1, _frameCount):F2} ms; recording readback: {_readbackMilliseconds / Math.Max(1, _frameCount):F2} ms; encoder submission: {_encodeMilliseconds / Math.Max(1, _frameCount):F2} ms. Browser audio: {(LastAudioError is { } audioError ? "FAILED: " + audioError : "no failures.")}");
 
     /// <inheritdoc />
-    public int Run(Uri initialUrl, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort)
+    public int Run(IApplicationSession application, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort, TimeSpan browserGpuCopyTimeout)
     {
-        ArgumentNullException.ThrowIfNull(initialUrl);
+        ArgumentNullException.ThrowIfNull(application);
         ArgumentNullException.ThrowIfNull(clock);
         _recordingError = null;
         Volatile.Write(ref _audioError, null);
@@ -62,22 +62,18 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         try
         {
             _window = MacGpuWindow.Create();
-            if (recordingPath is not null)
-            {
-                _recorder = Mp4Recorder.Create(recordingPath, _window.RecordingWidth, _window.RecordingHeight, clock);
-                _recordingActive = true;
-                frame = Marshal.AllocHGlobal(checked(_window.RecordingWidth * _window.RecordingHeight * 4));
-            }
-
+            frame = StartRecording(recordingPath, clock);
             _captureOrigin = _recorder?.OriginTimestamp ?? clock.GetTimestamp();
             RenderFrame(frame, clock);
 
             // The browser's audio output plays before CEF loads, so Chromium's first stream is pulled from its first sample.
             _audio.Start(clock);
-            _browser.Start(initialUrl, MacGpuWindow.Width, MacGpuWindow.Height, this, this, browserCachePath, browserDebugPort);
+            _browser.Start(application.StartupPage, MacGpuWindow.Width, MacGpuWindow.Height, this, this, browserCachePath, browserDebugPort);
             browserStarted = true;
-            WaitForBrowser(app, frame, clock);
-            RunFrames(app, frame, durationSeconds, clock);
+            RunFrames(app, frame, new CrossPlatform.Browser.ApplicationPageFollower(application, _browser, clock), durationSeconds, clock);
+
+            // Stop the session before the browser closes and the recording finalizes, so no retry navigates after close.
+            application.RequestStop();
             lock (_recordingLock)
             {
                 _recordingActive = false;
@@ -93,6 +89,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         }
         finally
         {
+            application.RequestStop();
             FinishRecording();
             if (frame != 0)
             {
@@ -203,6 +200,19 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
         return new MacDesktop(CrossPlatform.Browser.CefPlatformBrowser.Create(audio), audio);
     }
 
+    /// <summary>Starts the optional recorder and returns its frame buffer, or zero without recording.</summary>
+    private nint StartRecording(string? recordingPath, TimeProvider clock)
+    {
+        if (recordingPath is null)
+        {
+            return 0;
+        }
+
+        _recorder = Mp4Recorder.Create(recordingPath, _window!.RecordingWidth, _window.RecordingHeight, clock);
+        _recordingActive = true;
+        return Marshal.AllocHGlobal(checked(_window.RecordingWidth * _window.RecordingHeight * 4));
+    }
+
     private void ShutdownBrowser(nint app, TimeProvider clock)
     {
         CloseBrowser(app, clock);
@@ -228,28 +238,10 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
 #endif
     }
 
-    private void WaitForBrowser(nint app, nint frame, TimeProvider clock)
+    private void RunFrames(nint app, nint frame, CrossPlatform.Browser.ApplicationPageFollower follower, double? durationSeconds, TimeProvider clock)
     {
-        long startup = clock.GetTimestamp();
-        while ((!_hasBrowserFrame || !_browser.IsReady) && clock.GetElapsedTime(startup).TotalSeconds < 15 && _window!.IsOpen)
-        {
-            PumpCocoa(app);
-            _browser.Pump();
-            ThrowGraphicsError();
-            RenderFrame(frame, clock);
-            Task.Delay(TimeSpan.FromMilliseconds(1), clock).GetAwaiter().GetResult();
-        }
-
-        if (!_hasBrowserFrame || !_browser.IsReady)
-        {
-            throw new IOException("Chromium did not deliver a loaded application GPU frame within fifteen seconds.");
-        }
-    }
-
-    private void RunFrames(nint app, nint frame, double? durationSeconds, TimeProvider clock)
-    {
-        long elapsed = clock.GetTimestamp();
-        while (_window!.IsOpen && !_browser.IsClosed && (!durationSeconds.HasValue || clock.GetElapsedTime(elapsed).TotalSeconds < durationSeconds.Value))
+        while (_window!.IsOpen && !_browser.IsClosed
+            && (!durationSeconds.HasValue || follower.FirstApplicationReady is not { } ready || clock.GetElapsedTime(ready).TotalSeconds < durationSeconds.Value))
         {
             nint pool = MacNative.Call(MacNative.Class("NSAutoreleasePool"), "new");
             try
@@ -257,6 +249,7 @@ internal sealed class MacDesktop : IPlatformDesktop, IPlatformBrowserFrameSink, 
                 PumpCocoa(app);
                 _browser.Pump();
                 ThrowGraphicsError();
+                follower.Tick(_hasBrowserFrame);
                 RenderFrame(frame, clock);
             }
             finally

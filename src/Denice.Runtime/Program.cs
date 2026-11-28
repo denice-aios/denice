@@ -134,6 +134,36 @@ internal sealed class Program
         return root;
     }
 
+    /// <summary>
+    /// Runs the desktop on the session, then stops the session on every path and waits up to ten seconds for its
+    /// server to be released; a teardown failure or timeout is reported and makes the exit nonzero.
+    /// </summary>
+    private static int RunDesktop(ISystemServices services, IApplicationSession application, SettingsFile settings, string? recordingPath, double? seconds)
+    {
+        int result = 1;
+        try
+        {
+            result = services.Platform.Desktop.Run(application, recordingPath, seconds, services.Clock, settings.ReadBrowserCachePath(), settings.ReadBrowserDebugPort(), settings.ReadBrowserGpuCopyTimeout());
+        }
+        finally
+        {
+            application.RequestStop();
+            Task stopped = application.Stopped;
+            if (Task.WhenAny(stopped, Task.Delay(TimeSpan.FromSeconds(10), services.Clock)).GetAwaiter().GetResult() != stopped)
+            {
+                services.Console.ErrorWriteLine("DENICE could not stop its server within ten seconds.");
+                result = result == 0 ? 1 : result;
+            }
+            else if (stopped.Exception is { } failure)
+            {
+                services.Console.ErrorWriteLine($"DENICE could not stop its server: {failure.InnerException?.Message}");
+                result = result == 0 ? 1 : result;
+            }
+        }
+
+        return result;
+    }
+
     private static Command BuildDesktopCommand(ISystemServices services)
     {
         var command = new Command("gui", "Open the DENICE desktop.");
@@ -152,10 +182,10 @@ internal sealed class Program
 
             try
             {
-                using ApplicationServer server = ApplicationServer.Start();
-                services.Console.WriteLine($"DENICE interface: {server.Address}");
                 var settings = new SettingsFile(services);
-                int result = services.Platform.Desktop.Run(server.Address, parse.GetValue(record), seconds, services.Clock, settings.ReadBrowserCachePath(), settings.ReadBrowserDebugPort());
+                IApplicationSession application = ApplicationSupervisor.Create(services.Clock, address => services.Console.WriteLine($"DENICE interface: {address}"));
+                using var release = application as IDisposable;
+                int result = RunDesktop(services, application, settings, parse.GetValue(record), seconds);
                 services.Console.WriteLine(services.Platform.Desktop.LastFrameStatistics);
                 if (services.Platform.Desktop.LastRecordingError is { } recordingError)
                 {

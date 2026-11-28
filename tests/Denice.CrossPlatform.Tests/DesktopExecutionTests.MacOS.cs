@@ -209,7 +209,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         const string html = "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Native fixture</button></body></html>";
         var desktop = MacDesktop.Create();
         Stage(services, "desktop run");
-        int exit = desktop.Run(new Uri("data:text/html," + Uri.EscapeDataString(html)), recording, 2, services.Clock, cache, 0);
+        int exit = desktop.Run(FixedApplicationSession.Create(new Uri("data:text/html," + Uri.EscapeDataString(html))), recording, 2, services.Clock, cache, 0, TimeSpan.FromSeconds(10));
         Assert.Equal(0, exit);
         Assert.Null(desktop.LastRecordingError);
         Assert.True(services.FileSystem.GetFileReader().ReadAllBytes(recording).Length > 1024, "The finalized recording must contain encoded frame data.");

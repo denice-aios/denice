@@ -17,7 +17,7 @@ public sealed class DesktopBehaviorTests
         IPlatformDesktop desktop = LinuxDesktop.Create();
         ((IPlatformBrowserAudioSink)desktop).OnAudioError("A failure from an earlier run.");
 
-        int exit = desktop.Run(new Uri("http://127.0.0.1/"), "capture.mp4", 1, clock, "cache", 0);
+        int exit = desktop.Run(FixedApplicationSession.Create(new Uri("http://127.0.0.1/")), "capture.mp4", 1, clock, "cache", 0, TimeSpan.FromSeconds(10));
 
         Assert.Equal(1, exit);
         Assert.Equal("Linux recording requires the pending GPU encoder and approved audio capture integration.", desktop.LastRecordingError);

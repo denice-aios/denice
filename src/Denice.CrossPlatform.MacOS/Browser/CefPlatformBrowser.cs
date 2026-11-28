@@ -1,6 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Denice.Abstractions.Contracts;
 using Xilium.CefGlue;
@@ -27,6 +28,9 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
     public bool IsReady => state.Ready;
 
     /// <inheritdoc />
+    public string? LastLoadError => state.LoadError;
+
+    /// <inheritdoc />
     public void Start(Uri url, int width, int height, IPlatformBrowserFrameSink frames, IPlatformBrowserAudioSink audio, string cachePath, int debugPort)
     {
         if (initialized)
@@ -36,6 +40,8 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
 
         state.Width = width;
         state.Height = height;
+        state.Requested = url;
+        state.Pending = true;
         application = new Application();
         string nativeLibrary = CefRuntimeLocator.FindLibrary() ?? throw new InvalidOperationException("The CEF native library was not deployed.");
         nint nativeHandle = NativeLibrary.Load(nativeLibrary);
@@ -99,7 +105,15 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
     }
 
     /// <inheritdoc />
-    public void Navigate(Uri url) => state.Browser?.GetMainFrame().LoadUrl(url.AbsoluteUri);
+    public void Navigate(Uri url)
+    {
+        ArgumentNullException.ThrowIfNull(url);
+        state.Requested = url;
+        state.Pending = true;
+        state.Ready = false;
+        state.LoadError = null;
+        state.Browser?.GetMainFrame().LoadUrl(url.AbsoluteUri);
+    }
 
     /// <inheritdoc />
     public void Resize(int width, int height)
@@ -235,8 +249,24 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
         /// <summary>Gets or sets a callback failure for the main loop.</summary>
         internal string? Failure { get; set; }
 
-        /// <summary>Gets or sets a value indicating whether the main document loaded.</summary>
+        /// <summary>Gets or sets a value indicating whether the current main-document navigation loaded.</summary>
         internal bool Ready { get; set; }
+
+        /// <summary>Gets or sets the failure of the current main-document navigation.</summary>
+        internal string? LoadError { get; set; }
+
+        /// <summary>Gets or sets the main-document URL most recently requested through Navigate or Start.</summary>
+        internal Uri? Requested { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether the requested navigation has not started loading yet.</summary>
+        internal bool Pending { get; set; }
+
+        /// <summary>Whether a main-frame load result belongs to the requested navigation; fragments are ignored.</summary>
+        /// <param name="url">The frame URL CEF reported.</param>
+        /// <returns>Whether it is the current navigation.</returns>
+        internal bool IsCurrent(string url) =>
+            Requested is { } requested
+            && string.Equals(WithoutFragment(url), WithoutFragment(requested.AbsoluteUri), StringComparison.Ordinal);
 
         /// <summary>Contains managed callback exceptions at the native boundary.</summary>
         /// <param name="callback">The synchronous managed callback.</param>
@@ -251,6 +281,8 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
                 Failure = error.ToString();
             }
         }
+
+        private static string WithoutFragment(string url) => url.IndexOf('#', StringComparison.Ordinal) is var hash and >= 0 ? url[..hash] : url;
     }
 
     private sealed class Application : CefApp
@@ -305,15 +337,38 @@ internal sealed partial class CefPlatformBrowser : IPlatformBrowser
 
     private sealed class Loading(State owner) : CefLoadHandler
     {
-        protected override void OnLoadEnd(CefBrowser browser, CefFrame frame, int httpStatusCode)
+        protected override void OnLoadStart(CefBrowser browser, CefFrame frame, CefTransitionType transitionType)
         {
+            // Every main-document load that starts is the current navigation, whether DENICE or the page started it.
             if (frame.IsMain)
             {
-                owner.Ready = httpStatusCode is >= 200 and < 400;
-                if (!owner.Ready)
-                {
-                    owner.Failure = $"The application page returned HTTP {httpStatusCode}.";
-                }
+                owner.Pending = false;
+                owner.Ready = false;
+            }
+        }
+
+        protected override void OnLoadEnd(CefBrowser browser, CefFrame frame, int httpStatusCode)
+        {
+            // A load that ends before the requested one has started belongs to the previous document. A load failure is
+            // not fatal: the desktop follows it with the application session. A bundled data URL loads with status zero.
+            if (!frame.IsMain || owner.Pending)
+            {
+                return;
+            }
+
+            bool bundled = frame.Url.StartsWith("data:", StringComparison.Ordinal);
+            owner.Ready = httpStatusCode is >= 200 and < 400 || (bundled && httpStatusCode == 0);
+            owner.LoadError = owner.Ready ? null : owner.LoadError ?? string.Create(CultureInfo.InvariantCulture, $"The application page returned HTTP {httpStatusCode}.");
+        }
+
+        protected override void OnLoadError(CefBrowser browser, CefFrame frame, CefErrorCode errorCode, string errorText, string failedUrl)
+        {
+            // A superseded navigation reports Aborted. Before the requested load starts, only its own failure counts.
+            if (frame.IsMain && errorCode != CefErrorCode.Aborted && (!owner.Pending || owner.IsCurrent(failedUrl)))
+            {
+                owner.Pending = false;
+                owner.Ready = false;
+                owner.LoadError = string.Create(CultureInfo.InvariantCulture, $"The application page could not load: {errorText} ({(int)errorCode}).");
             }
         }
     }

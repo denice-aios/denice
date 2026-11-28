@@ -84,7 +84,7 @@ public sealed class DesktopBehaviorTests
         TimeProvider clock = SystemServicesBuilder.Real().Build().Clock;
         IPlatformDesktop desktop = WindowsDesktop.Create();
         PlatformNotSupportedException refusal = Assert.Throws<PlatformNotSupportedException>(
-            () => desktop.Run(new Uri("http://127.0.0.1/"), "capture.mp4", 1, clock, "cache", 0));
+            () => desktop.Run(FixedApplicationSession.Create(new Uri("http://127.0.0.1/")), "capture.mp4", 1, clock, "cache", 0, TimeSpan.FromSeconds(10)));
         Assert.Equal("Windows MP4 recording is not yet connected to the hardware compositor.", refusal.Message);
     }
 }

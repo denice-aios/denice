@@ -46,9 +46,9 @@ internal sealed class LinuxDesktop : IPlatformDesktop, IPlatformBrowserFrameSink
     public string LastFrameStatistics => string.Create(CultureInfo.InvariantCulture, $"Renderer: {_renderer}. Presented {_frames} frames; copied {_imports} CEF DMA-BUF frames. Recording is unavailable.");
 
     /// <inheritdoc />
-    public int Run(Uri initialUrl, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort)
+    public int Run(IApplicationSession application, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort, TimeSpan browserGpuCopyTimeout)
     {
-        ArgumentNullException.ThrowIfNull(initialUrl);
+        ArgumentNullException.ThrowIfNull(application);
         ArgumentNullException.ThrowIfNull(clock);
         Volatile.Write(ref _audioError, null);
         if (recordingPath is not null)
@@ -74,11 +74,13 @@ internal sealed class LinuxDesktop : IPlatformDesktop, IPlatformBrowserFrameSink
             _scene = OrbScene.Create(_graphics.Skia);
             _graphics.Window.AttachBrowser(_browser);
             startAttempted = true;
-            _browser.Start(initialUrl, OrbScene.Width, OrbScene.Height, this, this, browserCachePath, browserDebugPort);
-            RunFrames(durationSeconds, clock);
+            _browser.Start(application.StartupPage, OrbScene.Width, OrbScene.Height, this, this, browserCachePath, browserDebugPort);
+            RunFrames(new ApplicationPageFollower(application, _browser, clock), durationSeconds, clock);
         }
         finally
         {
+            // Stop the session before the browser closes, so no retry navigates after close.
+            application.RequestStop();
             if (startAttempted)
             {
                 CloseBrowser(clock);
@@ -185,26 +187,17 @@ internal sealed class LinuxDesktop : IPlatformDesktop, IPlatformBrowserFrameSink
         _popupShown = false;
     }
 
-    private void RunFrames(double? durationSeconds, TimeProvider clock)
+    private void RunFrames(ApplicationPageFollower follower, double? durationSeconds, TimeProvider clock)
     {
         LinuxGpuContext graphics = _graphics!;
         long origin = clock.GetTimestamp();
-        long? ready = null;
         while (!graphics.Window.CloseRequested && !_browser.IsClosed)
         {
             graphics.Window.Pump();
             _browser.Pump();
             ThrowCallbackError();
-            if (_hasMain && _browser.IsReady)
-            {
-                ready ??= clock.GetTimestamp();
-            }
-            else if (clock.GetElapsedTime(origin).TotalSeconds >= 15)
-            {
-                throw new IOException("CEF did not deliver a loaded Linux GPU frame within fifteen seconds.");
-            }
-
-            if (ready.HasValue && durationSeconds.HasValue && clock.GetElapsedTime(ready.Value).TotalSeconds >= durationSeconds.Value)
+            follower.Tick(_hasMain);
+            if (follower.FirstApplicationReady is { } ready && durationSeconds.HasValue && clock.GetElapsedTime(ready).TotalSeconds >= durationSeconds.Value)
             {
                 break;
             }

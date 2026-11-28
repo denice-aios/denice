@@ -24,6 +24,7 @@
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)../src/Denice.CrossPlatform.MacOS/Desktop/OrbScene.cs" Link="Desktop/OrbScene.cs" Condition="'$(DeniceDesktopPlatform)' != 'osx'" />
     <Compile Include="$(MSBuildThisFileDirectory)../src/Denice.CrossPlatform.MacOS/Browser/CefPlatformBrowser.cs" Link="Browser/CefPlatformBrowser.cs" Condition="'$(DeniceDesktopPlatform)' != 'osx'" />
+    <Compile Include="$(MSBuildThisFileDirectory)../src/Denice.CrossPlatform.MacOS/Browser/ApplicationPageFollower.cs" Link="Browser/ApplicationPageFollower.cs" Condition="'$(DeniceDesktopPlatform)' != 'osx'" />
     <PackageReference Include="CefGlue.Next.Core" />
     <PackageReference Include="cef.runtime.$(DeniceDesktopRid)" ExcludeAssets="build;buildTransitive" />
     <!-- Skia already brings the Windows and macOS native packages transitively. -->
