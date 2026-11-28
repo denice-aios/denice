@@ -51,7 +51,9 @@ public sealed class AudioRedirectionProofTests
 
         var core = new MixerCore();
         core.UseClock(clock);
-        using IMixerOutput output = server ? new LinuxPulseOutput() : new FakeMixerOutput();
+
+        // With no PulseAudio-compatible server, DENICE's own output is an ALSA PCM on the default device (the plan's ALSA stage).
+        using IMixerOutput output = server ? new LinuxPulseOutput() : new LinuxAlsaOutput();
         output.Start(core, clock);
         PulseSpeechCapture? speech = server ? PulseSpeechCapture.Start(processId, clock) : null;
         Process? daemon = null;
@@ -76,18 +78,32 @@ public sealed class AudioRedirectionProofTests
             CopySpeechLogs(services, socket, directory);
         }
 
-        facts["redirectedStreamsOpenAfterShutdown"] = PulseRedirection.OpenStreams;
-        facts["alsaSequences"] = AlsaObservation.Report;
-        JsonObject report = AudioProofReport.Write(services, directory, evidence, core, facts);
-        _output.WriteLine(report.ToJsonString());
-        Assert.True(evidence.Results.ContainsKey("final"), "The case table must run to its final ramp.");
-        if (server)
+        facts["redirectedStreamsOpenAfterShutdown"] = PulseRedirection.OpenStreams + AlsaRedirection.OpenStreams;
+        facts["alsaSequences"] = AlsaRedirection.Report;
+        Verify(services, directory, evidence, core, facts, server);
+    }
+
+    private static JsonArray SpeechBursts(PulseSpeechCapture speech, double hostMinusPageMs)
+    {
+        // Host milliseconds on the clock the mixer stamps packets with; page milliseconds = host - pageClock.hostMinusPageMs.
+        var bursts = new JsonArray();
+        foreach (SpeechBurstTracker.Burst burst in speech.Bursts)
         {
-            Assert.Equal(0, AudioProofLog.Counter("real playback connects"));
-            Assert.True(AudioProofLog.Counter("redirected playback connects") > 0, "Chromium's playback streams must be redirected.");
-            Assert.All(report["cases"]!.AsArray(), item => Assert.True((bool)item!["accept"]!, item.ToJsonString()));
-            Assert.Null(core.Failure);
+            double captured = burst.CapturedHostNanoseconds / 1e6;
+            bool mixed = burst.MixedHostNanoseconds >= 0;
+            bursts.Add(new JsonObject
+            {
+                ["frame"] = burst.Frame,
+                ["capturedHostMs"] = captured,
+                ["capturedPageMs"] = captured - hostMinusPageMs,
+                ["pendingFramesAtCapture"] = burst.PendingFrames,
+                ["overflowFramesAtCapture"] = burst.OverflowFrames,
+                ["firstMixedHostMs"] = mixed ? burst.MixedHostNanoseconds / 1e6 : null,
+                ["firstMixedPageMs"] = mixed ? (burst.MixedHostNanoseconds / 1e6) - hostMinusPageMs : null,
+            });
         }
+
+        return bursts;
     }
 
     private static void Register(MixerCore core, PulseSpeechCapture? speech)
@@ -215,10 +231,31 @@ public sealed class AudioRedirectionProofTests
             facts["speechSoundingFrames"] = speech.SoundingFrames;
             facts["speechFramesMixed"] = speech.FramesMixed;
             facts["speechSink"] = speech.Sink;
+            facts["speechBursts"] = SpeechBursts(speech, evidence.PageOffsetMilliseconds);
             core.Unregister(speech);
         }
 
         return evidence;
+    }
+
+    private void Verify(ISystemServices services, string directory, AudioProofDriver.Evidence evidence, MixerCore core, JsonObject facts, bool server)
+    {
+        // Chromium writes 16-bit samples on its ALSA path (measured), so the no-server pass checks the exactly quantized ramp.
+        RampAnalysis.Precision precision = server ? RampAnalysis.Precision.Float : RampAnalysis.Precision.Signed16;
+        JsonObject report = AudioProofReport.Write(services, directory, evidence, core, facts, AudioProofReport.MediaReference(services), precision);
+        _output.WriteLine(report.ToJsonString());
+        Assert.True(evidence.Results.ContainsKey("final"), "The case table must run to its final ramp.");
+        Assert.All(report["cases"]!.AsArray(), item => Assert.True((bool)item!["accept"]!, item.ToJsonString()));
+        Assert.Null(core.Failure);
+        if (server)
+        {
+            Assert.Equal(0, AudioProofLog.Counter("real playback connects"));
+            Assert.True(AudioProofLog.Counter("redirected playback connects") > 0, "Chromium's playback streams must be redirected.");
+        }
+        else
+        {
+            Assert.True(AudioProofLog.Counter("redirected ALSA playback opens") > 0, "Chromium's ALSA playback must be redirected.");
+        }
     }
 
     private void Stage(ISystemServices services, string directory, string text)

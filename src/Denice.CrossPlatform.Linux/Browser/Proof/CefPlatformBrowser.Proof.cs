@@ -50,9 +50,9 @@ internal sealed partial class CefPlatformBrowser
             return;
         }
 
-        if (PulseRedirection.OpenStreams != 0)
+        if (PulseRedirection.OpenStreams != 0 || AlsaRedirection.OpenStreams != 0)
         {
-            proofMixer!.Fail($"{PulseRedirection.OpenStreams} redirected browser PulseAudio streams were still open after CEF shutdown.");
+            proofMixer!.Fail($"{PulseRedirection.OpenStreams} PulseAudio and {AlsaRedirection.OpenStreams} ALSA redirected browser streams were still open after CEF shutdown.");
         }
 
         proofMixer!.DrainTo(proofSink);

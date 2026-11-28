@@ -114,7 +114,8 @@ internal static class DesktopNativeInterop
         if (string.Equals(assembly, "Denice.CrossPlatform.Linux", StringComparison.Ordinal))
         {
             return (library is "libc.so.6" && entryPoint is "dl_iterate_phdr" or "mprotect" or "getpagesize" or "setenv")
-                || (library is "libpulse.so.0" && entryPoint.StartsWith("pa_", StringComparison.Ordinal));
+                || (library is "libpulse.so.0" && entryPoint.StartsWith("pa_", StringComparison.Ordinal))
+                || (library is "libasound.so.2" && entryPoint.StartsWith("snd_pcm_", StringComparison.Ordinal));
         }
 
         return string.Equals(assembly, "Denice.CrossPlatform.Windows", StringComparison.Ordinal)

@@ -9,7 +9,7 @@ namespace Denice.CrossPlatform.Linux.Browser;
 /// Installs the Linux browser-audio redirection proof after CefRuntime.Load and before CefRuntime.Initialize: libcef.so's
 /// dlsym JUMP_SLOT (inside its full-RELRO GNU_RELRO segment) is replaced, so libcef's own lookups of the redirected
 /// PulseAudio names return <see cref="PulseRedirection"/> implementations and every other lookup goes to the real
-/// dlsym; its snd_pcm_* JUMP_SLOTs are replaced by logging pass-throughs (<see cref="AlsaObservation"/>). Only libcef.so's
+/// dlsym; its snd_pcm_* JUMP_SLOTs redirect playback handles into the mixer (<see cref="AlsaRedirection"/>). Only libcef.so's
 /// own imports change.
 /// </summary>
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S6640", Justification = "Audio redirection proof: the dlsym replacement exchanges unmanaged symbol names and function pointers.")]
@@ -36,7 +36,7 @@ internal static unsafe class LinuxAudioRedirection
         PulseRedirection.UseMixer(mixer);
         libc = NativeLibrary.Load("libc.so.6");
         realDlsym = cef.Patch("dlsym", (nint)(delegate* unmanaged<nint, byte*, nint>)&Dlsym);
-        AlsaObservation.Install(cef);
+        AlsaRedirection.Install(cef, mixer);
     }
 
     /// <summary>Gets the real function libcef.so looked up for a redirected name.</summary>
