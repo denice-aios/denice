@@ -46,7 +46,7 @@ public sealed class AudioRedirectionProofTests
             output.Stop();
         }
 
-        JsonObject report = AudioProofReport.Write(services, directory, evidence, core, facts);
+        JsonObject report = AudioProofReport.Write(services, directory, evidence, core, facts, AudioProofReport.MediaReference(services), RampAnalysis.Precision.Float);
         _output.WriteLine(report.ToJsonString());
         Assert.True(evidence.Results.ContainsKey("final"), "The case table must run to its final ramp.");
         Assert.True(AudioProofLog.Counter("DENICE IAudioClient activations") > 0, "Chromium's WASAPI streams must be redirected.");

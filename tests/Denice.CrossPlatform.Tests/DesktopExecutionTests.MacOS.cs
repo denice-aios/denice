@@ -172,6 +172,13 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     {
         ISystemServices services = SystemServicesBuilder.Real().Build();
         fixtureStart = services.Clock.GetTimestamp();
+        if (args.Length == 2 && string.Equals(args[0], "audio-verdict", StringComparison.Ordinal))
+        {
+            // Offline: re-scores recorded Windows/Linux proof evidence; no browser or device runs.
+            services.Console.WriteLine(AudioProofOffline.Run(services, args[1]));
+            return 0;
+        }
+
         if (args.Length != 2 || args[0] is not ("browser-audio" or "compositor" or "desktop"))
         {
             return 2;

@@ -19,8 +19,10 @@ internal static class AudioProofReport
     /// <param name="evidence">The run's evidence.</param>
     /// <param name="core">The mixer core.</param>
     /// <param name="facts">OS-specific measured facts.</param>
+    /// <param name="mediaReference">The unredirected baseline's media-element lead-in, or empty.</param>
+    /// <param name="precision">The precision of the path the ramps took.</param>
     /// <returns>The report.</returns>
-    internal static JsonObject Write(ISystemServices services, string directory, AudioProofDriver.Evidence evidence, MixerCore core, JsonObject facts)
+    internal static JsonObject Write(ISystemServices services, string directory, AudioProofDriver.Evidence evidence, MixerCore core, JsonObject facts, float[] mediaReference, RampAnalysis.Precision precision)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(evidence);
@@ -34,7 +36,7 @@ internal static class AudioProofReport
 
         var report = new JsonObject
         {
-            ["cases"] = AudioProofDriver.Score(evidence),
+            ["cases"] = AudioProofScore.Score(evidence.Left, evidence.Right, mediaReference, precision),
             ["pageResults"] = results,
             ["mixer"] = new JsonObject
             {
@@ -63,6 +65,22 @@ internal static class AudioProofReport
 
         services.FileSystem.GetFileWriter().WriteAllBytesAsync(Path.Combine(directory, "mix.f32"), MemoryMarshal.AsBytes(interleaved.AsSpan()).ToArray(), CancellationToken.None).GetAwaiter().GetResult();
         return report;
+    }
+
+    /// <summary>
+    /// Reads the media-element reference lead-in from the unredirected baseline capture named by
+    /// DENICE_AUDIO_PROOF_MEDIA_REFERENCE (an interleaved stereo float32 sink capture such as the baseline pass's
+    /// out-sink.f32); empty when none is named, which leaves the media row unaccepted.
+    /// </summary>
+    /// <param name="services">The real system services.</param>
+    /// <returns>The reference lead-in, or empty.</returns>
+    internal static float[] MediaReference(ISystemServices services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        string? path = services.Environment.GetEnvironmentVariable("DENICE_AUDIO_PROOF_MEDIA_REFERENCE");
+        return string.IsNullOrEmpty(path) || !services.FileSystem.GetFileReader().Exists(path)
+            ? []
+            : RampAnalysis.ReferenceLeadIn(AudioProofScore.Channel(services.FileSystem.GetFileReader().ReadAllBytes(path), 1), 240);
     }
 
     private static JsonArray SpeechSegments(AudioProofDriver.Evidence evidence)

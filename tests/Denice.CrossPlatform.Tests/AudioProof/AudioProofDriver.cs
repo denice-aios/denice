@@ -66,38 +66,6 @@ internal static class AudioProofDriver
         return evidence;
     }
 
-    /// <summary>Scores the ramp runs against the case table, left then right channel, in the order the page plays them.</summary>
-    /// <param name="evidence">The evidence.</param>
-    /// <returns>One JSON object per case.</returns>
-    internal static JsonArray Score(Evidence evidence)
-    {
-        ArgumentNullException.ThrowIfNull(evidence);
-        string[] left = ["cold ramp, 1 s after the first context", "after 3 s silence, same context", "after 3 s silence, new context", "cross-site navigation, new document", "final ramp, shutdown right after"];
-        string[] right = ["new AudioContext while another plays", "media element while another plays", "explicit device"];
-        var cases = new JsonArray();
-        Add(cases, left, RampAnalysis.Find(evidence.Left), "left");
-        Add(cases, right, RampAnalysis.Find(evidence.Right), "right");
-        return cases;
-    }
-
-    private static void Add(JsonArray cases, string[] names, IReadOnlyList<RampAnalysis.Run> runs, string channel)
-    {
-        for (int index = 0; index < Math.Max(names.Length, runs.Count); index++)
-        {
-            RampAnalysis.Run? run = index < runs.Count ? runs[index] : null;
-            cases.Add(new JsonObject
-            {
-                ["case"] = index < names.Length ? names[index] : "unexpected extra run",
-                ["channel"] = channel,
-                ["found"] = run is not null,
-                ["position"] = run?.Position,
-                ["firstIndex"] = run?.FirstIndex,
-                ["contiguous"] = run?.Length,
-                ["accept"] = run is { Complete: true } && index < names.Length,
-            });
-        }
-    }
-
     private static void RunCases(IPlatformBrowser browser, TimeProvider clock, DevToolsSession session, LoopbackPageServer server, string explicitDevice, Evidence evidence, Action<string> stage)
     {
         string[] first = ["midi", "cold", "silenceSame", "silenceNew", "concurrent", "devices", $"explicit({JsonValue.Create(explicitDevice).ToJsonString()})", "speech"];

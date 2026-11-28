@@ -66,10 +66,20 @@
   </Target>
 
   <!-- The Windows and Linux browser-audio redirection proofs (DeniceAudioRedirectionProof, windows-linux-audio-proof.md):
-       the shared case driver and each OS's fixture compile only in that build, against its proof library. -->
+       the shared case driver and each OS's fixture compile only in that build, against its proof library. The pure
+       analysis (ramp, lead-in, score, offline verdict) and its tests compile in every build. -->
   <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' != 'true'">
-    <Compile Remove="AudioProof/**" />
+    <Compile Remove="AudioProof/AudioProofDriver.cs;AudioProof/AudioProofReport.cs;AudioProof/DevToolsSession.cs;AudioProof/LoopbackPageServer.cs" />
     <Compile Remove="AudioRedirectionProofTests.*.cs" />
+  </ItemGroup>
+
+  <!-- The proofs' pure product pieces (queue, PCM arithmetic, speech burst timing) live in the Linux proof library, linked
+       into the Windows one. Where the referenced implementation does not contain them (every normal build, and macOS),
+       the tests compile the same source themselves, so these pure tests run on every leg, this Mac included. -->
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' != 'true' or $(DenicePlatformRid.StartsWith('osx')) or ('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+    <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/RedirectedRing.cs" Link="AudioProof/Pure/RedirectedRing.cs" />
+    <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/PcmMath.cs" Link="AudioProof/Pure/PcmMath.cs" />
+    <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/SpeechBurstTracker.cs" Link="AudioProof/Pure/SpeechBurstTracker.cs" />
   </ItemGroup>
   <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true' and !$(DenicePlatformRid.StartsWith('linux'))">
     <Compile Remove="AudioRedirectionProofTests.Linux.cs" />
