@@ -333,17 +333,7 @@ jobs:
           TREE: ${{ needs.prepare.outputs.build_tree }}
           CHECKOUT: ${{ needs.prepare.outputs.build_sha }}
           BUILD_RUN_ID: ${{ inputs.build_run_id }}
-        # The same block as the linux job's bind step (only TARGET and MP4 differ); eng/find-hardware-coverage.sh reads this layout.
-        run: |
-          set -euo pipefail
-          [[ $TREE =~ ^[0-9a-f]{40}$ && $CHECKOUT =~ ^[0-9a-f]{40}$ && $BUILD_RUN_ID =~ ^[0-9]+$ && $GITHUB_RUN_ID =~ ^[0-9]+$ && $GITHUB_RUN_ATTEMPT =~ ^[0-9]+$ ]]
-          mkdir -p hardware-coverage/hardware-fixtures hardware-coverage/hardware-coverage
-          cp evidence/hardware.trx hardware-coverage/
-          cp "evidence/hardware-fixtures/$MP4" hardware-coverage/hardware-fixtures/
-          cp evidence/hardware-coverage/coverage.cobertura.xml hardware-coverage/hardware-coverage/
-          printf '{"target":"%s","tree_sha":"%s","checkout_sha":"%s","build_run_id":"%s","gpu_run_id":"%s","run_attempt":"%s","event":"%s"}\n' \
-            "$TARGET" "$TREE" "$CHECKOUT" "$BUILD_RUN_ID" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_EVENT_NAME" > hardware-coverage/binding.json
-          echo "$TARGET hardware coverage bound to tree $TREE (commit $CHECKOUT)." >> "$GITHUB_STEP_SUMMARY"
+        run: bash eng/bind-hardware-coverage.sh "$TARGET" "$MP4"
       - name: Publish tree-bound win-x64 hardware coverage
         if: steps.bind.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -561,23 +551,14 @@ jobs:
       - name: Bind linux-x64 hardware coverage to the exact source tree
         id: bind
         if: steps.fixtures.outcome == 'success' && steps.renderer.outcome == 'success' && needs.prepare.outputs.build_tree != ''
+        shell: bash
         env:
           TARGET: linux-x64
           MP4: linux-hardware.mp4
           TREE: ${{ needs.prepare.outputs.build_tree }}
           CHECKOUT: ${{ needs.prepare.outputs.build_sha }}
           BUILD_RUN_ID: ${{ inputs.build_run_id }}
-        # The same block as the windows job's bind step (only TARGET and MP4 differ); eng/find-hardware-coverage.sh reads this layout.
-        run: |
-          set -euo pipefail
-          [[ $TREE =~ ^[0-9a-f]{40}$ && $CHECKOUT =~ ^[0-9a-f]{40}$ && $BUILD_RUN_ID =~ ^[0-9]+$ && $GITHUB_RUN_ID =~ ^[0-9]+$ && $GITHUB_RUN_ATTEMPT =~ ^[0-9]+$ ]]
-          mkdir -p hardware-coverage/hardware-fixtures hardware-coverage/hardware-coverage
-          cp evidence/hardware.trx hardware-coverage/
-          cp "evidence/hardware-fixtures/$MP4" hardware-coverage/hardware-fixtures/
-          cp evidence/hardware-coverage/coverage.cobertura.xml hardware-coverage/hardware-coverage/
-          printf '{"target":"%s","tree_sha":"%s","checkout_sha":"%s","build_run_id":"%s","gpu_run_id":"%s","run_attempt":"%s","event":"%s"}\n' \
-            "$TARGET" "$TREE" "$CHECKOUT" "$BUILD_RUN_ID" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_EVENT_NAME" > hardware-coverage/binding.json
-          echo "$TARGET hardware coverage bound to tree $TREE (commit $CHECKOUT)." >> "$GITHUB_STEP_SUMMARY"
+        run: bash eng/bind-hardware-coverage.sh "$TARGET" "$MP4"
       - name: Publish tree-bound linux-x64 hardware coverage
         if: steps.bind.outcome == 'success'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

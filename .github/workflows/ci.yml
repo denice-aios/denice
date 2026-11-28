@@ -1026,21 +1026,7 @@ jobs:
       AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install pinned .NET SDK (official script, same as local; Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP/dotnet-install.ps1"
-          & "$env:RUNNER_TEMP/dotnet-install.ps1" -JSonFile "$env:GITHUB_WORKSPACE/global.json" -InstallDir "$env:RUNNER_TEMP/dotnet"
-          "$env:RUNNER_TEMP/dotnet" | Out-File -FilePath $env:GITHUB_PATH -Append
-          & "$env:RUNNER_TEMP/dotnet/dotnet" --version
-      - name: Install pinned .NET SDK (official script, same as local)
-        if: runner.os != 'Windows'
-        run: |
-          curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
-          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
-          echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/dotnet/dotnet" --version
+      - uses: ./.github/actions/install-pinned-dotnet
       - name: Test ${{ matrix.rid }} (must run as ${{ matrix.arch }})
         # bash on both hosts so $AG word-splits into separate -p args, as in the OS jobs.
         shell: bash
@@ -1086,12 +1072,7 @@ jobs:
       actions: read              # hardware coverage lookup and download across runs (eng/find-hardware-coverage.sh)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install pinned .NET SDK (for the pinned ReportGenerator tool)
-        run: |
-          curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
-          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
-          echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
-          "$RUNNER_TEMP/dotnet/dotnet" --version
+      - uses: ./.github/actions/install-pinned-dotnet  # for the pinned ReportGenerator tool
       - name: Obtain ${{ matrix.target }} coverage (only this target's reports)
         id: ordinary
         continue-on-error: true
