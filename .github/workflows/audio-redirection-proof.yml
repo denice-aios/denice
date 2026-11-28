@@ -1,0 +1,96 @@
+# Experimental browser-audio redirection proofs on free standard hosted runners (approved 2026-11-28: CoTaskMemAlloc and
+# getpagesize in experimental builds; stages W1 and L2 of windows-linux-audio-proof.md). Test-only and compile-selected:
+# only this workflow passes -p:DeniceAudioRedirectionProof=true, so normal builds never contain the proof. No paid GPU
+# runner. GitHub registers workflow_dispatch only on the default branch, so one hand-applied label on the pull request
+# starts it, as the other diagnostics do.
+name: Audio redirection proof
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audio-redirection-proof-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  windows-w1:
+    if: github.event.label.name == 'denice-audio-proof' && github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: windows-latest, rid: win-x64 }
+          - { runner: windows-11-arm, rid: win-arm64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the .NET SDK from global.json
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP/dotnet-install.ps1"
+          & "$env:RUNNER_TEMP/dotnet-install.ps1" -JSonFile "$env:GITHUB_WORKSPACE/global.json" -InstallDir "$env:RUNNER_TEMP/dotnet"
+          "$env:RUNNER_TEMP/dotnet" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Restore the target RID with the proof selected
+        run: dotnet restore tests/Denice.CrossPlatform.Tests/Denice.CrossPlatform.Tests.csproj -r ${{ matrix.rid }} -p:DeniceAudioRedirectionProof=true
+      - name: Browser-audio redirection proof W1 (fake mixer output, virtual endpoint; nothing reaches a device)
+        shell: pwsh
+        run: pwsh eng/audio-proof/windows/run-proof.ps1 -Rid ${{ matrix.rid }} -Out "$env:RUNNER_TEMP/audio-proof"
+      - name: Upload the proof evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: audio-proof-w1-${{ matrix.rid }}
+          path: ${{ runner.temp }}/audio-proof
+          if-no-files-found: warn
+          retention-days: 14
+
+  linux-l2:
+    if: github.event.label.name == 'denice-audio-proof' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the test-only proof containers (null sinks only)
+        run: |
+          docker build --build-arg SERVER=pipewire   -t denice-audio-proof:pipewire   eng/audio-proof/linux
+          docker build --build-arg SERVER=pulseaudio -t denice-audio-proof:pulseaudio eng/audio-proof/linux
+          docker build --build-arg SERVER=none       -t denice-audio-proof:alsa       eng/audio-proof/linux
+      - name: Unredirected baseline (PipeWire), the media-element reference
+        run: bash eng/audio-proof/linux/run-pass.sh pipewire "$RUNNER_TEMP/l2/baseline" 1
+      - name: Redirected proof — PipeWire
+        if: always()
+        run: bash eng/audio-proof/linux/run-pass.sh pipewire "$RUNNER_TEMP/l2/pipewire" 0 "$RUNNER_TEMP/l2/baseline/run/out-sink.f32"
+      - name: Redirected proof — PulseAudio
+        if: always()
+        run: bash eng/audio-proof/linux/run-pass.sh pulseaudio "$RUNNER_TEMP/l2/pulseaudio" 0 "$RUNNER_TEMP/l2/baseline/run/out-sink.f32"
+      - name: Redirected proof — ALSA (no sound server)
+        if: always()
+        run: bash eng/audio-proof/linux/run-pass.sh alsa "$RUNNER_TEMP/l2/alsa" 0 "$RUNNER_TEMP/l2/baseline/run/out-sink.f32"
+      - name: Summarize the passes
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/l2-evidence"
+          for pass in baseline pipewire pulseaudio alsa; do
+            [ -d "$RUNNER_TEMP/l2/$pass/run" ] && cp -R "$RUNNER_TEMP/l2/$pass/run" "$RUNNER_TEMP/l2-evidence/$pass"
+          done
+          for pass in baseline pipewire pulseaudio alsa; do
+            echo "=== $pass"
+            [ -d "$RUNNER_TEMP/l2-evidence/$pass" ] && python3 eng/audio-proof/linux/summarize.py "$RUNNER_TEMP/l2-evidence/$pass" || echo "no summary for $pass"
+          done | tee "$RUNNER_TEMP/l2-evidence/summary.txt"
+      - name: Upload the proof evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: audio-proof-l2-linux-arm64
+          path: ${{ runner.temp }}/l2-evidence
+          if-no-files-found: warn
+          retention-days: 14
