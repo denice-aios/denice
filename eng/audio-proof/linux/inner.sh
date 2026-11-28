@@ -24,9 +24,22 @@ case "$SERVER" in
   pulseaudio)
     pulseaudio --daemonize=no --exit-idle-time=-1 --log-target=stderr >"$OUT/pulseaudio.log" 2>&1 & ;;
   none)
-    # ALSA stage: Chromium's playback opens are redirected and never reach this device; DENICE's own ALSA output opens
-    # "default", which the file plugin writes to $OUT/alsa-mix.raw (interleaved float32 stereo) in front of the null device.
-    printf 'pcm.!default { type plug slave.pcm "denicefile" }\npcm.denicefile { type file slave.pcm "null" file "%s" format "raw" }\nctl.!default { type hw card 0 }\n' "$OUT/alsa-mix.raw" >"$HOME/.asoundrc" ;;
+    # ALSA stage: Chromium's playback opens are redirected and never reach a device. Chromium lists output devices only on
+    # a sound card, so with the kernel loopback card (snd-aloop, loaded by the hosted workflow) DENICE's own output plays
+    # to the card's playback side and arecord captures the matching capture side into $OUT/alsa-mix.raw (interleaved
+    # float32 stereo). Without a card, the file plugin in front of the null device writes the same file, and Chromium
+    # falls back to its fake output, so that pass records "no ALSA card".
+    cat /proc/asound/cards >"$OUT/asound-cards.txt" 2>&1
+    ls -l /dev/snd >>"$OUT/asound-cards.txt" 2>&1
+    if grep -q Loopback /proc/asound/cards 2>/dev/null; then
+      printf 'pcm.!default { type plug slave.pcm "hw:Loopback,0,0" hint { show on description "DENICE loopback output" } }\nctl.!default { type hw card Loopback }\n' >"$HOME/.asoundrc"
+      arecord -q -D plughw:Loopback,1,0 -f FLOAT_LE -r 48000 -c 2 -t raw "$OUT/alsa-mix.raw" 2>"$OUT/arecord.log" &
+      P4=$!
+      echo "loopback card present; capturing hw:Loopback,1,0" >>"$OUT/asound-cards.txt"
+    else
+      printf 'pcm.!default { type plug slave.pcm "denicefile" }\npcm.denicefile { type file slave.pcm "null" file "%s" format "raw" }\nctl.!default { type hw card 0 }\n' "$OUT/alsa-mix.raw" >"$HOME/.asoundrc"
+      echo "no ALSA card: Chromium will use its fake output" >>"$OUT/asound-cards.txt"
+    fi ;;
 esac
 if [ "$SERVER" != none ]; then
   for i in $(seq 1 50); do pactl info >/dev/null 2>&1 && break; sleep 0.2; done
@@ -65,6 +78,7 @@ DENICE_AUDIO_PROOF_OUT=$OUT/evidence perl -e 'alarm 1500; exec @ARGV' dotnet tes
 echo "test exit=$?" | tee "$OUT/test-exit.txt"
 kill $WATCHDOG 2>/dev/null
 if [ "$SERVER" = none ]; then
+  [ -n "${P4:-}" ] && { sleep 0.5; kill $P4 2>/dev/null; wait $P4 2>/dev/null; }
   python3 /p/compare_alsa.py "$OUT" | tee "$OUT/compare-alsa.txt"
 fi
 if [ "$SERVER" != none ]; then
