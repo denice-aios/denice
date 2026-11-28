@@ -13,7 +13,9 @@ fn crate_rules_report_the_planted_violations_and_nothing_else() {
         .current_dir(here.join("fixtures/workspace"))
         .args(["dylint", "--path"])
         .arg(here)
-        .args(["--all", "--", "--all-targets"])
+        // --keep-going: without it cargo starts no new crate after the first error, so whichever planted violation is
+        // checked first hides the other (CI run 46107412976: R11's denice_loader failed before product_user was checked).
+        .args(["--all", "--", "--all-targets", "--keep-going"])
         .output()
         .expect("cargo dylint runs");
     let text = String::from_utf8_lossy(&output.stderr);
