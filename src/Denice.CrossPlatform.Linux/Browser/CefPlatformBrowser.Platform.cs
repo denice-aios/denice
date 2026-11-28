@@ -19,6 +19,12 @@ internal sealed partial class CefPlatformBrowser
     private static partial void ConfigureCommandLine(CefCommandLine commandLine)
     {
         // The shared CEF settings and switches apply unchanged on this platform.
+#if DENICE_AUDIO_REDIRECTION_PROOF
+        // Proof build only: Chromium's Linux page speech runs only with this switch, and the fixture's explicit-device
+        // case needs media permission granted without a prompt.
+        commandLine.AppendSwitch("enable-speech-dispatcher");
+        commandLine.AppendSwitch("use-fake-ui-for-media-stream");
+#endif
     }
 
     private static partial void ForwardFrame(IPlatformBrowserFrameSink sink, CefPaintElementType type, CefAcceleratedPaintInfo info)

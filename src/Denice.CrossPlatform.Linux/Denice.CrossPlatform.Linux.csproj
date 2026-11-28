@@ -36,6 +36,18 @@
     <Compile Include="../Denice.CrossPlatform.MacOS/Browser/SpeechQueue.cs" Link="Browser/Shared/SpeechQueue.cs" />
   </ItemGroup>
 
+  <!-- The compile-selected browser-audio redirection proof (DeniceAudioRedirectionProof, windows-linux-audio-proof.md);
+       normal builds compile none of Browser/Proof. Browser/Proof/Shared is linked into the Windows proof as well. -->
+  <PropertyGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true'">
+    <DefineConstants>$(DefineConstants);DENICE_AUDIO_REDIRECTION_PROOF</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' != 'true'">
+    <Compile Remove="Browser/Proof/**" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true'">
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/LinearResampler.cs" Link="Browser/Shared/LinearResampler.cs" />
+  </ItemGroup>
+
   <!-- PlatformServices.Create() is internal (platform-create-internal); Denice.Engine reaches this one door
        through the grant, and only from SystemServices.Create() (DN0029); the grant moved here from
        Denice.Boundaries with the container itself. Keyless in source; the signing target injects the public key
