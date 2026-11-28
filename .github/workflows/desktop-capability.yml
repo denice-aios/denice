@@ -55,6 +55,8 @@ jobs:
     timeout-minutes: 3
     outputs:
       build_sha: ${{ steps.check.outputs.build_sha }}
+      # The git tree of build_sha: hardware coverage is bound to it (eng/coverage-gate.sh accepts it only for the same tree).
+      build_tree: ${{ steps.check.outputs.build_tree }}
     steps:
       - id: check
         name: Validate configured runners and selected build
@@ -127,6 +129,7 @@ jobs:
               build_sha=$(jq -r .checkout_sha media-source/source.json)
               gh api "repos/$REPOSITORY/git/commits/$build_sha" > checkout-commit.json
               jq -e --arg sha "$build_sha" '.sha == $sha' checkout-commit.json >/dev/null
+              echo "build_tree=$(jq -r .tree.sha checkout-commit.json)" >> "$GITHUB_OUTPUT"
               if [[ "$build_sha" != "$(jq -r .head_sha media-source/source.json)" ]]; then
                 jq -e --arg head "$(jq -r .head_sha media-source/source.json)" --arg base "$(jq -r .base_sha media-source/source.json)" '([.parents[].sha] | index($head) != null and index($base) != null)' checkout-commit.json >/dev/null
               fi
@@ -316,8 +319,39 @@ jobs:
           Assert-DeniceFixturePayload -PayloadDirectory payload -ExpectedCommit $env:EXPECTED_FIXTURE_COMMIT
           Copy-Item payload/fixture-source.txt, payload/payload-sha256.json evidence/
       - name: Execute isolated Windows hardware fixtures
+        id: fixtures
         if: inputs.windows_check == 'hardware-fixtures' && inputs.target != 'windows-sandbox' && (vars.DENICE_WINDOWS_DRIVER_MODEL_DIAGNOSTIC != 'true' || steps.drivermodel.outputs.hardware == 'true')
         run: ./eng/windows/run-desktop-smoke.ps1 -PayloadDirectory payload -OutputDirectory evidence -HardwareFixtures -TimeoutSeconds 300
+      # win-x64 hardware coverage, bound to the exact source tree, published only after every required fixture passed.
+      - name: Bind win-x64 hardware coverage to the exact source tree
+        id: bind
+        if: steps.fixtures.outcome == 'success' && needs.prepare.outputs.build_tree != ''
+        shell: bash
+        env:
+          TARGET: win-x64
+          MP4: hardware.mp4
+          TREE: ${{ needs.prepare.outputs.build_tree }}
+          CHECKOUT: ${{ needs.prepare.outputs.build_sha }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        # The same block as the linux job's bind step (only TARGET and MP4 differ); eng/find-hardware-coverage.sh reads this layout.
+        run: |
+          set -euo pipefail
+          [[ $TREE =~ ^[0-9a-f]{40}$ && $CHECKOUT =~ ^[0-9a-f]{40}$ && $BUILD_RUN_ID =~ ^[0-9]+$ && $GITHUB_RUN_ID =~ ^[0-9]+$ && $GITHUB_RUN_ATTEMPT =~ ^[0-9]+$ ]]
+          mkdir -p hardware-coverage/hardware-fixtures hardware-coverage/hardware-coverage
+          cp evidence/hardware.trx hardware-coverage/
+          cp "evidence/hardware-fixtures/$MP4" hardware-coverage/hardware-fixtures/
+          cp evidence/hardware-coverage/coverage.cobertura.xml hardware-coverage/hardware-coverage/
+          printf '{"target":"%s","tree_sha":"%s","checkout_sha":"%s","build_run_id":"%s","gpu_run_id":"%s","run_attempt":"%s","event":"%s"}\n' \
+            "$TARGET" "$TREE" "$CHECKOUT" "$BUILD_RUN_ID" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_EVENT_NAME" > hardware-coverage/binding.json
+          echo "$TARGET hardware coverage bound to tree $TREE (commit $CHECKOUT)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish tree-bound win-x64 hardware coverage
+        if: steps.bind.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hardware-coverage-win-x64-${{ needs.prepare.outputs.build_tree }}
+          path: hardware-coverage/
+          if-no-files-found: error
+          retention-days: 30
       - name: Execute application directly on hosted GPU runner
         if: inputs.build_run_id != '0' && inputs.windows_check == 'application' && inputs.target != 'windows-sandbox'
         run: ./eng/windows/run-desktop-smoke.ps1 -PayloadDirectory payload -OutputDirectory evidence
@@ -514,12 +548,44 @@ jobs:
           bash eng/start-linux-gpu-xorg.sh start evidence :99
           echo "DISPLAY=:99" >> "$GITHUB_ENV"
       - name: Execute isolated linux-x64 hardware fixtures
+        id: fixtures
         if: inputs.linux_check == 'hardware-fixtures'
         run: bash eng/run-linux-desktop-smoke.sh payload evidence --hardware-fixtures
       - name: Require the NVIDIA hardware renderer in fixture evidence
+        id: renderer
         if: inputs.linux_check == 'hardware-fixtures'
         run: |
           grep -E 'GL renderer: .*(NVIDIA|Tesla)' evidence/hardware.trx
+      # linux-x64 hardware coverage, bound to the exact source tree, published only after every required fixture passed on
+      # the NVIDIA renderer.
+      - name: Bind linux-x64 hardware coverage to the exact source tree
+        id: bind
+        if: steps.fixtures.outcome == 'success' && steps.renderer.outcome == 'success' && needs.prepare.outputs.build_tree != ''
+        env:
+          TARGET: linux-x64
+          MP4: linux-hardware.mp4
+          TREE: ${{ needs.prepare.outputs.build_tree }}
+          CHECKOUT: ${{ needs.prepare.outputs.build_sha }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        # The same block as the windows job's bind step (only TARGET and MP4 differ); eng/find-hardware-coverage.sh reads this layout.
+        run: |
+          set -euo pipefail
+          [[ $TREE =~ ^[0-9a-f]{40}$ && $CHECKOUT =~ ^[0-9a-f]{40}$ && $BUILD_RUN_ID =~ ^[0-9]+$ && $GITHUB_RUN_ID =~ ^[0-9]+$ && $GITHUB_RUN_ATTEMPT =~ ^[0-9]+$ ]]
+          mkdir -p hardware-coverage/hardware-fixtures hardware-coverage/hardware-coverage
+          cp evidence/hardware.trx hardware-coverage/
+          cp "evidence/hardware-fixtures/$MP4" hardware-coverage/hardware-fixtures/
+          cp evidence/hardware-coverage/coverage.cobertura.xml hardware-coverage/hardware-coverage/
+          printf '{"target":"%s","tree_sha":"%s","checkout_sha":"%s","build_run_id":"%s","gpu_run_id":"%s","run_attempt":"%s","event":"%s"}\n' \
+            "$TARGET" "$TREE" "$CHECKOUT" "$BUILD_RUN_ID" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_EVENT_NAME" > hardware-coverage/binding.json
+          echo "$TARGET hardware coverage bound to tree $TREE (commit $CHECKOUT)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Publish tree-bound linux-x64 hardware coverage
+        if: steps.bind.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hardware-coverage-linux-x64-${{ needs.prepare.outputs.build_tree }}
+          path: hardware-coverage/
+          if-no-files-found: error
+          retention-days: 30
       - name: Stop ephemeral Xorg
         if: always() && inputs.linux_check == 'hardware-fixtures'
         run: bash eng/start-linux-gpu-xorg.sh stop evidence

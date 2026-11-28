@@ -26,7 +26,8 @@ if ($HardwareFixtures) {
     Copy-Item -LiteralPath (Join-Path $payload 'fixture-source.txt'), (Join-Path $payload 'payload-sha256.json') -Destination $output
     $process = Start-Process -FilePath $dotnet -WorkingDirectory $tests -ArgumentList @(
         'vstest', ('"' + $assembly + '"'), '--TestCaseFilter:Category=GpuHardware',
-        ('--TestAdapterPath:"' + $tests + '"'), ('--ResultsDirectory:"' + $output + '"'),
+        ('--TestAdapterPath:"' + $tests + '"'), ('--Settings:"' + (Join-Path $tests 'coverage.runsettings') + '"'),
+        ('--ResultsDirectory:"' + $output + '"'),
         '--Logger:"trx;LogFileName=hardware.trx"'
     ) -RedirectStandardOutput (Join-Path $output 'hardware-fixtures.stdout.txt') `
       -RedirectStandardError (Join-Path $output 'hardware-fixtures.stderr.txt') -PassThru
@@ -42,6 +43,11 @@ if ($HardwareFixtures) {
             Copy-Item -LiteralPath $media -Destination (Join-Path $output 'hardware-fixtures') -Recurse
         }
     }
+    # Coverage with the same .runsettings as every ordinary run; the TRX attachment copy under In\ is the same report.
+    $reports = @(Get-ChildItem -LiteralPath $output -Recurse -File -Filter coverage.cobertura.xml | Where-Object { $_.FullName -notmatch '[\\/]In[\\/]' })
+    if ($reports.Count -ne 1) { throw "Expected exactly one hardware coverage report, found $($reports.Count)." }
+    $coverage = New-Item -ItemType Directory -Force -Path (Join-Path $output 'hardware-coverage')
+    Move-Item -LiteralPath $reports[0].FullName -Destination (Join-Path $coverage.FullName 'coverage.cobertura.xml')
     Read-DeniceHardwareFixtureResult -OutputDirectory $output | Out-Null
     Write-Host 'Isolated win-x64 graphics and hardware-encoder fixtures passed, including decoded video checks. CEF callback safety, product audio, and ARM64 execution remain untested.'
     return

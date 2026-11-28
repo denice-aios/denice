@@ -105,6 +105,11 @@
     <Compile Remove="DesktopGpuTests.Linux.cs" />
   </ItemGroup>
 
+  <!-- Hardware fixtures collect coverage with the SAME .runsettings as every other run, sealed into the payload. -->
+  <ItemGroup Condition="'$(DeniceDesktopGpuTests)' == 'true'">
+    <None Include="$(RunSettingsFilePath)" Link="coverage.runsettings" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- The Linux CEF fixture executes on a child process main thread within this test assembly, as the Cocoa fixtures do;
        ordinary Linux test builds stay a library. -->
   <PropertyGroup Condition="'$(DeniceDesktopGpuTests)' == 'true' and $(DenicePlatformRid.StartsWith('linux'))">

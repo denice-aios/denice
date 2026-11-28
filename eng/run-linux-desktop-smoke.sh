@@ -54,6 +54,11 @@ def results(directory):
     require(all(row.get('outcome') == 'Passed' for row in rows), 'A required Linux case failed or was skipped.')
     counters = summary.find('t:Counters', NS)
     require(counters is not None and all(int(counters.get(key, '-1')) == len(EXPECTED) for key in ('total', 'executed', 'passed')), 'Linux execution counters are incomplete.')
+    coverage = Path(directory) / 'hardware-coverage/coverage.cobertura.xml'
+    if coverage.exists():
+        require(coverage.is_file() and not coverage.is_symlink(), 'Hardware coverage must be a regular file.')
+        packages = [p for p in ET.parse(coverage).getroot().iter('package') if p.get('name') == 'Denice.CrossPlatform.Linux']
+        require(len(packages) == 1 and any(True for _ in packages[0].iter('line')), 'Hardware coverage does not instrument Denice.CrossPlatform.Linux.')
 
 def inventory(root):
     root = Path(root)
@@ -106,7 +111,8 @@ def verify(root, commit):
     required = {'fixture-source.txt', 'global.json', 'dotnet/dotnet', 'dotnet/sdk/' + version + '/vstest.console.dll',
         'tests/Denice.CrossPlatform.Tests.dll', 'tests/Denice.CrossPlatform.Tests.runtimeconfig.json', 'tests/testhost.dll',
         'tests/xunit.runner.visualstudio.testadapter.dll', 'tests/libSkiaSharp.so', 'tests/libhostfxr.so',
-        'tests/libhostpolicy.so', 'tests/libcoreclr.so', 'tests/media/build-manifest.json'}
+        'tests/libhostpolicy.so', 'tests/libcoreclr.so', 'tests/media/build-manifest.json',
+        'tests/coverage.runsettings', 'tests/coverlet.collector.dll', 'tests/coverlet.core.dll', 'dotnet/sdk/' + version + '/datacollector.dll'}
     require(required <= listed, 'Required SDK, test adapter, runtime, or media files are missing.')
     require(os.access(files['dotnet/dotnet'], os.X_OK), 'Staged dotnet lost executable permissions.')
 
@@ -142,6 +148,8 @@ def self_test():
         video = root / 'hardware-fixtures/linux-hardware.mp4'
         video.parent.mkdir()
         video.write_bytes(b'synthetic fixture, not video evidence')
+        coverage = root / 'hardware-coverage/coverage.cobertura.xml'
+        coverage.parent.mkdir()
         cases = ''.join('<UnitTestResult testName="' + name + '" outcome="Passed" />' for name in sorted(EXPECTED))
         valid = '<TestRun xmlns="' + NS['t'] + '"><Results>' + cases + '</Results><ResultSummary outcome="Completed"><Counters total="' + str(len(EXPECTED)) + '" executed="' + str(len(EXPECTED)) + '" passed="' + str(len(EXPECTED)) + '" /></ResultSummary></TestRun>'
         report.write_text(valid)
@@ -152,6 +160,11 @@ def self_test():
             except (ValueError, KeyError, ET.ParseError, FileNotFoundError):
                 return
             raise AssertionError('Invalid fixture evidence was accepted.')
+        coverage.write_text('<coverage><packages><package name="Denice.CrossPlatform.Linux"><classes><class filename="a.cs"><lines><line number="1" hits="1" /></lines></class></classes></package></packages></coverage>')
+        results(root)
+        coverage.write_text('<coverage><packages><package name="Denice.Engine" /></packages></coverage>')
+        rejected(lambda: results(root))
+        coverage.unlink()
         video.unlink()
         rejected(lambda: results(root))
         video.write_bytes(b'synthetic fixture, not video evidence')
@@ -168,7 +181,8 @@ def self_test():
         payload.mkdir()
         files = ['dotnet/dotnet', 'dotnet/sdk/10.0.400/vstest.console.dll', 'tests/Denice.CrossPlatform.Tests.dll',
             'tests/Denice.CrossPlatform.Tests.runtimeconfig.json', 'tests/testhost.dll', 'tests/xunit.runner.visualstudio.testadapter.dll',
-            'tests/libSkiaSharp.so', 'tests/libhostfxr.so', 'tests/libhostpolicy.so', 'tests/libcoreclr.so', 'tests/media/build-manifest.json']
+            'tests/libSkiaSharp.so', 'tests/libhostfxr.so', 'tests/libhostpolicy.so', 'tests/libcoreclr.so', 'tests/media/build-manifest.json',
+            'tests/coverage.runsettings', 'tests/coverlet.collector.dll', 'tests/coverlet.core.dll', 'dotnet/sdk/10.0.400/datacollector.dll']
         for name in files:
             path = payload / name
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -261,10 +275,14 @@ if [[ ${3:-} == --hardware-fixtures ]]; then
   printf '%s\n' 'Scope: X11/EGL/Skia renderer/presentation, exclusive recording destination and hardware encoder EOS/artifact creation.' \
     'CEF DMA-BUF import, displayed scanout and audio: NOT_TESTED. Independent decoded MP4 colors/timestamps: PENDING.' > "$output/linux-fixture-scope.txt"
   (cd "$payload/tests" && timeout --kill-after=5s 300s env GST_PLUGIN_SYSTEM_PATH_1_0= GST_PLUGIN_PATH_1_0="$payload/tests/media/lib/gstreamer-1.0" "$payload/dotnet/dotnet" vstest Denice.CrossPlatform.Tests.dll \
-    --TestCaseFilter:Category=GpuHardware --TestAdapterPath:. "--ResultsDirectory:$output" \
+    --TestCaseFilter:Category=GpuHardware --TestAdapterPath:. "--Settings:$payload/tests/coverage.runsettings" "--ResultsDirectory:$output" \
     '--Logger:trx;LogFileName=hardware.trx') > "$output/hardware-fixtures.stdout.txt" 2> "$output/hardware-fixtures.stderr.txt"
   mkdir -p "$output/hardware-fixtures"
   cp -R "$payload/tests/hardware-fixture-output/." "$output/hardware-fixtures/"
+  # Coverage with the same .runsettings as every ordinary run; the TRX attachment copy under In/ is the same report.
+  mapfile -t reports < <(find "$output" -path "$output/hardware-coverage" -prune -o -path '*/In/*' -prune -o -name coverage.cobertura.xml -type f -print)
+  [[ ${#reports[@]} -eq 1 ]] || { echo "Expected exactly one hardware coverage report, found ${#reports[@]}." >&2; exit 1; }
+  mkdir -p "$output/hardware-coverage" && mv "${reports[0]}" "$output/hardware-coverage/coverage.cobertura.xml"
   fixture_validation --fixture-results "$output"
   echo 'Isolated linux-x64 graphics, destination and encoder finalization fixtures passed. MP4 decode remains pending; CEF import and audio remain untested.'
   exit 0

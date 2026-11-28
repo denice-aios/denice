@@ -89,9 +89,11 @@ try {
     ('fixture_commit=' + $commit) | Set-Content (Join-Path $payload 'fixture-source.txt')
     'sdk fixture' | Set-Content (Join-Path $payload 'dotnet/dotnet.exe')
     'sdk vstest fixture' | Set-Content (Join-Path $payload 'dotnet/sdk/10.0.400/vstest.console.dll')
+    'sdk datacollector fixture' | Set-Content (Join-Path $payload 'dotnet/sdk/10.0.400/datacollector.dll')
     '{"sdk":{"version":"10.0.400"}}' | Set-Content (Join-Path $payload 'global.json')
     foreach ($name in @('Denice.CrossPlatform.Tests.dll', 'Denice.CrossPlatform.Tests.runtimeconfig.json', 'testhost.dll',
-        'xunit.runner.visualstudio.testadapter.dll', 'av_libglesv2.dll', 'libSkiaSharp.dll', 'hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll')) {
+        'xunit.runner.visualstudio.testadapter.dll', 'av_libglesv2.dll', 'libSkiaSharp.dll', 'hostfxr.dll', 'hostpolicy.dll', 'coreclr.dll',
+        'coverage.runsettings', 'coverlet.collector.dll', 'coverlet.core.dll')) {
         'test fixture' | Set-Content (Join-Path $payload ('tests/' + $name))
     }
     $entries = @(Get-ChildItem $payload -Recurse -File | ForEach-Object {

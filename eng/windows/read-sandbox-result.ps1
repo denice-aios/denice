@@ -46,6 +46,14 @@ function Read-DeniceHardwareFixtureResult {
         throw 'Hardware fixture report is incomplete, skipped, or failed.'
     }
     Assert-DeniceHardwareFixtureNames -Names @($results | ForEach-Object { $_.testName })
+    $coverage = Join-Path $OutputDirectory 'hardware-coverage/coverage.cobertura.xml'
+    if (Test-Path -LiteralPath $coverage) {
+        $item = Get-Item -LiteralPath $coverage -Force
+        if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Hardware coverage must be a regular file.' }
+        [xml]$cobertura = Get-Content -LiteralPath $coverage -Raw
+        $packages = @($cobertura.coverage.packages.package | Where-Object { $_.name -eq 'Denice.CrossPlatform.Windows' })
+        if ($packages.Count -ne 1 -or @($packages[0].SelectNodes('.//line')).Count -eq 0) { throw 'Hardware coverage does not instrument Denice.CrossPlatform.Windows.' }
+    }
     return $report
 }
 
@@ -96,7 +104,8 @@ function Assert-DeniceFixturePayload {
     foreach ($required in @('fixture-source.txt', 'global.json', 'dotnet/dotnet.exe', "dotnet/sdk/$sdkVersion/vstest.console.dll",
         'tests/Denice.CrossPlatform.Tests.dll', 'tests/Denice.CrossPlatform.Tests.runtimeconfig.json',
         'tests/testhost.dll', 'tests/xunit.runner.visualstudio.testadapter.dll',
-        'tests/av_libglesv2.dll', 'tests/libSkiaSharp.dll', 'tests/hostfxr.dll', 'tests/hostpolicy.dll', 'tests/coreclr.dll')) {
+        'tests/av_libglesv2.dll', 'tests/libSkiaSharp.dll', 'tests/hostfxr.dll', 'tests/hostpolicy.dll', 'tests/coreclr.dll',
+        'tests/coverage.runsettings', 'tests/coverlet.collector.dll', 'tests/coverlet.core.dll', "dotnet/sdk/$sdkVersion/datacollector.dll")) {
         if (-not $listed.Contains($required)) { throw "Fixture payload is missing a required runtime/test file: $required" }
     }
 }
