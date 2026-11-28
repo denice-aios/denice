@@ -21,9 +21,11 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     private const int UnsupportedFormat = unchecked((int)0x88890008);
     private const int NotInitialized = unchecked((int)0x88890001);
     private const int MinimumBufferFrames = MixerCore.SampleRate / 25;
+    private const int PositionHistory = 64;
     private readonly RedirectedRing _ring = new(MixerCore.SampleRate * 2);
     private readonly TimeProvider _clock;
     private readonly string _device;
+    private readonly PositionAnswer[] _positions = new PositionAnswer[PositionHistory];
     private nint _buffer;
     private uint _bufferFrames;
     private int _channels;
@@ -31,6 +33,10 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     private bool _floating;
     private BorrowedEvent? _event;
     private volatile bool _started;
+
+    // Diagnostic only (the final-tail clock question): the last answers given to Chromium's IAudioClock.GetPosition,
+    // written to the log at Stop. No behaviour depends on them.
+    private long _positionCalls;
     private long _released;
     private long _releasedSounding;
     private long _counter;
@@ -138,6 +144,7 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     {
         _started = false;
         AudioProofLog.Note($"IAudioClient.Stop on {_device} at {HostMilliseconds():F1} ms: {Accounting()}, underruns {_ring.Underruns}");
+        LogPositionHistory();
         return ComNative.Ok;
     }
 
@@ -223,12 +230,16 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
     /// <inheritdoc />
     public int GetPosition(ulong* position, ulong* counter)
     {
-        *position = (ulong)_ring.Mixed;
+        long mixed = _ring.Mixed;
+        long reportedCounter = Interlocked.Read(ref _counter);
+        *position = (ulong)mixed;
         if (counter != null)
         {
-            *counter = (ulong)Interlocked.Read(ref _counter);
+            *counter = (ulong)reportedCounter;
         }
 
+        long call = Interlocked.Increment(ref _positionCalls) - 1;
+        _positions[call % PositionHistory] = new PositionAnswer(HostMilliseconds(), mixed, reportedCounter / 10_000.0, _ring.Written, _ring.Pending);
         return ComNative.Ok;
     }
 
@@ -298,6 +309,23 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
 
     private float Sample(int index) => _floating ? ((float*)_buffer)[index] : ((short*)_buffer)[index] / 32768f;
 
+    /// <summary>Writes the last GetPosition answers: when asked, the position and counter returned, and the frames written
+    /// and still queued at that moment. A position that stays below written minus queued would mean frames were reported
+    /// before they were mixed.</summary>
+    private void LogPositionHistory()
+    {
+        long calls = Interlocked.Read(ref _positionCalls);
+        long first = Math.Max(0, calls - PositionHistory);
+        var lines = new System.Text.StringBuilder();
+        for (long call = first; call < calls; call++)
+        {
+            PositionAnswer answer = _positions[call % PositionHistory];
+            _ = lines.Append(System.Globalization.CultureInfo.InvariantCulture, $"\n  GetPosition #{call} at {answer.HostMilliseconds:F1} ms: position {answer.Position}, counter {answer.CounterMilliseconds:F1} ms, written {answer.Written}, queued {answer.Queued}");
+        }
+
+        AudioProofLog.Note($"IAudioClient.GetPosition history on {_device} ({calls} calls, last {calls - first}):{lines}");
+    }
+
     /// <summary>Released, mixed and queued frames of this stream, each with its sounding count.</summary>
     private string Accounting() =>
         $"released {Interlocked.Read(ref _released)} ({Interlocked.Read(ref _releasedSounding)} sounding), mixed {_ring.Mixed} ({_ring.MixedSounding} sounding), queued {_ring.Pending} ({_ring.PendingSounding} sounding)";
@@ -316,4 +344,13 @@ internal sealed unsafe partial class WasapiRedirectedClient : IAudioClient, IAud
             return new WaveFormat(tag, *(ushort*)(data + 2), (int)*(uint*)(data + 4), *(ushort*)(data + 14), floating);
         }
     }
+
+    /// <summary>One GetPosition answer, for the diagnostic history.</summary>
+    /// <param name="HostMilliseconds">When Chromium asked, on the host clock.</param>
+    /// <param name="Position">The position returned (frames mixed).</param>
+    /// <param name="CounterMilliseconds">The QPC counter returned, in milliseconds.</param>
+    /// <param name="Written">Frames Chromium had released by then.</param>
+    /// <param name="Queued">Frames released but not yet mixed by then.</param>
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct PositionAnswer(double HostMilliseconds, long Position, double CounterMilliseconds, long Written, long Queued);
 }
