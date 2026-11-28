@@ -1,20 +1,19 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using System.Runtime.InteropServices;
+using Denice.CrossPlatform.Browser;
 
 namespace Denice.CrossPlatform.MacOS.Browser;
 
 /// <summary>One Chromium output stream the redirection has taken over, with what the mixer needs to pull its samples.</summary>
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "S6640", Justification = "Audio interop: render callbacks exchange stable unmanaged buffers with Chromium.")]
-internal sealed unsafe class RedirectedStream : IDisposable
+internal sealed unsafe class RedirectedStream : IRedirectedSource, IDisposable
 {
     private const int MaximumFrames = 4096;
     private const int MaximumChannels = 8;
     private readonly nint _bufferList;
     private readonly nint[] _channels = new nint[MaximumChannels];
     private bool _disposed;
-    private int _inCallback;
-    private int _removed;
 
     private RedirectedStream(nint unit)
     {
@@ -72,8 +71,14 @@ internal sealed unsafe class RedirectedStream : IDisposable
     internal int LastSoundFrameEnd { get; set; } = -1;
 #endif
 
+    /// <summary>Gets or sets the Core Audio cycle whose AudioTimeStamp this stream's callback receives; set at registration.</summary>
+    internal CoreAudioCycle? Cycle { get; set; }
+
+    /// <summary>Gets or sets the stream's latest registration in the mixer.</summary>
+    internal MixerClaim? Claim { get; set; }
+
     /// <summary>Gets a value indicating whether the render thread is inside this stream's Chromium callback.</summary>
-    internal bool InCallback => Interlocked.CompareExchange(ref _inCallback, 0, 0) == 1;
+    internal bool InCallback => Claim?.InCallback ?? false;
 
     /// <summary>Gets the preallocated non-interleaved buffer list handed to Chromium's render callback.</summary>
     internal nint BufferList => _bufferList;
@@ -96,6 +101,41 @@ internal sealed unsafe class RedirectedStream : IDisposable
         Marshal.FreeHGlobal(_bufferList);
     }
 
+    /// <inheritdoc />
+    public void MixInto(Span<float> left, Span<float> right, long hostNanoseconds, long cycle)
+    {
+        // Called with the stream's claim held, so Chromium has not freed the callback's context.
+        nint procedure = RenderCallback.Procedure;
+        nint timestamp = Cycle?.Timestamp ?? 0;
+        if (procedure == 0 || timestamp == 0)
+        {
+            return;
+        }
+
+        int frames = Math.Min(left.Length, right.Length);
+        if (Converter is { } converter)
+        {
+            _ = converter.Pull(timestamp, frames);
+            Add(left, right, converter.Left, converter.Right, frames);
+            NotePull(cycle, converter.Left, converter.Right, frames);
+            return;
+        }
+
+        int channels = (int)Math.Clamp(Format.ChannelsPerFrame, 1, 8);
+        PrepareBufferList(channels, frames);
+        uint flags = 0;
+        int status = ((delegate* unmanaged<nint, uint*, nint, uint, uint, nint, int>)procedure)(RenderCallback.Context, &flags, timestamp, 0, (uint)frames, _bufferList);
+        if (status != 0)
+        {
+            return;
+        }
+
+        float* first = (float*)Channel(0);
+        float* second = (float*)Channel(channels > 1 ? 1 : 0);
+        Add(left, right, first, second, frames);
+        NotePull(cycle, first, second, frames);
+    }
+
     /// <summary>Creates a tracked stream for a new HAL output unit.</summary>
     /// <param name="unit">The real unit.</param>
     /// <returns>The tracked stream.</returns>
@@ -105,31 +145,6 @@ internal sealed unsafe class RedirectedStream : IDisposable
     /// <param name="channel">The channel index.</param>
     /// <returns>The buffer address.</returns>
     internal nint Channel(int channel) => _channels[channel];
-
-    /// <summary>Render thread: claims the stream for one Chromium callback, unless it has been removed.</summary>
-    /// <returns>Whether the callback may run; if so, <see cref="ExitCallback"/> must follow.</returns>
-    internal bool TryEnterCallback()
-    {
-        // Full fence before reading Removed; MarkRemoved fences before the remover reads InCallback (Dekker), so either the
-        // render thread sees the removal and skips, or the remover sees the callback and waits for it.
-        _ = Interlocked.Exchange(ref _inCallback, 1);
-        if (Interlocked.CompareExchange(ref _removed, 0, 0) == 1)
-        {
-            _ = Interlocked.Exchange(ref _inCallback, 0);
-            return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>Render thread: ends the claim taken by <see cref="TryEnterCallback"/>.</summary>
-    internal void ExitCallback() => _ = Interlocked.Exchange(ref _inCallback, 0);
-
-    /// <summary>Control thread: stops the render thread from entering this stream's callback again.</summary>
-    internal void MarkRemoved() => _ = Interlocked.Exchange(ref _removed, 1);
-
-    /// <summary>Control thread: allows the render thread to call the stream again after it is registered again.</summary>
-    internal void MarkRegistered() => _ = Interlocked.Exchange(ref _removed, 0);
 
     /// <summary>Points the buffer list at this stream's channel buffers for one pull.</summary>
     /// <param name="channels">The channel count.</param>
@@ -185,6 +200,15 @@ internal sealed unsafe class RedirectedStream : IDisposable
             LastSoundFrameEnd = lastSound + 1;
         }
 #endif
+    }
+
+    private static void Add(Span<float> left, Span<float> right, float* first, float* second, int frames)
+    {
+        for (int frame = 0; frame < frames; frame++)
+        {
+            left[frame] += first[frame];
+            right[frame] += second[frame];
+        }
     }
 
     /// <summary>The render callback and context Chromium registered.</summary>

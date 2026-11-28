@@ -1,6 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
-namespace Denice.CrossPlatform.MacOS.Browser;
+namespace Denice.CrossPlatform.Browser;
 
 /// <summary>
 /// Hands mixed stereo blocks from the audio render thread to the main thread. One writer and one reader; the writer never

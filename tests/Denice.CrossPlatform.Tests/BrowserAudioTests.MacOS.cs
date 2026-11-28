@@ -1,5 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using Denice.CrossPlatform.Browser;
 using Denice.CrossPlatform.MacOS.Browser;
 using Xunit;
 

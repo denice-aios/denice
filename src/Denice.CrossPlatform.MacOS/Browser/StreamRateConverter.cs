@@ -1,6 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using System.Runtime.InteropServices;
+using Denice.CrossPlatform.Browser;
 
 namespace Denice.CrossPlatform.MacOS.Browser;
 

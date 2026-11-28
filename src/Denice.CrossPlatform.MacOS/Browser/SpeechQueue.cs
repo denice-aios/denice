@@ -2,7 +2,7 @@
 
 using System.Collections.Concurrent;
 
-namespace Denice.CrossPlatform.MacOS.Browser;
+namespace Denice.CrossPlatform.Browser;
 
 /// <summary>
 /// Page speech waiting to be mixed. The main thread queues and clears blocks; the render thread mixes them. Positions

@@ -2,6 +2,7 @@
 
 using System.Runtime.InteropServices;
 using Denice.Abstractions.Contracts;
+using Denice.CrossPlatform.Browser;
 using Denice.CrossPlatform.MacOS.Browser;
 using Denice.TestHelpers;
 using Xunit;

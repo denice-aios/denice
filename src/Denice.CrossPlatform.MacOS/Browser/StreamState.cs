@@ -1,6 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
-namespace Denice.CrossPlatform.MacOS.Browser;
+namespace Denice.CrossPlatform.Browser;
 
 /// <summary>
 /// The lifetime of one redirected Chromium output stream. Calls for units the redirection did not create pass straight

@@ -1,6 +1,6 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
-namespace Denice.CrossPlatform.MacOS.Browser;
+namespace Denice.CrossPlatform.Browser;
 
 /// <summary>Converts one mono stream to another rate by linear interpolation, continuously across the buffers it is given.</summary>
 internal sealed class LinearResampler
