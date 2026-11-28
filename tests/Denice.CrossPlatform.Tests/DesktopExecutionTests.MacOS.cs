@@ -21,10 +21,18 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     private const string SamplerPath = "/usr/bin/sample";
     private const int SampleSeconds = 5;
 
-    /// <summary>The recovery page for the opt-in audio check: a one-second 440 Hz tone 0.5 s after each load.</summary>
+    /// <summary>
+    /// The recovery page for the opt-in audio check. Chromium's autoplay policy keeps an AudioContext suspended until a user
+    /// gesture, so the page waits for play(), which the run's driver calls with a gesture through the debug port on each
+    /// load; play() starts a one-second 440 Hz tone 0.5 s later.
+    /// </summary>
     private const string RecoveryTonePage = "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Recovery fixture</button>"
-        + "<script>const c=new AudioContext({sampleRate:48000});c.resume().then(()=>{const o=c.createOscillator(),g=c.createGain();g.gain.value=0.25;o.frequency.value=440;"
-        + "o.connect(g).connect(c.destination);o.start(c.currentTime+0.5);o.stop(c.currentTime+1.5);});</script></body></html>";
+        + "<script>window.play=()=>{if(window.played)return 'already';window.played=true;const c=new AudioContext({sampleRate:48000});"
+        + "return c.resume().then(()=>{const o=c.createOscillator(),g=c.createGain();g.gain.value=0.25;o.frequency.value=440;"
+        + "o.connect(g).connect(c.destination);o.start(c.currentTime+0.5);o.stop(c.currentTime+1.5);return c.state;});};</script></body></html>";
+
+    /// <summary>The local debugging port the recovery-audio driver uses to call play() with a user gesture.</summary>
+    private const int RecoveryAudioDebugPort = 9224;
 
     private static readonly TimeSpan FixtureTimeout = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(10);
@@ -92,8 +100,9 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
 
     /// <summary>
     /// Records a tone, the scripted outage's silence, and a tone again after the restart reloads the page. It plays two
-    /// one-second 440 Hz tones on the default output, so it runs only when an audible run is approved. Check the MP4 with
-    /// ffmpeg: two tone segments with silence between them, and one continuous audio track.
+    /// one-second 440 Hz tones on the default output, so it runs only when an audible run is approved. A driver must call the
+    /// page's play() with a user gesture on each load (localhost port 9224). Check the MP4 with ffmpeg: two tone segments
+    /// with silence between them, and one continuous audio track.
     /// </summary>
     /// <returns>The fixture run.</returns>
     [Fact(Skip = "Audible: plays two one-second 440 Hz tones on the default output device; run only with Tim's approval.")]
@@ -252,7 +261,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         var desktop = MacDesktop.Create();
         Stage(services, "recovery run");
         long started = services.Clock.GetTimestamp();
-        int exit = desktop.Run(session, recording, 6, services.Clock, cache, 0, TimeSpan.FromSeconds(10));
+        int exit = desktop.Run(session, recording, 6, services.Clock, cache, tone ? RecoveryAudioDebugPort : 0, TimeSpan.FromSeconds(10));
         double seconds = services.Clock.GetElapsedTime(started).TotalSeconds;
         services.Console.WriteLine(desktop.LastFrameStatistics);
         services.Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Recovery run lasted {seconds:F2} s. Recording artifact: {recording}"));
