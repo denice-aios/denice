@@ -29,8 +29,10 @@ name: CI
 # the same script used locally. Every third-party action is pinned by immutable commit id (pin-actions-by-commit-id).
 
 on:
+  # Pull requests into every policy branch get CI (working: ordinary checks; fast/dev/main: their GPU stages). Pushes,
+  # and so releases, stay limited to dev and main until fast's internal channel exists (handoff/landing-plan/PLAN.md).
   pull_request:
-    branches: [dev, main]
+    branches: [working, fast, dev, main]
     types: [opened, synchronize, reopened, labeled]
   push:
     branches: [dev, main]
