@@ -2,8 +2,10 @@
 
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using Denice.Abstractions.Contracts;
 using Denice.CrossPlatform.Browser;
 using Denice.CrossPlatform.MacOS.Desktop;
@@ -30,6 +32,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     [InlineData("browser-audio")]
     [InlineData("compositor")]
     [InlineData("desktop")]
+    [InlineData("recovery")]
     public async Task NativeDesktopCompletesWithRenderedContent(string scenario)
     {
         ISystemServices services = SystemServicesBuilder.Real().Build();
@@ -179,7 +182,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
             return 0;
         }
 
-        if (args.Length != 2 || args[0] is not ("browser-audio" or "compositor" or "desktop"))
+        if (args.Length != 2 || args[0] is not ("browser-audio" or "compositor" or "desktop" or "recovery"))
         {
             return 2;
         }
@@ -192,6 +195,10 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         else if (string.Equals(args[0], "compositor", StringComparison.Ordinal))
         {
             AssertCompositor(services, args[1]);
+        }
+        else if (string.Equals(args[0], "recovery", StringComparison.Ordinal))
+        {
+            AssertRecoveryContinuity(services, args[1]);
         }
         else
         {
@@ -215,6 +222,39 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         Assert.True(services.FileSystem.GetFileReader().ReadAllBytes(recording).Length > 1024, "The finalized recording must contain encoded frame data.");
         services.Console.WriteLine(desktop.LastFrameStatistics);
         services.Console.WriteLine("Recording artifact: " + recording);
+    }
+
+    /// <summary>
+    /// Records through a scripted server outage and restart: the window, browser and recording must stay alive, the
+    /// recording must keep one continuous 60 FPS timeline, and the run must end normally after its duration.
+    /// </summary>
+    private static void AssertRecoveryContinuity(ISystemServices services, string directory)
+    {
+        string recording = Path.Combine(directory, "recovery-" + services.Random.NewGuid().ToString("N") + ".mp4");
+        string cache = Path.Combine(directory, "cache-" + services.Random.NewGuid().ToString("N"));
+        const string html = "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Recovery fixture</button></body></html>";
+        IApplicationSession session = ScriptedOutageSession.Create(new Uri("data:text/html," + Uri.EscapeDataString(html)), services.Clock, TimeSpan.FromSeconds(2.5), TimeSpan.FromSeconds(4));
+        var desktop = MacDesktop.Create();
+        Stage(services, "recovery run");
+        long started = services.Clock.GetTimestamp();
+        int exit = desktop.Run(session, recording, 6, services.Clock, cache, 0, TimeSpan.FromSeconds(10));
+        double seconds = services.Clock.GetElapsedTime(started).TotalSeconds;
+        services.Console.WriteLine(desktop.LastFrameStatistics);
+        services.Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Recovery run lasted {seconds:F2} s. Recording artifact: {recording}"));
+        Assert.Equal(0, exit);
+        Assert.Null(desktop.LastRecordingError);
+        Assert.Null(desktop.LastAudioError);
+        Assert.True(session.Stopped.IsCompleted, "The desktop must stop the session before it closes.");
+        Assert.True(services.FileSystem.GetFileReader().ReadAllBytes(recording).Length > 1024, "The finalized recording must contain encoded frame data.");
+
+        // The duration counts from the first application page, so the recording runs past the 2.5–4 s outage. The
+        // encoder holds the last image through every missed slot, so one continuous timeline has 60 encoded frames per
+        // second for at least those six seconds; window setup and browser shutdown lie outside the recording.
+        Assert.True(seconds >= 6, "The duration must count from the first application page, through the outage.");
+        Match encoded = Regex.Match(desktop.LastFrameStatistics, "encoded (?<frames>\\d+) frames including holds", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
+        Assert.True(encoded.Success, desktop.LastFrameStatistics);
+        long frames = long.Parse(encoded.Groups["frames"].Value, CultureInfo.InvariantCulture);
+        Assert.True(frames >= 6 * 60, string.Create(CultureInfo.InvariantCulture, $"Expected one continuous timeline of at least 360 frames through the outage; encoded {frames}."));
     }
 
     private static void AssertCompositor(ISystemServices services, string directory)
