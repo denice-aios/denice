@@ -16,7 +16,7 @@ namespace Denice.Analyzers;
 /// <para>
 /// THREE impure members are reused behind a single owner each (temp-and-random-primitives-reused-behind-owners,
 /// directoryseparator-owned-passthrough): <c>GetTempPath</c> is an ambient environment read owned by the
-/// <c>IEnvironment</c> adapter in Denice.Boundaries; <c>GetRandomFileName</c> is randomness owned by the
+/// <c>IEnvironment</c> adapter in Denice.CrossPlatform; <c>GetRandomFileName</c> is randomness owned by the
 /// <c>IRandomGenerator</c> adapter in Denice.CrossPlatform; the raw <c>DirectorySeparatorChar</c> FIELD is owned by
 /// the <c>IPlatformFileSystem</c> implementers — the per-OS <c>PosixFileSystem</c>/<c>WindowsFileSystem</c> and the
 /// in-memory fake — which pass it straight through. Each is legal ONLY in its one owner (the enclosing type implements
@@ -70,7 +70,7 @@ public sealed class PathPurityAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Every System.IO.Path member is a build error except a small allowlist vetted as pure: Combine, Join, GetFileName, GetDirectoryName, GetExtension, IsPathRooted, and the two-argument Path.GetFullPath(path, basePath). Three impure members are reused behind a single owner each — Path.GetTempPath in the IEnvironment adapter (Denice.Boundaries), Path.GetRandomFileName in the IRandomGenerator adapter (Denice.CrossPlatform), and the raw Path.DirectorySeparatorChar field in the IPlatformFileSystem implementers (the per-OS classes and the in-memory fake) — legal only in their owner and banned everywhere else. The single-argument Path.GetFullPath, GetTempFileName, Path.Exists, the alternate separator fields, and anything .NET adds later stay banned everywhere.");
+        description: "Every System.IO.Path member is a build error except a small allowlist vetted as pure: Combine, Join, GetFileName, GetDirectoryName, GetExtension, IsPathRooted, and the two-argument Path.GetFullPath(path, basePath). Three impure members are reused behind a single owner each — Path.GetTempPath in the IEnvironment adapter (Denice.CrossPlatform), Path.GetRandomFileName in the IRandomGenerator adapter (Denice.CrossPlatform), and the raw Path.DirectorySeparatorChar field in the IPlatformFileSystem implementers (the per-OS classes and the in-memory fake) — legal only in their owner and banned everywhere else. The single-argument Path.GetFullPath, GetTempFileName, Path.Exists, the alternate separator fields, and anything .NET adds later stay banned everywhere.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -143,7 +143,7 @@ public sealed class PathPurityAnalyzer : DiagnosticAnalyzer
         {
             if (string.Equals(member.Name, GetTempPathMethodName, StringComparison.Ordinal))
             {
-                return OwnedPrimitive.OwnedBy(ContractInterfaces.Environment, OwnedPrimitives.InBoundaries);
+                return OwnedPrimitive.OwnedBy(ContractInterfaces.Environment, OwnedPrimitives.InCrossPlatform);
             }
 
             if (string.Equals(member.Name, GetRandomFileNameMethodName, StringComparison.Ordinal))

@@ -21,7 +21,8 @@ internal sealed class CrossPlatformAdapters
         IFileWriter fileWriter,
         IDirectoryWriter directoryWriter,
         IRandomGenerator random,
-        IFileSystem fileSystem)
+        IFileSystem fileSystem,
+        IEnvironment environment)
     {
         FileReader = fileReader;
         Directories = directories;
@@ -29,6 +30,7 @@ internal sealed class CrossPlatformAdapters
         DirectoryWriter = directoryWriter;
         Random = random;
         FileSystem = fileSystem;
+        Environment = environment;
     }
 
     /// <summary>
@@ -63,6 +65,12 @@ internal sealed class CrossPlatformAdapters
     public IFileSystem FileSystem { get; }
 
     /// <summary>
+    /// Gets the owned OS-environment reader, the one seam through which <c>System.Environment</c> enters the codebase.
+    /// The Windows desktop consumes it for the approved GPU completion policy, so its owner lives here.
+    /// </summary>
+    public IEnvironment Environment { get; }
+
+    /// <summary>
     /// Creates the filesystem entry point and the GUID factory and returns them, with the four owned filesystem
     /// adapters, as one bundle. This is the single entry point the composition in <c>Denice.Boundaries</c> and each
     /// per-OS <c>PlatformServices.Create()</c> call reach, so the bundle is produced in exactly one place and reached
@@ -80,6 +88,7 @@ internal sealed class CrossPlatformAdapters
             fileSystem.GetFileWriter(),
             fileSystem.GetDirectoryWriter(),
             RandomGeneratorAdapter.Create(),
-            fileSystem);
+            fileSystem,
+            EnvironmentAdapter.Create());
     }
 }

@@ -6,15 +6,17 @@ using System.IO;
 using System.Runtime.InteropServices;
 using Denice.Abstractions.Contracts;
 
-namespace Denice.Boundaries;
+namespace Denice.CrossPlatform;
 
 /// <summary>
 /// The owned <see cref="IEnvironment"/> adapter. It is the single class that implements the OS-environment read
 /// seam, so it is the ONE place the raw <c>System.Environment</c> members are allowed (DN0012 exempts exactly this
-/// owner class in <c>Denice.Boundaries</c>); every other type reads the environment through
-/// <see cref="IEnvironment"/> pulled off <see cref="ISystemServices"/>. Nothing below Boundaries consumes the
-/// environment, so the owner stays here (owners-live-at-lowest-consumer). It is <c>internal</c> with a
-/// <c>private</c> constructor (Wall 1) and handed out only as its interface.
+/// owner class in <c>Denice.CrossPlatform</c>); every other type reads the environment through
+/// <see cref="IEnvironment"/> pulled off <see cref="ISystemServices"/> or handed to it by constructor. The Windows
+/// desktop consumes it (the approved GPU completion policy ends the process through <see cref="IEnvironment.FailFast"/>),
+/// so the owner lives in <c>Denice.CrossPlatform</c> beside the other platform-consumed adapters and is reached through
+/// <see cref="CrossPlatformAdapters"/> (owners-live-at-lowest-consumer). It is <c>internal</c> with a <c>private</c>
+/// constructor (Wall 1) and handed out only as its interface.
 /// </summary>
 internal sealed class EnvironmentAdapter : IEnvironment
 {
@@ -43,7 +45,7 @@ internal sealed class EnvironmentAdapter : IEnvironment
     public string GetTempDirectory() => Path.GetTempPath();
 
     /// <inheritdoc />
-    // The owned AppContext.BaseDirectory read (DN0011 assigns the primitive to the IEnvironment owner in Boundaries).
+    // The owned AppContext.BaseDirectory read (DN0011 assigns the primitive to the IEnvironment owner in CrossPlatform).
     // It mirrors the primitive faithfully — the value the runtime reports, trailing directory separator included — so
     // no policy is baked into the wrapper; a caller that needs the deployment path composes onto it.
     public string GetBaseDirectory() => AppContext.BaseDirectory;

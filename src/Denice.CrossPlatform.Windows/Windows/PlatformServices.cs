@@ -43,6 +43,7 @@ internal sealed class PlatformServices : IPlatformServices
     public static IPlatformServices Create()
     {
         PlatformFileSystemParts parts = PlatformFileSystemComposition.Create();
-        return new PlatformServices(WindowsFileSystem.Create(parts.Shared, parts.Factory), Windows.Desktop.WindowsDesktop.Create());
+        var termination = new Windows.Desktop.BrowserGpuCopyTermination(CrossPlatformAdapters.Create().Environment);
+        return new PlatformServices(WindowsFileSystem.Create(parts.Shared, parts.Factory), Windows.Desktop.WindowsDesktop.Create(termination));
     }
 }

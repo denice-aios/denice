@@ -82,9 +82,49 @@ public sealed class DesktopBehaviorTests
     public void RecordingIsRefusedBeforeAnyNativeDesktopStarts()
     {
         TimeProvider clock = SystemServicesBuilder.Real().Build().Clock;
-        IPlatformDesktop desktop = WindowsDesktop.Create();
+        IPlatformDesktop desktop = WindowsDesktop.Create(Termination());
         PlatformNotSupportedException refusal = Assert.Throws<PlatformNotSupportedException>(
             () => desktop.Run(FixedApplicationSession.Create(new Uri("http://127.0.0.1/")), "capture.mp4", 1, clock, "cache", 0, TimeSpan.FromSeconds(10)));
         Assert.Equal("Windows MP4 recording is not yet connected to the hardware compositor.", refusal.Message);
     }
+
+    [Fact]
+    public void AnUnsafeBrowserGpuCopyEndsTheProcessThroughTheOwnedEnvironment()
+    {
+        // The termination the Windows door hands the desktop calls IEnvironment.FailFast with the reason; the fake
+        // environment throws where the real one ends the process.
+        var termination = Termination();
+        FakeFailFastException ended = Assert.Throws<FakeFailFastException>(() => termination.Terminate("copy still pending"));
+        Assert.Equal("copy still pending", ended.Message);
+    }
+
+    [Fact]
+    public void TheTerminationRequiresAnEnvironment()
+    {
+        Assert.Throws<ArgumentNullException>(() => new BrowserGpuCopyTermination(null!));
+    }
+
+    [Theory]
+    [InlineData(0, 0, 0, (int)WindowsSharedFrame.CompletionStep.Done)]
+    [InlineData(0, 0, 11, (int)WindowsSharedFrame.CompletionStep.Done)]
+    [InlineData(1, 0, 0, (int)WindowsSharedFrame.CompletionStep.Wait)]
+    [InlineData(1, 0, 10, (int)WindowsSharedFrame.CompletionStep.Wait)]
+    [InlineData(1, 0, 11, (int)WindowsSharedFrame.CompletionStep.DeadlinePassed)]
+    [InlineData(unchecked((int)0x887A0005), 0, 0, (int)WindowsSharedFrame.CompletionStep.DeviceLost)]
+    [InlineData(unchecked((int)0x887A0007), 0, 0, (int)WindowsSharedFrame.CompletionStep.DeviceLost)]
+    [InlineData(1, unchecked((int)0x887A0006), 11, (int)WindowsSharedFrame.CompletionStep.DeviceLost)]
+    [InlineData(unchecked((int)0x80004005), unchecked((int)0x887A0020), 0, (int)WindowsSharedFrame.CompletionStep.DeviceLost)]
+    [InlineData(unchecked((int)0x80004005), unchecked((int)0x887A0001), 0, (int)WindowsSharedFrame.CompletionStep.DeviceLost)]
+    [InlineData(unchecked((int)0x80004005), 0, 0, (int)WindowsSharedFrame.CompletionStep.QueryFailed)]
+    [InlineData(unchecked((int)0x80070057), 0, 0, (int)WindowsSharedFrame.CompletionStep.QueryFailed)]
+    public void GpuCopyCompletionFollowsTheApprovedPolicy(int queryStatus, int removedReason, int elapsedSeconds, int expected)
+    {
+        // Deadline browser.gpuCopyTimeoutSeconds = 10 s: done returns, pending waits until the deadline then ends the process,
+        // a removed or reset device is an ordinary error, and an unexplained failure on a live device ends the process.
+        Assert.Equal((WindowsSharedFrame.CompletionStep)expected, WindowsSharedFrame.Classify(queryStatus, removedReason, TimeSpan.FromSeconds(elapsedSeconds), TimeSpan.FromSeconds(10)));
+    }
+
+    // The termination the Windows door builds, over a fake environment whose FailFast throws instead of ending the run.
+    private static BrowserGpuCopyTermination Termination() =>
+        new(FakeEnvironment.Create(SystemServicesBuilder.Real().Build().Environment.GetHomeDirectory()));
 }

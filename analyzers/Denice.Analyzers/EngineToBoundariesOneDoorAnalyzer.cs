@@ -33,12 +33,12 @@ public sealed class EngineToBoundariesOneDoorAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
-        title: "Engine may call Boundaries only through the three permitted adapter factories, and only from SystemServices.Create()",
+        title: "Engine may call Boundaries only through the two permitted adapter factories, and only from SystemServices.Create()",
         messageFormat: "Call from '{0}' into the Denice.Boundaries assembly is permitted only as " + BoundaryAdapterFactories.Description + ", called from " + CompositionPoint.ContainerFactoryDescription + ": {1}",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Denice.Engine reaches Denice.Boundaries through exactly one door: EnvironmentAdapter.Create(), ConsoleAdapter.Create(), or BuildInfoReader.Create(), called from Denice.Engine.SystemServices.Create() itself. Each identity is matched on assembly, namespace, type name, method name, and staticness together, and a return type grants nothing, so a fourth Boundaries factory is rejected until this rule names it. Any other Engine call into Boundaries, and any of the three made from another method, is a build error.");
+        description: "Denice.Engine reaches Denice.Boundaries through exactly one door: ConsoleAdapter.Create() or BuildInfoReader.Create(), called from Denice.Engine.SystemServices.Create() itself. Each identity is matched on assembly, namespace, type name, method name, and staticness together, and a return type grants nothing, so a third Boundaries factory is rejected until this rule names it. Any other Engine call into Boundaries, and any of the three made from another method, is a build error.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

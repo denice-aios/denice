@@ -14,6 +14,7 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
 {
     private readonly Lock _graphics = new();
     private readonly IPlatformBrowser _browser;
+    private readonly BrowserGpuCopyTermination _termination;
     private string? _audioError;
     private WindowsWindow? _window;
     private WindowsGpuContext? _context;
@@ -29,9 +30,10 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
     private long _frames;
     private bool _cleanupFailed;
 
-    private WindowsDesktop(IPlatformBrowser browser)
+    private WindowsDesktop(IPlatformBrowser browser, BrowserGpuCopyTermination termination)
     {
         _browser = browser;
+        _termination = termination;
     }
 
     /// <inheritdoc />
@@ -53,7 +55,6 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
             throw new PlatformNotSupportedException("Windows MP4 recording is not yet connected to the hardware compositor.");
         }
 
-        WindowsSharedFrame.EnsureCallbackSafety();
         LastRecordingError = null;
         Volatile.Write(ref _audioError, null);
         _frames = 0;
@@ -71,8 +72,8 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
             _window = WindowsWindow.Create(OrbScene.Width, OrbScene.Height);
             _context = WindowsGpuContext.Create();
             _context.AttachWindow(_window.Handle);
-            _view = WindowsSharedFrame.Create(_context.Device);
-            _popup = WindowsSharedFrame.Create(_context.Device);
+            _view = new WindowsSharedFrame(_context.Device, browserGpuCopyTimeout, _termination, clock);
+            _popup = new WindowsSharedFrame(_context.Device, browserGpuCopyTimeout, _termination, clock);
             _scene = OrbScene.Create(_context.Skia);
             _window.AttachBrowser(_browser);
             long origin = clock.GetTimestamp();
@@ -190,8 +191,9 @@ internal sealed class WindowsDesktop : IPlatformDesktop, IPlatformBrowserFrameSi
     }
 
     /// <summary>Creates the platform desktop with the shared browser lifecycle.</summary>
+    /// <param name="termination">Ends the process when a borrowed browser GPU frame cannot be completed safely.</param>
     /// <returns>The native desktop capability.</returns>
-    internal static IPlatformDesktop Create() => new WindowsDesktop(CrossPlatform.Browser.CefPlatformBrowser.Create());
+    internal static IPlatformDesktop Create(BrowserGpuCopyTermination termination) => new WindowsDesktop(CrossPlatform.Browser.CefPlatformBrowser.Create(), termination);
 
     private void RunFrames(WindowsWindow window, OrbScene scene, ApplicationPageFollower follower, long origin, double? durationSeconds, TimeProvider clock)
     {
