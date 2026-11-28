@@ -10,7 +10,7 @@ namespace Denice.Analyzers;
 /// Reports every call site of <c>IEnvironment.GetTempDirectory()</c> — the owned abstraction over
 /// <c>Path.GetTempPath()</c>, which Sonar's <c>S5443</c> cannot see through (ags5443-temp-root-back-door-rule). Sonar
 /// <c>S5443</c> fires only on the raw <c>Path.GetTempPath()</c>, and that raw read lives in exactly one place —
-/// <c>EnvironmentAdapter.GetTempDirectory</c>, where it is owned (DN0020) and its one Sonar hit is suppressed and
+/// <c>EnvironmentAdapter.GetTempDirectory</c> in <c>Denice.CrossPlatform</c>, where it is owned (DN0020) and its one Sonar hit is suppressed and
 /// approved (<c>s5443-suppression-approved</c>). Every CALLER of the <c>GetTempDirectory()</c> abstraction then receives
 /// the shared, publicly-writable temp root while Sonar sees nothing: that is the back door, and this rule closes it by
 /// flagging the callers so a use of the shared temp root must be justified with a suppression, exactly as Sonar would

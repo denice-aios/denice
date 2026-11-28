@@ -18,12 +18,47 @@
     <ProjectReference Include="../Denice.CrossPlatform/Denice.CrossPlatform.csproj" />
   </ItemGroup>
 
+  <!-- The OS-agnostic browser mixer core (approved shared mixer refactor, windows-linux-audio-proof.md): authored once under
+       Denice.CrossPlatform.MacOS/Browser and compile-linked here, like the POSIX source; macOS adds its own output. -->
+  <ItemGroup>
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/IMixerOutput.cs" Link="Browser/Shared/IMixerOutput.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/IMixerRender.cs" Link="Browser/Shared/IMixerRender.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/IRedirectedSource.cs" Link="Browser/Shared/IRedirectedSource.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/MixerClaim.cs" Link="Browser/Shared/MixerClaim.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/MixerCore.cs" Link="Browser/Shared/MixerCore.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/MixerOutputStart.cs" Link="Browser/Shared/MixerOutputStart.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/MixedAudioQueue.cs" Link="Browser/Shared/MixedAudioQueue.cs" />
+    <Compile Include="../Denice.CrossPlatform.MacOS/Browser/SpeechQueue.cs" Link="Browser/Shared/SpeechQueue.cs" />
+  </ItemGroup>
+
+  <!-- The compile-selected browser-audio redirection proof (DeniceAudioRedirectionProof, windows-linux-audio-proof.md);
+       normal builds compile none of Browser/Proof. The proof log and ring are shared with the Linux proof. -->
+  <PropertyGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true'">
+    <DefineConstants>$(DefineConstants);DENICE_AUDIO_REDIRECTION_PROOF</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' != 'true'">
+    <Compile Remove="Browser/Proof/**" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true'">
+    <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/AudioProofLog.cs" Link="Browser/Proof/Shared/AudioProofLog.cs" />
+    <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/RedirectedRing.cs" Link="Browser/Proof/Shared/RedirectedRing.cs" />
+    <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/PcmMath.cs" Link="Browser/Proof/Shared/PcmMath.cs" />
+    <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/SpeechBurstTracker.cs" Link="Browser/Proof/Shared/SpeechBurstTracker.cs" />
+    <Compile Include="../Denice.CrossPlatform.Linux/Browser/Proof/Shared/AlsaPacing.cs" Link="Browser/Proof/Shared/AlsaPacing.cs" />
+  </ItemGroup>
+
   <!-- PlatformServices.Create() is internal (platform-create-internal); Denice.Engine reaches this one door
        through the grant, and only from SystemServices.Create() (DN0029); the grant moved here from
        Denice.Boundaries with the container itself. Keyless in source; the signing target injects the public key
        on a signed build. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Denice.Engine" />
+    <InternalsVisibleTo Include="Denice.CrossPlatform.Tests" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <DeniceDesktopPlatform>win</DeniceDesktopPlatform>
+  </PropertyGroup>
+  <Import Project="../../eng/desktop-native.targets" />
 
 </Project>

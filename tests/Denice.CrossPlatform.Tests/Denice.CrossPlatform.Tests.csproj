@@ -10,6 +10,8 @@
     <DeniceIsTestProject>true</DeniceIsTestProject>
     <RootNamespace>Denice.CrossPlatform.Tests</RootNamespace>
     <AssemblyName>Denice.CrossPlatform.Tests</AssemblyName>
+    <!-- The browser-audio tests drive the mixer's render entry point with unmanaged Core Audio structures. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,5 +39,95 @@
 
   <!-- References the contract always and exactly one per-OS impl, selected by RuntimeIdentifier / build-host OS. -->
   <Import Project="../../src/Denice.CrossPlatform/PlatformImplementation.targets" />
+
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('osx')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+    <Compile Remove="RecordingSpecTests.MacOS.cs" />
+    <Compile Remove="DesktopExecutionTests.MacOS.cs" />
+    <Compile Remove="BrowserAudioTests.MacOS.cs" />
+    <Compile Remove="BrowserAudioMixerTests.MacOS.cs" />
+    <Compile Remove="MixerHarness.MacOS.cs" />
+    <Compile Remove="BrowserAudioFixture.MacOS.cs" />
+    <Compile Remove="StreamRateConverterTests.MacOS.cs" />
+  </ItemGroup>
+
+  <!-- Cocoa fixtures execute on a child process main thread within this existing test assembly. -->
+  <PropertyGroup Condition="$(DenicePlatformRid.StartsWith('osx')) or ('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+    <OutputType>Exe</OutputType>
+    <StartupObject>Denice.CrossPlatform.Tests.DesktopExecutionTests</StartupObject>
+    <!-- CEF derives its macOS helper path from the executable's enclosing application bundle. -->
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <OutputPath>bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/Denice.CrossPlatform.Tests.app/Contents/MacOS/</OutputPath>
+  </PropertyGroup>
+
+  <Target Name="WriteMacDesktopFixtureBundle" AfterTargets="Build" Condition="'$(StartupObject)' == 'Denice.CrossPlatform.Tests.DesktopExecutionTests'">
+    <WriteLinesToFile File="$(OutputPath)../Info.plist" Overwrite="true"
+      Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot;?&gt;&lt;plist version=&quot;1.0&quot;&gt;&lt;dict&gt;&lt;key&gt;CFBundleExecutable&lt;/key&gt;&lt;string&gt;Denice.CrossPlatform.Tests&lt;/string&gt;&lt;key&gt;CFBundleIdentifier&lt;/key&gt;&lt;string&gt;ai.denice.desktop-tests&lt;/string&gt;&lt;key&gt;CFBundlePackageType&lt;/key&gt;&lt;string&gt;APPL&lt;/string&gt;&lt;/dict&gt;&lt;/plist&gt;" />
+  </Target>
+
+  <!-- The Windows and Linux browser-audio redirection proofs (DeniceAudioRedirectionProof, windows-linux-audio-proof.md):
+       the shared case driver and each OS's fixture compile only in that build, against its proof library. The pure
+       analysis (ramp, lead-in, score, offline verdict) and its tests compile in every build. -->
+  <!-- The proof driver and report use the Windows and Linux proof code (AudioProofLog), so a macOS build leaves them out
+       even when the proof property is on; the pure analysis files stay on every leg. -->
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' != 'true' or $(DenicePlatformRid.StartsWith('osx')) or ('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+    <Compile Remove="AudioProof/AudioProofDriver.cs;AudioProof/AudioProofReport.cs;AudioProof/DevToolsSession.cs;AudioProof/LoopbackPageServer.cs" />
+    <Compile Remove="AudioRedirectionProofTests.*.cs" />
+  </ItemGroup>
+
+  <!-- The proofs' pure product pieces (queue, PCM arithmetic, speech burst timing) live in the Linux proof library, linked
+       into the Windows one. Where the referenced implementation does not contain them (every normal build, and macOS),
+       the tests compile the same source themselves, so these pure tests run on every leg, this Mac included. -->
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' != 'true' or $(DenicePlatformRid.StartsWith('osx')) or ('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+    <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/RedirectedRing.cs" Link="AudioProof/Pure/RedirectedRing.cs" />
+    <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/PcmMath.cs" Link="AudioProof/Pure/PcmMath.cs" />
+    <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/SpeechBurstTracker.cs" Link="AudioProof/Pure/SpeechBurstTracker.cs" />
+    <Compile Include="../../src/Denice.CrossPlatform.Linux/Browser/Proof/Shared/AlsaPacing.cs" Link="AudioProof/Pure/AlsaPacing.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true' and !$(DenicePlatformRid.StartsWith('linux'))">
+    <Compile Remove="AudioRedirectionProofTests.Linux.cs" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(DeniceAudioRedirectionProof)' == 'true' and !$(DenicePlatformRid.StartsWith('win'))">
+    <Compile Remove="AudioRedirectionProofTests.Windows.cs" />
+  </ItemGroup>
+
+  <!-- Windows desktop behavior that needs no graphics adapter runs on every Windows test leg. -->
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('win')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Windows')))">
+    <Compile Remove="DesktopBehaviorTests.Windows.cs" />
+  </ItemGroup>
+
+  <!-- Native GPU proof is explicitly selected on a Windows graphics runner, not ordinary unit-test hosts. -->
+  <ItemGroup Condition="'$(DeniceDesktopGpuTests)' != 'true' or !$(DenicePlatformRid.StartsWith('win'))">
+    <Compile Remove="DesktopGpuTests.Windows.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(DeniceDesktopGpuTests)' != 'true' or !$(DenicePlatformRid.StartsWith('linux'))">
+    <Compile Remove="DesktopGpuTests.Linux.cs" />
+  </ItemGroup>
+
+  <!-- Hardware fixtures collect coverage with the SAME .runsettings as every other run, sealed into the payload. -->
+  <ItemGroup Condition="'$(DeniceDesktopGpuTests)' == 'true'">
+    <None Include="$(RunSettingsFilePath)" Link="coverage.runsettings" CopyToOutputDirectory="Never" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- The Linux CEF fixture executes on a child process main thread within this test assembly, as the Cocoa fixtures do;
+       ordinary Linux test builds stay a library. -->
+  <PropertyGroup Condition="'$(DeniceDesktopGpuTests)' == 'true' and $(DenicePlatformRid.StartsWith('linux'))">
+    <OutputType>Exe</OutputType>
+    <StartupObject>Denice.CrossPlatform.Tests.DesktopGpuTests</StartupObject>
+  </PropertyGroup>
+
+  <!-- The bounded child-process fixture runner serves the macOS fixtures and the Linux GPU fixture only. -->
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('osx')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX'))) and !('$(DeniceDesktopGpuTests)' == 'true' and $(DenicePlatformRid.StartsWith('linux')))">
+    <Compile Remove="FixtureChildProcess.cs" />
+  </ItemGroup>
+
+  <!-- Linux unit tests that need no graphics device run on every Linux test leg (RID first, build-host OS fallback). -->
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('linux')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Linux')))">
+    <Compile Remove="DmaBufAttributesTests.Linux.cs" />
+    <Compile Remove="CudaAbiTests.Linux.cs" />
+    <Compile Remove="DesktopBehaviorTests.Linux.cs" />
+    <Compile Remove="GlesBindingTests.Linux.cs" />
+  </ItemGroup>
 
 </Project>

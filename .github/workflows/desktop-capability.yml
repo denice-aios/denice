@@ -1,0 +1,582 @@
+name: Desktop capability experiment
+
+# No push/PR trigger. GPU provisioning and execution are separate approvals.
+on:
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        required: true
+      windows_check:
+        type: string
+        required: true
+      linux_check:
+        type: string
+        required: true
+      build_run_id:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Execution target
+        type: choice
+        options: [hosted-windows, hosted-linux, hosted-both, windows-sandbox]
+        required: true
+      windows_check:
+        description: Windows check; isolated fixtures do not bypass product CEF/audio gates
+        type: choice
+        options: [application, hardware-fixtures]
+        default: application
+        required: true
+      linux_check:
+        description: Linux check; fixtures retain encoded MP4 for separate decoding; product audio remains gated
+        type: choice
+        options: [application, hardware-fixtures]
+        default: application
+        required: true
+      build_run_id:
+        description: CI run for source/artifacts; application requires success, isolated fixtures require source/target jobs
+        type: string
+        default: '0'
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: denice-desktop-capability
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      build_sha: ${{ steps.check.outputs.build_sha }}
+      # The git tree of build_sha: hardware coverage is bound to it (eng/coverage-gate.sh accepts it only for the same tree).
+      build_tree: ${{ steps.check.outputs.build_tree }}
+    steps:
+      - id: check
+        name: Validate configured runners and selected build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET: ${{ inputs.target }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          APPROVED_PR: ${{ vars.DENICE_GPU_PROOF_PR }}
+          APPROVED_HEAD: ${{ vars.DENICE_GPU_PROOF_HEAD }}
+          APPROVED_RUN: ${{ vars.DENICE_GPU_PROOF_BUILD_RUN }}
+          INVOKING_EVENT: ${{ github.event_name }}
+          INVOKING_ACTION: ${{ github.event.action }}
+          INVOKING_LABEL: ${{ github.event.label.name }}
+          INVOKING_PR: ${{ github.event.pull_request.number }}
+          INVOKING_HEAD: ${{ github.event.pull_request.head.sha }}
+          INVOKING_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          LINUX_CHECK: ${{ inputs.linux_check }}
+          WINDOWS_CHECK: ${{ inputs.windows_check }}
+          GPU_ENABLED: ${{ vars.DENICE_GPU_PROOF_ENABLED }}
+          WINDOWS_RUNNER: ${{ vars.DENICE_WINDOWS_GPU_RUNNER }}
+          LINUX_RUNNER: ${{ vars.DENICE_LINUX_GPU_RUNNER }}
+          SANDBOX_ENABLED: ${{ vars.DENICE_SANDBOX_PROOF_ENABLED }}
+        run: |
+          set -euo pipefail
+          [[ "$BUILD_RUN_ID" =~ ^[0-9]+$ ]] || { echo 'build_run_id must be an integer.' >&2; exit 2; }
+          if [[ "$INVOKING_EVENT" == pull_request ]]; then
+            [[ "$TARGET" == hosted-windows || "$TARGET" == hosted-linux || "$TARGET" == hosted-both ]] || { echo 'Invalid approved proof target.' >&2; exit 2; }
+            [[ "$INVOKING_ACTION" == labeled && "$INVOKING_LABEL" == denice-first-gpu-proof && "$INVOKING_PR" == "$APPROVED_PR" && "$INVOKING_HEAD" == "$APPROVED_HEAD" && "$INVOKING_REPOSITORY" == "$REPOSITORY" && "$BUILD_RUN_ID" == "$APPROVED_RUN" ]] || { echo 'First-proof approval identity mismatch.' >&2; exit 2; }
+          fi
+          if [[ "$TARGET" == windows-sandbox ]]; then
+            [[ "$SANDBOX_ENABLED" == true && ( "$BUILD_RUN_ID" != 0 || "$WINDOWS_CHECK" == hardware-fixtures ) ]] || { echo 'Sandbox must be configured and supplied an actual CI build.' >&2; exit 2; }
+          else
+            [[ "$GPU_ENABLED" == true ]] || { echo 'GPU execution has not been enabled after runner provisioning approval.' >&2; exit 2; }
+            case "$TARGET" in
+              hosted-windows) [[ -n "$WINDOWS_RUNNER" ]] ;;
+              hosted-linux) [[ -n "$LINUX_RUNNER" ]] ;;
+              hosted-both) [[ -n "$WINDOWS_RUNNER" && -n "$LINUX_RUNNER" ]] ;;
+              *) exit 2 ;;
+            esac
+          fi
+          if [[ "$LINUX_CHECK" == hardware-fixtures && ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) && "$BUILD_RUN_ID" == 0 ]]; then
+            echo 'Linux fixtures require a successful CI run with its linux-media-linux-x64 artifact.' >&2; exit 2
+          fi
+          if [[ "$BUILD_RUN_ID" != 0 ]]; then
+            gh api "repos/$REPOSITORY/actions/runs/$BUILD_RUN_ID" > build-run.json
+            jq -e '.path == ".github/workflows/ci.yml"' build-run.json >/dev/null
+            application_selected=false
+            [[ "$TARGET" != hosted-linux && "$WINDOWS_CHECK" == application ]] && application_selected=true
+            [[ ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) && "$LINUX_CHECK" == application ]] && application_selected=true
+            if [[ "$application_selected" == true ]]; then
+              jq -e '.conclusion == "success"' build-run.json >/dev/null
+            fi
+            if [[ ( "$TARGET" != hosted-linux && "$WINDOWS_CHECK" == hardware-fixtures ) || ( ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) && "$LINUX_CHECK" == hardware-fixtures ) ]]; then
+              gh api --paginate --slurp "repos/$REPOSITORY/actions/runs/$BUILD_RUN_ID/jobs?per_page=100" > source-jobs.json
+              jq -e '[.[].jobs[] | select(.name == "version")] | length == 1 and .[0].conclusion == "success"' source-jobs.json >/dev/null
+              if [[ ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) && "$LINUX_CHECK" == hardware-fixtures ]]; then
+                jq -e '[.[].jobs[] | select(.name == "linux-media (linux-x64, ubuntu-24.04)")] | length == 1 and .[0].conclusion == "success"' source-jobs.json >/dev/null
+              fi
+              printf 'Isolated fixtures use validated source/target artifacts; ordinary CI conclusion is %s and remains a separate release gate.\n' "$(jq -r '.conclusion // .status' build-run.json)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            build_sha=$(jq -r .head_sha build-run.json)
+            if [[ "$LINUX_CHECK" == hardware-fixtures || "$WINDOWS_CHECK" == hardware-fixtures ]]; then
+              gh run download "$BUILD_RUN_ID" --repo "$REPOSITORY" --name ci-source --dir media-source
+              jq -e --arg repository "$REPOSITORY" --arg run "$BUILD_RUN_ID" --arg head "$build_sha" '.repository == $repository and .run_id == $run and .head_sha == $head and (.checkout_sha | test("^[0-9a-f]{40}$")) and (.base_sha | test("^[0-9a-f]{40}$"))' media-source/source.json >/dev/null
+              if [[ "$INVOKING_EVENT" == pull_request ]]; then
+                jq -e --arg pr "$APPROVED_PR" --arg head "$APPROVED_HEAD" '.pr == $pr and .head_sha == $head' media-source/source.json >/dev/null
+                jq -e --argjson pr "$APPROVED_PR" '.event == "pull_request" and any(.pull_requests[]; .number == $pr)' build-run.json >/dev/null
+              fi
+              build_sha=$(jq -r .checkout_sha media-source/source.json)
+              gh api "repos/$REPOSITORY/git/commits/$build_sha" > checkout-commit.json
+              jq -e --arg sha "$build_sha" '.sha == $sha' checkout-commit.json >/dev/null
+              echo "build_tree=$(jq -r .tree.sha checkout-commit.json)" >> "$GITHUB_OUTPUT"
+              if [[ "$build_sha" != "$(jq -r .head_sha media-source/source.json)" ]]; then
+                jq -e --arg head "$(jq -r .head_sha media-source/source.json)" --arg base "$(jq -r .base_sha media-source/source.json)" '([.parents[].sha] | index($head) != null and index($base) != null)' checkout-commit.json >/dev/null
+              fi
+            fi
+            echo "build_sha=$build_sha" >> "$GITHUB_OUTPUT"
+            if [[ "$LINUX_CHECK" == hardware-fixtures && ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) ]]; then
+              gh api --paginate --slurp "repos/$REPOSITORY/actions/runs/$BUILD_RUN_ID/artifacts?per_page=100" > media-artifacts.json
+              jq -e --arg sha "$(jq -r .head_sha build-run.json)" '[.[].artifacts[] | select(.name == "linux-media-linux-x64")] | length == 1 and .[0].expired == false and .[0].workflow_run.head_sha == $sha' media-artifacts.json >/dev/null || { echo 'Expected one unexpired linux-media-linux-x64 artifact from the selected source SHA.' >&2; exit 2; }
+              gh run download "$BUILD_RUN_ID" --repo "$REPOSITORY" --name linux-media-source-linux-x64 --dir native-media-source
+              cmp media-source/source.json native-media-source/source.json
+            fi
+            printf 'Selected source/artifacts come from CI run %s, commit %s.\n' "$BUILD_RUN_ID" "$(jq -r .head_sha build-run.json)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$WINDOWS_CHECK" == hardware-fixtures && "$TARGET" != hosted-linux ]]; then
+            echo 'Windows fixtures cover isolated win-x64 graphics and decoded hardware video. Product CEF callback safety/audio and ARM64 execution remain separate.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "$LINUX_CHECK" == hardware-fixtures && ( "$TARGET" == hosted-linux || "$TARGET" == hosted-both ) ]]; then
+            echo 'Linux fixtures cover isolated linux-x64 graphics, destination creation and encoder finalization with retained MP4. Independent decoded colors/timestamps remain PENDING; CEF import/audio and ARM64 execution remain separate.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo 'Application mode retains all runtime gates.' >> "$GITHUB_STEP_SUMMARY"
+
+  windows-fixtures:
+    needs: prepare
+    if: inputs.windows_check == 'hardware-fixtures' && inputs.target != 'hosted-linux'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.build_sha || github.sha }}
+          persist-credentials: false
+      - name: Build offline win-x64 fixture payload on ordinary runner
+        run: |
+          New-Item -ItemType Directory -Force fixture-payload, evidence | Out-Null
+          Copy-Item global.json fixture-payload/global.json
+          $sdk = Join-Path $PWD 'fixture-payload/dotnet'
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP/dotnet-install.ps1"
+          & powershell -NoProfile -ExecutionPolicy Bypass -File "$env:RUNNER_TEMP/dotnet-install.ps1" -JSonFile "$PWD/global.json" -Architecture x64 -InstallDir $sdk 2>&1 | Tee-Object evidence/windows-fixture-sdk-install.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned SDK installation failed.' }
+          $installed = & "$sdk/dotnet.exe" --version
+          if ($LASTEXITCODE -ne 0 -or $installed -ne (Get-Content global.json -Raw | ConvertFrom-Json).sdk.version) { throw 'Staged SDK does not match global.json.' }
+          & "$sdk/dotnet.exe" publish tests/Denice.CrossPlatform.Tests/Denice.CrossPlatform.Tests.csproj -c Release -r win-x64 --self-contained true -p:DeniceDesktopGpuTests=true -m:1 -o fixture-payload/tests -bl:evidence/windows-fixture-build.binlog
+          if ($LASTEXITCODE -ne 0) { throw 'Windows fixture publication failed.' }
+          @("fixture_commit=$(git rev-parse HEAD)", 'rid=win-x64', "sdk=$(& "$sdk/dotnet.exe" --version)", 'check=isolated-hardware-fixtures') | Set-Content fixture-payload/fixture-source.txt
+          Copy-Item fixture-payload/fixture-source.txt evidence/
+      - name: Verify fixture native payload architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash eng/check-desktop-native.sh fixture-payload/tests win-x64 | tee evidence/windows-fixture-native-payload.txt
+      - name: Discover hardware fixtures from the published offline payload
+        run: |
+          $assembly = Join-Path $PWD 'fixture-payload/tests/Denice.CrossPlatform.Tests.dll'
+          $sdk = Join-Path $PWD 'fixture-payload/dotnet/dotnet.exe'
+          & $sdk vstest $assembly --ListTests --TestCaseFilter:Category=GpuHardware --TestAdapterPath:fixture-payload/tests 2>&1 | Tee-Object evidence/windows-fixture-discovery.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Published fixture discovery failed.' }
+          . ./eng/windows/read-sandbox-result.ps1
+          Assert-DeniceHardwareFixtureDiscovery -ReportPath evidence/windows-fixture-discovery.txt
+      - name: Seal the constructed offline fixture payload
+        run: |
+          Get-ChildItem fixture-payload -Recurse -Force -File | ForEach-Object {
+            $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
+            [PSCustomObject]@{ path = $_.FullName.Substring((Join-Path $PWD 'fixture-payload').Length + 1); sha256 = $hash.Hash }
+          } | ConvertTo-Json -Depth 3 | Set-Content -Encoding UTF8 fixture-payload/payload-sha256.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-hardware-fixtures
+          path: fixture-payload/
+          if-no-files-found: error
+          compression-level: 0
+          include-hidden-files: true
+          retention-days: 1
+      - name: Preserve fixture build diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-hardware-fixture-build
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 7
+
+  windows:
+    needs: [prepare, windows-fixtures]
+    if: always() && needs.prepare.result == 'success' && (needs.windows-fixtures.result == 'success' || needs.windows-fixtures.result == 'skipped') && (inputs.target == 'hosted-windows' || inputs.target == 'hosted-both' || inputs.target == 'windows-sandbox')
+    runs-on: ${{ inputs.target == 'windows-sandbox' && fromJSON('["self-hosted","Windows","X64","denice-sandbox"]') || vars.DENICE_WINDOWS_GPU_RUNNER }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate controller completion handling without launching a guest
+        run: ./eng/windows/test-sandbox-result.ps1
+      # GPU and self-hosted images can resolve `bash` to the WSL launcher in System32 (run 45887460560). Later `shell: bash`
+      # steps need Git for Windows Bash and its `file`, found from the same git.exe that checkout used.
+      - name: Put Git for Windows Bash ahead of the WSL launcher
+        run: |
+          $git = (Get-Command git.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+          $root = Split-Path -Parent $git
+          while ($root -and -not (Test-Path -LiteralPath (Join-Path $root 'bin\bash.exe') -PathType Leaf)) { $root = Split-Path -Parent $root }
+          if (-not $root) { throw "No Git for Windows bin\bash.exe above $git." }
+          $bin = Join-Path $root 'bin'
+          $usr = Join-Path $root 'usr\bin'
+          if (-not (Test-Path -LiteralPath (Join-Path $usr 'file.exe') -PathType Leaf)) { throw "Git for Windows has no $usr\file.exe." }
+          $bin, $usr | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Record application and test source identities
+        shell: bash
+        env:
+          APPLICATION_SHA: ${{ needs.prepare.outputs.build_sha }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf 'repository=%s\nbuild_run_id=%s\napplication_commit=%s\ntest_checkout_commit=%s\nworkflow_commit=%s\n' "$GITHUB_REPOSITORY" "$BUILD_RUN_ID" "${APPLICATION_SHA:-NOT_EXECUTED}" "$(git rev-parse HEAD)" "$WORKFLOW_SHA" > evidence/source-identities.txt
+      # Approved one-run diagnostic (repository variable DENICE_WINDOWS_DRIVER_MODEL_DIAGNOSTIC=true): ask the NVIDIA driver
+      # for WDDM without a reboot and record the current and pending driver model. No driver installation, no reboot; the
+      # existing fixtures run only if the adapter is then a WDDM hardware adapter.
+      - name: Request WDDM and record the NVIDIA driver model (diagnostic)
+        id: drivermodel
+        if: vars.DENICE_WINDOWS_DRIVER_MODEL_DIAGNOSTIC == 'true' && inputs.target == 'hosted-windows'
+        run: |
+          New-Item -ItemType Directory -Force -Path evidence | Out-Null
+          $query = @('--query-gpu=index,name,pci.bus_id,driver_version,driver_model.current,driver_model.pending', '--format=csv')
+          & nvidia-smi.exe @query 2>&1 | Out-File -Encoding UTF8 evidence/driver-model-before.txt
+          & nvidia-smi.exe -g 0 -dm 0 2>&1 | Out-File -Encoding UTF8 evidence/driver-model-request.txt
+          "exit_code=$LASTEXITCODE" | Out-File -Encoding UTF8 -Append evidence/driver-model-request.txt
+          & nvidia-smi.exe @query 2>&1 | Out-File -Encoding UTF8 evidence/driver-model-after.txt
+          $current = (& nvidia-smi.exe -i 0 --query-gpu=driver_model.current --format=csv,noheader 2>$null | Out-String).Trim()
+          Get-CimInstance Win32_VideoController | Select-Object Name, PNPDeviceID, DriverVersion, Status, VideoProcessor | ConvertTo-Json | Out-File -Encoding UTF8 evidence/video-controllers-after.json
+          $hardware = ($current -eq 'WDDM')
+          "current_driver_model=$current" | Out-File -Encoding UTF8 -Append evidence/driver-model-after.txt
+          "hardware=$($hardware.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          if (-not $hardware) { "Current driver model is '$current', not WDDM: the existing fixtures are skipped." | Out-File -Encoding UTF8 evidence/fixtures-skipped.txt }
+      - name: Inspect Windows graphics and desktop session
+        run: ./eng/windows/inspect-gpu-host.ps1 -OutputDirectory evidence
+      - if: inputs.build_run_id != '0' && inputs.windows_check == 'application'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-windows
+          path: downloaded
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+      - name: Extract exact CI install layout
+        if: inputs.build_run_id != '0' && inputs.windows_check == 'application'
+        run: |
+          $archives = @(Get-ChildItem downloaded -Filter 'denice-v*-win-x64.zip')
+          if ($archives.Count -ne 1) { throw 'Expected one win-x64 install archive.' }
+          $archive = $archives[0]
+          $expected = (Get-Content -LiteralPath ($archive.FullName + '.sha256') -Raw).Trim().Split(' ')[0]
+          if ((Get-FileHash -Algorithm SHA256 $archive.FullName).Hash -ne $expected) { throw 'Archive SHA256 mismatch.' }
+          (Get-FileHash -Algorithm SHA256 $archive.FullName | Select-Object Algorithm, Hash, Path) | ConvertTo-Json | Set-Content -Encoding UTF8 evidence/archive-hash.json
+          Expand-Archive -LiteralPath $archive.FullName -DestinationPath payload
+      - name: Obtain the exact release verifier used to build the application
+        if: inputs.build_run_id != '0' && inputs.windows_check == 'application'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.build_sha }}
+          path: native-check-source
+          persist-credentials: false
+      - name: Verify native dependencies using the release layout checker
+        if: inputs.build_run_id != '0' && inputs.windows_check == 'application'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          versions=(payload/versions/*)
+          [[ ${#versions[@]} -eq 1 && -d ${versions[0]} ]] || { echo 'Expected one version directory.' >&2; exit 2; }
+          bash native-check-source/eng/check-desktop-native.sh "${versions[0]}" win-x64 | tee evidence/native-payload.txt
+      - name: Download offline Windows hardware fixtures
+        if: inputs.windows_check == 'hardware-fixtures'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: windows-hardware-fixtures
+          path: payload
+      - name: Verify exact fixture payload and source identity
+        if: inputs.windows_check == 'hardware-fixtures'
+        env:
+          EXPECTED_FIXTURE_COMMIT: ${{ needs.prepare.outputs.build_sha || github.sha }}
+        run: |
+          . ./eng/windows/read-sandbox-result.ps1
+          Assert-DeniceFixturePayload -PayloadDirectory payload -ExpectedCommit $env:EXPECTED_FIXTURE_COMMIT
+          Copy-Item payload/fixture-source.txt, payload/payload-sha256.json evidence/
+      - name: Execute isolated Windows hardware fixtures
+        id: fixtures
+        if: inputs.windows_check == 'hardware-fixtures' && inputs.target != 'windows-sandbox' && (vars.DENICE_WINDOWS_DRIVER_MODEL_DIAGNOSTIC != 'true' || steps.drivermodel.outputs.hardware == 'true')
+        run: ./eng/windows/run-desktop-smoke.ps1 -PayloadDirectory payload -OutputDirectory evidence -HardwareFixtures -TimeoutSeconds 300
+      # win-x64 hardware coverage, bound to the exact source tree, published only after every required fixture passed.
+      - name: Bind win-x64 hardware coverage to the exact source tree
+        id: bind
+        if: steps.fixtures.outcome == 'success' && needs.prepare.outputs.build_tree != ''
+        shell: bash
+        env:
+          TARGET: win-x64
+          MP4: hardware.mp4
+          TREE: ${{ needs.prepare.outputs.build_tree }}
+          CHECKOUT: ${{ needs.prepare.outputs.build_sha }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: bash eng/bind-hardware-coverage.sh "$TARGET" "$MP4"
+      - name: Publish tree-bound win-x64 hardware coverage
+        if: steps.bind.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hardware-coverage-win-x64-${{ needs.prepare.outputs.build_tree }}
+          path: hardware-coverage/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Execute application directly on hosted GPU runner
+        if: inputs.build_run_id != '0' && inputs.windows_check == 'application' && inputs.target != 'windows-sandbox'
+        run: ./eng/windows/run-desktop-smoke.ps1 -PayloadDirectory payload -OutputDirectory evidence
+      - name: Execute application in fresh Windows Sandbox
+        id: sandbox
+        if: inputs.target == 'windows-sandbox'
+        env:
+          WINDOWS_CHECK: ${{ inputs.windows_check }}
+        run: |
+          $work = Join-Path $env:LOCALAPPDATA ('Denice\SandboxRuns\' + $env:GITHUB_RUN_ID + '-' + $env:GITHUB_RUN_ATTEMPT)
+          "work=$work" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          ./eng/windows/run-sandbox-smoke.ps1 -PayloadDirectory payload -WorkDirectory $work -HardwareFixtures:($env:WINDOWS_CHECK -eq 'hardware-fixtures') -TimeoutSeconds 600
+      - name: Preserve evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-${{ inputs.target }}-windows-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve Sandbox outputs outside the disposable checkout
+        if: always() && steps.sandbox.outputs.work != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sandbox-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ steps.sandbox.outputs.work }}/output/
+            ${{ steps.sandbox.outputs.work }}/controller.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  linux-fixtures:
+    needs: prepare
+    if: inputs.linux_check == 'hardware-fixtures' && (inputs.target == 'hosted-linux' || inputs.target == 'hosted-both')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.build_sha }}
+          persist-credentials: false
+      - name: Reuse native media from the selected successful CI revision
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: linux-media-linux-x64
+          path: native-media
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+      - name: Build offline linux-x64 fixtures with the ordinary CI media closure
+        env:
+          EXPECTED_FIXTURE_COMMIT: ${{ needs.prepare.outputs.build_sha }}
+          MEDIA_BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          set -euo pipefail
+          mkdir -p fixture-payload evidence
+          [[ $(git rev-parse HEAD) == "$EXPECTED_FIXTURE_COMMIT" ]]
+          bash eng/build-linux-media.sh --rid linux-x64 --output "$PWD/native-media" --verify-output 2>&1 | tee evidence/linux-media-verification.txt
+          cp global.json fixture-payload/global.json
+          curl --fail --location https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile global.json --architecture x64 --install-dir "$PWD/fixture-payload/dotnet"
+          fixture-payload/dotnet/dotnet publish tests/Denice.CrossPlatform.Tests/Denice.CrossPlatform.Tests.csproj -c Release -r linux-x64 --self-contained true -p:DeniceDesktopGpuTests=true -p:DeniceLinuxMediaRoot="$PWD/native-media" -m:1 -o fixture-payload/tests -bl:evidence/linux-fixture-build.binlog 2>&1 | tee evidence/linux-fixture-build.txt
+          printf 'fixture_commit=%s\nrid=linux-x64\nsdk=%s\nmedia_build_run_id=%s\nmedia_commit=%s\ncheck=isolated-hardware-fixtures\n' "$EXPECTED_FIXTURE_COMMIT" "$(fixture-payload/dotnet/dotnet --version)" "$MEDIA_BUILD_RUN_ID" "$EXPECTED_FIXTURE_COMMIT" > fixture-payload/fixture-source.txt
+          cp fixture-payload/fixture-source.txt evidence/
+          bash eng/check-desktop-native.sh fixture-payload/tests linux-x64 2>&1 | tee evidence/linux-fixture-native-payload.txt
+      - name: Discover and seal the exact offline fixture payload
+        env:
+          EXPECTED_FIXTURE_COMMIT: ${{ needs.prepare.outputs.build_sha }}
+        run: |
+          set -euo pipefail
+          fixture-payload/dotnet/dotnet vstest fixture-payload/tests/Denice.CrossPlatform.Tests.dll --ListTests --TestCaseFilter:Category=GpuHardware --TestAdapterPath:fixture-payload/tests 2>&1 | tee evidence/linux-fixture-discovery.txt
+          bash eng/run-linux-desktop-smoke.sh --fixture-discovery evidence/linux-fixture-discovery.txt
+          bash eng/run-linux-desktop-smoke.sh --fixture-seal fixture-payload
+          bash eng/run-linux-desktop-smoke.sh --fixture-verify fixture-payload "$EXPECTED_FIXTURE_COMMIT"
+          tar -czf linux-hardware-fixtures.tar.gz -C fixture-payload .
+          sha256sum linux-hardware-fixtures.tar.gz > linux-hardware-fixtures.tar.gz.sha256
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-hardware-fixtures
+          path: linux-hardware-fixtures.tar.gz*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Preserve Linux fixture build diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-hardware-fixture-build
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 7
+
+  linux:
+    needs: [prepare, windows, linux-fixtures]
+    if: always() && needs.prepare.result == 'success' && (needs.linux-fixtures.result == 'success' || needs.linux-fixtures.result == 'skipped') && (inputs.target == 'hosted-linux' || inputs.target == 'hosted-both')
+    runs-on: ${{ vars.DENICE_LINUX_GPU_RUNNER }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Record application and test source identities
+        shell: bash
+        env:
+          APPLICATION_SHA: ${{ needs.prepare.outputs.build_sha }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          printf 'repository=%s\nbuild_run_id=%s\napplication_commit=%s\ntest_checkout_commit=%s\nworkflow_commit=%s\n' "$GITHUB_REPOSITORY" "$BUILD_RUN_ID" "${APPLICATION_SHA:-NOT_EXECUTED}" "$(git rev-parse HEAD)" "$WORKFLOW_SHA" > evidence/source-identities.txt
+      - name: Inspect Linux graphics devices and display session
+        run: bash eng/inspect-linux-gpu.sh evidence
+      - if: inputs.build_run_id != '0' && inputs.linux_check == 'application'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: signed-linux
+          path: downloaded
+          run-id: ${{ inputs.build_run_id }}
+          github-token: ${{ github.token }}
+      - name: Extract exact CI install layout
+        if: inputs.build_run_id != '0' && inputs.linux_check == 'application'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          archives=(downloaded/denice-v*-linux-x64.zip)
+          [[ ${#archives[@]} -eq 1 ]] || { echo 'Expected one linux-x64 install archive.' >&2; exit 2; }
+          archive=${archives[0]}
+          (cd downloaded && sha256sum -c "$(basename "$archive").sha256")
+          sha256sum "$archive" > evidence/archive-hash.txt
+          mkdir payload
+          unzip -q "$archive" -d payload
+      - name: Obtain the exact release verifier used to build the application
+        if: inputs.build_run_id != '0' && inputs.linux_check == 'application'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.build_sha }}
+          path: native-check-source
+          persist-credentials: false
+      - name: Verify native dependencies using the release layout checker
+        if: inputs.build_run_id != '0' && inputs.linux_check == 'application'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          versions=(payload/versions/*)
+          [[ ${#versions[@]} -eq 1 && -d ${versions[0]} ]] || { echo 'Expected one version directory.' >&2; exit 2; }
+          bash native-check-source/eng/check-desktop-native.sh "${versions[0]}" linux-x64 | tee evidence/native-payload.txt
+      - name: Execute application on hosted Linux GPU runner
+        if: inputs.build_run_id != '0' && inputs.linux_check == 'application'
+        run: bash eng/run-linux-desktop-smoke.sh payload evidence
+      - name: Download offline Linux hardware fixtures
+        if: inputs.linux_check == 'hardware-fixtures'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: linux-hardware-fixtures
+          path: downloaded-fixtures
+      - name: Verify and extract exact fixture payload
+        if: inputs.linux_check == 'hardware-fixtures'
+        env:
+          EXPECTED_FIXTURE_COMMIT: ${{ needs.prepare.outputs.build_sha }}
+        run: |
+          set -euo pipefail
+          (cd downloaded-fixtures && sha256sum -c linux-hardware-fixtures.tar.gz.sha256)
+          cp downloaded-fixtures/linux-hardware-fixtures.tar.gz.sha256 evidence/
+          bash eng/run-linux-desktop-smoke.sh --fixture-extract downloaded-fixtures/linux-hardware-fixtures.tar.gz payload
+          bash eng/run-linux-desktop-smoke.sh --fixture-verify payload "$EXPECTED_FIXTURE_COMMIT"
+      - name: Install the Ubuntu 24.04 system libraries CEF and the desktop need, then require every CEF dependency to resolve
+        run: |
+          set -euo pipefail
+          # Test-host provisioning only (the product does not install system packages). Source: DT_NEEDED of the pinned
+          # cef.runtime.linux-x64 156.0.15 ELFs plus libSkiaSharp.so, and libraries libcef.so opens at runtime
+          # (handoff/linux-cef-deps/AUDIT.md).
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends \
+            libasound2t64 libatk1.0-0t64 libatk-bridge2.0-0t64 libatspi2.0-0t64 libcairo2 libcups2t64 libdbus-1-3 \
+            libdrm2 libexpat1 libfontconfig1 libgbm1 libglib2.0-0t64 libnspr4 libnss3 libpango-1.0-0 libudev1 \
+            libx11-6 libx11-xcb1 libxcb1 libxcb-dri3-0 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 \
+            libxkbcommon0 libxrandr2 libxshmfence1 libegl1 libgles2 libgl1 libpulse0 libpci3 libicu74 \
+            2>&1 | tee evidence/apt-desktop-prerequisites.txt
+          shopt -s nullglob globstar
+          : > evidence/cef-ldd.txt
+          for elf in payload/**/CEF/libcef.so payload/**/CEF/chrome-sandbox payload/**/CEF/libvk_swiftshader.so payload/**/libSkiaSharp.so; do
+            { echo "== $elf"; ldd "$elf"; } >> evidence/cef-ldd.txt 2>&1
+          done
+          grep -q '^== ' evidence/cef-ldd.txt || { echo '::error::No CEF ELF found under payload/'; exit 2; }
+          for lib in libEGL.so.1 libGLESv2.so.2 libGL.so.1 libpulse.so.0 libX11-xcb.so.1 libxcb-dri3.so.0 libXcursor.so.1; do
+            # ldconfig -p lists each library as "<TAB>name (abi) => path": match the first field exactly (run 46181338298
+            # reported installed libraries as missing because a space-anchored grep never matched the tab).
+            ldconfig -p | awk -v lib="$lib" '$1 == lib { found = 1 } END { exit !found }' || echo "runtime-missing $lib" >> evidence/cef-ldd.txt
+          done
+          if grep -E 'not found|runtime-missing' evidence/cef-ldd.txt; then echo '::error::CEF system libraries still missing (above)'; exit 1; fi
+          echo 'missing=none' >> evidence/cef-ldd.txt
+      - name: Start ephemeral Xorg on the NVIDIA GPU (probes first; installs nothing; never Xvfb)
+        if: inputs.linux_check == 'hardware-fixtures'
+        run: |
+          bash eng/start-linux-gpu-xorg.sh start evidence :99
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Execute isolated linux-x64 hardware fixtures
+        id: fixtures
+        if: inputs.linux_check == 'hardware-fixtures'
+        run: bash eng/run-linux-desktop-smoke.sh payload evidence --hardware-fixtures
+      - name: Require the NVIDIA hardware renderer in fixture evidence
+        id: renderer
+        if: inputs.linux_check == 'hardware-fixtures'
+        run: |
+          grep -E 'GL renderer: .*(NVIDIA|Tesla)' evidence/hardware.trx
+      # linux-x64 hardware coverage, bound to the exact source tree, published only after every required fixture passed on
+      # the NVIDIA renderer.
+      - name: Bind linux-x64 hardware coverage to the exact source tree
+        id: bind
+        if: steps.fixtures.outcome == 'success' && steps.renderer.outcome == 'success' && needs.prepare.outputs.build_tree != ''
+        shell: bash
+        env:
+          TARGET: linux-x64
+          MP4: linux-hardware.mp4
+          TREE: ${{ needs.prepare.outputs.build_tree }}
+          CHECKOUT: ${{ needs.prepare.outputs.build_sha }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        run: bash eng/bind-hardware-coverage.sh "$TARGET" "$MP4"
+      - name: Publish tree-bound linux-x64 hardware coverage
+        if: steps.bind.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: hardware-coverage-linux-x64-${{ needs.prepare.outputs.build_tree }}
+          path: hardware-coverage/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Stop ephemeral Xorg
+        if: always() && inputs.linux_check == 'hardware-fixtures'
+        run: bash eng/start-linux-gpu-xorg.sh stop evidence
+      - name: Preserve evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: desktop-${{ inputs.target }}-linux-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: warn
+          retention-days: 7

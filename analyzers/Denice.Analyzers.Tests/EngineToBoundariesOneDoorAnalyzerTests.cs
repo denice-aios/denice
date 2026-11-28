@@ -12,9 +12,10 @@ public class EngineToBoundariesOneDoorAnalyzerTests
 {
     private const string RuleId = EngineToBoundariesOneDoorAnalyzer.DiagnosticId;
 
-    // The fake Denice.Boundaries assembly: the three permitted adapter factories, a FOURTH factory that returns a
-    // service interface but is not one of the three named identities, a non-factory member on one of the three, and a
-    // same-named decoy in another namespace of the same assembly.
+    // The fake Denice.Boundaries assembly: the two permitted adapter factories, the former EnvironmentAdapter door (its
+    // owner moved to Denice.CrossPlatform), a factory that returns a service interface but is not one of the two named
+    // identities, a non-factory member on one of the two, and a same-named decoy in another namespace of the same
+    // assembly.
     private const string BoundariesSource = """
         namespace Denice.Abstractions.Contracts
         {
@@ -31,13 +32,13 @@ public class EngineToBoundariesOneDoorAnalyzerTests
             public static class EnvironmentAdapter
             {
                 public static IEnvironment Create() => null!;
-
-                public static object Probe() => null!;
             }
 
             public static class ConsoleAdapter
             {
                 public static IConsole Create() => null!;
+
+                public static object Probe() => null!;
             }
 
             public static class BuildInfoReader
@@ -53,14 +54,14 @@ public class EngineToBoundariesOneDoorAnalyzerTests
 
         namespace DecoyNamespace
         {
-            public static class EnvironmentAdapter
+            public static class ConsoleAdapter
             {
                 public static object Create() => null!;
             }
         }
         """;
 
-    // A second fake assembly that is NOT Denice.Boundaries but squats its namespace and one of its three type
+    // A second fake assembly that is NOT Denice.Boundaries but squats its namespace and one of its two type
     // names. The permitted identity is matched on the declaring assembly too, so this cannot pose as a door.
     private const string DecoyAssemblySource = """
         namespace Denice.Boundaries
@@ -79,10 +80,10 @@ public class EngineToBoundariesOneDoorAnalyzerTests
 
     private const string ContainerFactoryMethod = "Create";
 
-    // One of the three permitted identities, written as a fixture calls it. Held once because the compliant theory,
+    // One of the two permitted identities, written as a fixture calls it. Held once because the compliant theory,
     // the wrong-site test, the wrong-namespace caller test and the wrong-namespace factory test all make this same
     // call and must make the same one.
-    private const string PermittedFactoryCall = "EnvironmentAdapter.Create()";
+    private const string PermittedFactoryCall = "ConsoleAdapter.Create()";
 
     // An assembly that is NOT Denice.Engine. The container declaration below is compiled into it unchanged, so
     // the only thing that differs from the real composition point is the declaring assembly.
@@ -96,7 +97,6 @@ public class EngineToBoundariesOneDoorAnalyzerTests
     public static TheoryData<string> PermittedFactoryCalls => new()
     {
         PermittedFactoryCall,
-        "ConsoleAdapter.Create()",
         "BuildInfoReader.Create()",
     };
 
@@ -104,7 +104,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
     [MemberData(nameof(PermittedFactoryCalls))]
     public async Task PermittedFactory_FromContainerFactory_IsNotReported(string call)
     {
-        // The compliant fixture: each of the three permitted identities, called from the one permitted site.
+        // The compliant fixture: each of the two permitted identities, called from the one permitted site.
         Assert.Empty(await RunAsync(SharedAnalyzerSources.InsideContainerFactory(BoundariesUsing, call)));
     }
 
@@ -186,10 +186,25 @@ public class EngineToBoundariesOneDoorAnalyzerTests
     }
 
     [Fact]
+    public async Task EnvironmentAdapterFactory_FromContainerFactory_IsReported()
+    {
+        // The environment owner moved to Denice.CrossPlatform (approved Windows composition amendment): a Boundaries
+        // EnvironmentAdapter.Create() is no longer one of the named doors, so Engine calling it is rejected.
+        ImmutableArray<Diagnostic> diagnostics = await RunAsync(
+            SharedAnalyzerSources.InsideContainerFactory(BoundariesUsing, "EnvironmentAdapter.Create()"));
+
+        Assert.Single(diagnostics);
+        diagnostics.AssertNamesExactly(
+            RuleId,
+            SharedAnalyzerSources.CalledMemberAccusation("EnvironmentAdapter.Create"),
+            failedSiteFragment: null);
+    }
+
+    [Fact]
     public async Task FifthFactoryReturningAServiceInterface_FromContainerFactory_IsReported()
     {
         // A return type grants nothing: GuidFactoryAdapter.Create() hands back a service interface and is still not
-        // one of the three named identities, so it is rejected until the rule is changed to name it.
+        // one of the two named identities, so it is rejected until the rule is changed to name it.
         ImmutableArray<Diagnostic> diagnostics = await RunAsync(
             SharedAnalyzerSources.InsideContainerFactory(BoundariesUsing, "GuidFactoryAdapter.Create()"));
 
@@ -203,14 +218,14 @@ public class EngineToBoundariesOneDoorAnalyzerTests
     [Fact]
     public async Task NonFactoryMemberOnAPermittedType_FromContainerFactory_IsReported()
     {
-        // The identity is the static Create METHOD, not the type: another member on EnvironmentAdapter is not a door.
+        // The identity is the static Create METHOD, not the type: another member on ConsoleAdapter is not a door.
         ImmutableArray<Diagnostic> diagnostics = await RunAsync(
-            SharedAnalyzerSources.InsideContainerFactory(BoundariesUsing, "EnvironmentAdapter.Probe()"));
+            SharedAnalyzerSources.InsideContainerFactory(BoundariesUsing, "ConsoleAdapter.Probe()"));
 
         Assert.Single(diagnostics);
         diagnostics.AssertNamesExactly(
             RuleId,
-            SharedAnalyzerSources.CalledMemberAccusation("EnvironmentAdapter.Probe"),
+            SharedAnalyzerSources.CalledMemberAccusation("ConsoleAdapter.Probe"),
             failedSiteFragment: null);
     }
 
@@ -225,7 +240,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
         Assert.Single(diagnostics);
         diagnostics.AssertNamesExactly(
             RuleId,
-            SharedAnalyzerSources.CalledMemberAccusation("EnvironmentAdapter.Create"),
+            SharedAnalyzerSources.CalledMemberAccusation("ConsoleAdapter.Create"),
             failedSiteFragment: null);
     }
 
@@ -259,7 +274,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
             {
                 public object Fifth() => GuidFactoryAdapter.Create();
 
-                public object NonFactory() => EnvironmentAdapter.Probe();
+                public object NonFactory() => ConsoleAdapter.Probe();
 
                 public object Permitted() => ConsoleAdapter.Create();
             }

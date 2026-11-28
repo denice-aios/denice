@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The OS-uniform boundary layer: the EnvironmentAdapter/ConsoleAdapter owners and the IBuildInfo owner (boundaries-assembly). It references Denice.Abstractions and nothing else. The concrete
+  <!-- The OS-uniform boundary layer: the ConsoleAdapter owner and the IBuildInfo owner (boundaries-assembly). It references Denice.Abstractions and nothing else. The concrete
        ISystemServices container and the one SystemServices.Create() composition factory now live in
        Denice.Engine, which is why this project no longer selects a per-OS implementation: the three adapters here
        reach neither Denice.CrossPlatform nor any per-OS assembly. The file-op adapters and GuidFactory live in

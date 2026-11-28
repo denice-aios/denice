@@ -1,0 +1,21 @@
+name: Install the pinned .NET SDK
+description: Installs the .NET SDK pinned in global.json with Microsoft's official install script and puts it on PATH.
+runs:
+  using: composite
+  steps:
+    - name: Install pinned .NET SDK (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP/dotnet-install.ps1"
+        & "$env:RUNNER_TEMP/dotnet-install.ps1" -JSonFile "$env:GITHUB_WORKSPACE/global.json" -InstallDir "$env:RUNNER_TEMP/dotnet"
+        "$env:RUNNER_TEMP/dotnet" | Out-File -FilePath $env:GITHUB_PATH -Append
+        & "$env:RUNNER_TEMP/dotnet/dotnet" --version
+    - name: Install pinned .NET SDK (macOS and Linux)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+        bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
+        echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
+        "$RUNNER_TEMP/dotnet/dotnet" --version

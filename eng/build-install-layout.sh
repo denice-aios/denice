@@ -64,13 +64,30 @@ VERSION_DIR="$OUT/versions/$VERSION"
 ENTRY="$VERSION_DIR/denice-v$VERSION-$RID$EXE"
 mkdir -p "$VERSION_DIR"
 
+# The existing version tree carries the selected stock Linux media runtime. This is
+# a cached build dependency; ordinary managed builds do not rebuild the native SDK.
+native_publish_args=()
+case "$RID" in
+  linux-*)
+    native_media_root="${DENICE_LINUX_MEDIA_ROOT:-$REPO_ROOT/eng/obj/native-media/$RID}"
+    if [ -f "$native_media_root/build-manifest.json" ]; then
+      bash "$REPO_ROOT/eng/build-linux-media.sh" --rid "$RID" --output "$native_media_root" --verify-output
+    else
+      bash "$REPO_ROOT/eng/build-linux-media.sh" --rid "$RID" --output "$native_media_root"
+    fi
+    native_publish_args+=("-p:DeniceLinuxMediaRoot=$native_media_root")
+    ;;
+esac
+
 # 1. Denice Runtime: self-contained .NET, no apphost (Denice.Runtime.csproj removes it and fails if it remains).
 #    -m:1: a self-contained RID publish builds some projects twice into the same output, and parallel nodes race on
 #    deps.json ("GenerateDepsFile ... used by another process"); the same workaround as eng/check-single-platform-lib.sh
 #    (agent-guard issue #56).
 # shellcheck disable=SC2086
 "$DOTNET" publish "$REPO_ROOT/src/Denice.Runtime/Denice.Runtime.csproj" -c Release -r "$RID" --self-contained -m:1 \
-  -o "$VERSION_DIR" $VERSION_ARGS ${DENICE_DOTNET_ARGS:-}
+  -o "$VERSION_DIR" ${native_publish_args[@]+"${native_publish_args[@]}"} $VERSION_ARGS ${DENICE_DOTNET_ARGS:-}
+
+bash "$REPO_ROOT/eng/check-desktop-native.sh" "$VERSION_DIR" "$RID"
 
 # 2. The versioned entry: the build itself writes the versioned file name (tested 15 November 2026; one program per
 #    invocation, version passed in before the build).

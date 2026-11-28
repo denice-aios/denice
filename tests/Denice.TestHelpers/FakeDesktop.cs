@@ -1,0 +1,38 @@
+// Copyright (c) Denice.ai. All rights reserved.
+
+using System;
+using Denice.Abstractions.Contracts;
+
+namespace Denice.TestHelpers;
+
+/// <summary>Returns a selected desktop outcome without opening a native window.</summary>
+public sealed class FakeDesktop : IPlatformDesktop
+{
+    private readonly int exit;
+
+    private FakeDesktop(int exit, string? recordingError, string? audioError)
+    {
+        this.exit = exit;
+        LastRecordingError = recordingError;
+        LastAudioError = audioError;
+    }
+
+    /// <inheritdoc />
+    public string? LastRecordingError { get; }
+
+    /// <inheritdoc />
+    public string? LastAudioError { get; }
+
+    /// <inheritdoc />
+    public string LastFrameStatistics => "desktop test completed";
+
+    /// <summary>Creates a desktop result for command-level tests.</summary>
+    /// <param name="exit">The result returned by the desktop loop.</param>
+    /// <param name="recordingError">The optional recording failure after startup.</param>
+    /// <param name="audioError">The optional browser audio failure of the run.</param>
+    /// <returns>The fake desktop capability.</returns>
+    public static IPlatformDesktop Create(int exit, string? recordingError, string? audioError = null) => new FakeDesktop(exit, recordingError, audioError);
+
+    /// <inheritdoc />
+    public int Run(IApplicationSession application, string? recordingPath, double? durationSeconds, TimeProvider clock, string browserCachePath, int browserDebugPort, TimeSpan browserGpuCopyTimeout) => exit;
+}

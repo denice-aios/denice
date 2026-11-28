@@ -87,7 +87,7 @@ public class TempRootBackDoorAnalyzerTests
         }
         """;
 
-    // The raw Path.GetTempPath() — owned and pinned to EnvironmentAdapter by DN0020, out of scope for AGS5443.
+    // The raw Path.GetTempPath() — owned and pinned to the CrossPlatform EnvironmentAdapter by DN0020, out of scope for AGS5443.
     private const string RawGetTempPathSource = """
         namespace App
         {

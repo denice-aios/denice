@@ -126,8 +126,17 @@ public class PathPurityAnalyzerTests
     public async Task GetTempPath_InEnvironmentOwner_IsExempt()
     {
         // Path.GetTempPath is reused behind IEnvironment: legal inside the IEnvironment implementer in
-        // Denice.Boundaries.
-        Assert.Empty(await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(GetTempPathOwnerSource, "Denice.Boundaries"));
+        // Denice.CrossPlatform, where the environment owner lives (approved Windows composition amendment).
+        Assert.Empty(await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(GetTempPathOwnerSource, "Denice.CrossPlatform"));
+    }
+
+    [Fact]
+    public async Task GetTempPath_InTheFormerBoundariesOwnerAssembly_IsReported()
+    {
+        // After the owner moved, an IEnvironment implementer left in Denice.Boundaries no longer owns the temp root.
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<PathPurityAnalyzer>(GetTempPathOwnerSource, "Denice.Boundaries"));
+        Assert.Equal("DN0020", diagnostic.Id);
     }
 
     [Fact]

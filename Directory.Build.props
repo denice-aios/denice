@@ -30,6 +30,11 @@
          (not here) because `$(DeniceIsAnalyzerProject)` is set in that project's body, which MSBuild evaluates
          after this props import — so a condition here would not yet see it. -->
     <RunSettingsFilePath>$(MSBuildThisFileDirectory).runsettings</RunSettingsFilePath>
+    <!-- Per-target coverage (Tim, 2026-11-28: 75% independently per OS and CPU, no cross-architecture pooling). When the
+         environment names the target (DENICE_COVERAGE_TARGET=<rid>, set by each CI test step), every test project writes
+         its results to TestResults/<rid>/<project>/ at the repo root, so eng/coverage-gate.sh can tell the targets apart
+         and never merges one target's reports into another's. An explicit results directory still wins. -->
+    <VSTestResultsDirectory Condition="'$(VSTestResultsDirectory)' == '' and '$(DENICE_COVERAGE_TARGET)' != ''">$(MSBuildThisFileDirectory)TestResults/$(DENICE_COVERAGE_TARGET)/$(MSBuildProjectName)</VSTestResultsDirectory>
   </PropertyGroup>
 
   <PropertyGroup Label="Warnings and static analysis">

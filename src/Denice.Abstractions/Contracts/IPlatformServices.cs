@@ -14,4 +14,7 @@ public interface IPlatformServices
     /// Gets the platform's file-system capability.
     /// </summary>
     IPlatformFileSystem FileSystem { get; }
+
+    /// <summary>Gets the native desktop capability.</summary>
+    IPlatformDesktop Desktop { get; }
 }

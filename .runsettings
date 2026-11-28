@@ -19,6 +19,9 @@
           <Exclude>[Denice.Analyzers]*,[*.Tests]*</Exclude>
           <SkipAutoProps>true</SkipAutoProps>
           <UseSourceLink>false</UseSourceLink>
+          <!-- The sealed hardware-fixture payload carries PDBs but no sources; without this coverlet skips every module there
+               ("pdb without local source files"). Where sources exist (every ordinary run) it changes nothing. -->
+          <ExcludeAssembliesWithoutSources>None</ExcludeAssembliesWithoutSources>
         </Configuration>
       </DataCollector>
     </DataCollectors>

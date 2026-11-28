@@ -130,7 +130,84 @@ internal sealed class Program
         root.Subcommands.Add(BuildVersionCommand(services));
         root.Subcommands.Add(BuildSettingsCommand(services));
         root.Subcommands.Add(BuildUpdateCommand(services));
+        root.Subcommands.Add(BuildDesktopCommand(services));
         return root;
+    }
+
+    /// <summary>
+    /// Runs the desktop on the session, then stops the session on every path and waits up to ten seconds for its
+    /// server to be released; a teardown failure or timeout is reported and makes the exit nonzero.
+    /// </summary>
+    private static int RunDesktop(ISystemServices services, IApplicationSession application, SettingsFile settings, string? recordingPath, double? seconds)
+    {
+        int result = 1;
+        try
+        {
+            result = services.Platform.Desktop.Run(application, recordingPath, seconds, services.Clock, settings.ReadBrowserCachePath(), settings.ReadBrowserDebugPort(), settings.ReadBrowserGpuCopyTimeout());
+        }
+        finally
+        {
+            application.RequestStop();
+            Task stopped = application.Stopped;
+            if (Task.WhenAny(stopped, Task.Delay(TimeSpan.FromSeconds(10), services.Clock)).GetAwaiter().GetResult() != stopped)
+            {
+                services.Console.ErrorWriteLine("DENICE could not stop its server within ten seconds.");
+                result = result == 0 ? 1 : result;
+            }
+            else if (stopped.Exception is { } failure)
+            {
+                services.Console.ErrorWriteLine($"DENICE could not stop its server: {failure.InnerException?.Message}");
+                result = result == 0 ? 1 : result;
+            }
+        }
+
+        return result;
+    }
+
+    private static Command BuildDesktopCommand(ISystemServices services)
+    {
+        var command = new Command("gui", "Open the DENICE desktop.");
+        var record = new Option<string?>("--record") { Description = "Record the complete window to a new MP4 file." };
+        var duration = new Option<double?>("--duration") { Description = "Close after this many seconds and finalize recording." };
+        command.Options.Add(record);
+        command.Options.Add(duration);
+        command.SetAction(parse =>
+        {
+            double? seconds = parse.GetValue(duration);
+            if (seconds.HasValue && (!double.IsFinite(seconds.Value) || seconds.Value <= 0))
+            {
+                services.Console.ErrorWriteLine("--duration must be a positive finite number of seconds.");
+                return 1;
+            }
+
+            try
+            {
+                var settings = new SettingsFile(services);
+                IApplicationSession application = ApplicationSupervisor.Create(services.Clock, address => services.Console.WriteLine($"DENICE interface: {address}"));
+                using var release = application as IDisposable;
+                int result = RunDesktop(services, application, settings, parse.GetValue(record), seconds);
+                services.Console.WriteLine(services.Platform.Desktop.LastFrameStatistics);
+                if (services.Platform.Desktop.LastRecordingError is { } recordingError)
+                {
+                    services.Console.ErrorWriteLine($"DENICE recording failed: {recordingError}");
+                    result = result == 0 ? 1 : result;
+                }
+
+                if (services.Platform.Desktop.LastAudioError is { } audioError)
+                {
+                    services.Console.ErrorWriteLine($"DENICE audio failed: {audioError}");
+                    result = result == 0 ? 1 : result;
+                }
+
+                return result;
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                services.Console.ErrorWriteLine($"DENICE could not start: {exception.Message}");
+                return 1;
+            }
+        });
+        return command;
     }
 
     /// <summary>

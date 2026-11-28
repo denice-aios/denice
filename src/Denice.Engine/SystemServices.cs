@@ -18,11 +18,12 @@ namespace Denice.Engine;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The container and its factory live in <c>Denice.Engine</c>; the three adapters it assembles —
-/// <c>EnvironmentAdapter</c>, <c>ConsoleAdapter</c>, and <c>BuildInfoReader</c> —
-/// stay in <c>Denice.Boundaries</c>, which grants its internals to this assembly alone.
+/// The container and its factory live in <c>Denice.Engine</c>; the two adapters it assembles from
+/// <c>Denice.Boundaries</c> — <c>ConsoleAdapter</c> and <c>BuildInfoReader</c> — stay there, which grants its internals to
+/// this assembly alone; the environment adapter comes with the other platform-consumed adapters from
+/// <c>CrossPlatformAdapters</c> (owners-live-at-lowest-consumer: the Windows desktop consumes it).
 /// <see cref="Create"/> is therefore the one method in Engine that may reach into <c>Denice.Boundaries</c>
-/// (DN0040, and only through those three factory identities), into the core <c>Denice.CrossPlatform</c> assembly
+/// (DN0040, and only through those two factory identities), into the core <c>Denice.CrossPlatform</c> assembly
 /// (DN0023), and into a per-OS implementation assembly (DN0029); it is also the only Engine internal the CLI and the
 /// test <c>SystemServicesBuilder</c> may reach through the grants this assembly declares to them (DN0041).
 /// </para>
@@ -98,7 +99,7 @@ internal sealed class SystemServices : ISystemServices
         CrossPlatformAdapters adapters = CrossPlatformAdapters.Create();
         IPlatformServices platform = global::Denice.CrossPlatform.PlatformServices.Create();
 
-        IEnvironment environment = EnvironmentAdapter.Create();
+        IEnvironment environment = adapters.Environment;
         IConsole console = ConsoleAdapter.Create();
         IBuildInfo buildInfo = BuildInfoReader.Create();
 

@@ -1,7 +1,7 @@
 name: CI
 
-# The full pipeline: the quality gate (build + test all six RIDs' code, run the four test legs, one gate job
-# PRs must pass) PLUS, on a push to dev/main only, signing and a release.
+# The full pipeline: the quality gate (build + test all six RIDs' code, run a test leg per RID, gate coverage per RID,
+# one gate job PRs must pass) PLUS, on a push to dev/main only, signing and a release.
 #
 # Version id: one leading `version` job computes it once (compute-version-once) and passes it to every OS job
 # and the release job as -p:Denice* args / outputs, so all jobs stamp the identical id. dev => -pre-release,
@@ -29,10 +29,16 @@ name: CI
 # the same script used locally. Every third-party action is pinned by immutable commit id (pin-actions-by-commit-id).
 
 on:
+  # Pull requests into every policy branch get CI (working: ordinary checks; fast/dev/main: their GPU stages). Pushes,
+  # and so releases, stay limited to dev and main until fast's internal channel exists (handoff/landing-plan/PLAN.md);
+  # working pushes run CI but never release.
   pull_request:
-    branches: [dev, main]
+    branches: [working, fast, dev, main]
+    types: [opened, synchronize, reopened, labeled]
+  # working pushes build and upload the normal artifacts with releases suppressed (ship=false below);
+  # dev publishes pre-releases and main public releases.
   push:
-    branches: [dev, main]
+    branches: [working, dev, main]
 
 permissions:
   contents: read
@@ -40,8 +46,8 @@ permissions:
 # One run at a time per branch for pushes, queued (never cancelled), so releases publish in order; a newer push to a
 # PR cancels that PR's older run.
 concurrency:
-  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.action == 'labeled' && 'gpu-proof-' || '' }}${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'labeled' }}
 
 # Which keys sign each OS (docs/signing-switchover.md). Each is a repository variable (Settings > Secrets and variables >
 # Actions > Variables); unset means `test`, the self-signed CI certificates. Moving to the real keys is a change of
@@ -54,6 +60,7 @@ env:
 
 jobs:
   version:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     outputs:
       day: ${{ steps.id.outputs.day }}
@@ -69,16 +76,44 @@ jobs:
       # 'true' when this push changed something Denice ships (anything but Markdown and docs/); only then is a release
       # published and proven.
       ship: ${{ steps.ship.outputs.ship }}
+      # The staged-branch stage this run evaluates per-target coverage at (eng/coverage-gate.sh --stage).
+      stage: ${{ steps.stage.outputs.stage }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+      - id: stage
+        # Staged branch GPU policy (Tim): working = default merges (pull requests), no GPU; fast = internal releases,
+        # Linux GPU; dev = beta, Windows GPU; main = public, all GPU. Which GPU each stage runs lives in eng/coverage-gate.sh;
+        # this only names the stage. (No `fast` branch or trigger exists yet; a push to it would be the fast stage.)
+        # A pull request is judged at the stage it promotes into (its base branch), so a promotion PR into fast, dev or
+        # main is never green on working's rules; ordinary PRs into working are the working stage.
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          case "$EVENT:$REF:$BASE" in
+            pull_request:*:working) stage=working ;;
+            pull_request:*:fast) stage=fast ;;
+            pull_request:*:dev) stage=dev ;;
+            pull_request:*:main) stage=main ;;
+            push:refs/heads/working:*) stage=working ;;
+            push:refs/heads/fast:*) stage=fast ;;
+            push:refs/heads/dev:*) stage=dev ;;
+            push:refs/heads/main:*) stage=main ;;
+            *) echo "::error::no coverage stage for event '$EVENT' on '$REF'."; exit 1 ;;
+          esac
+          echo "stage=$stage" >> "$GITHUB_OUTPUT"
+          echo "coverage stage: $stage"
       - id: ship
         env:
           BEFORE: ${{ github.event.before }}
         run: |
           ship=true
-          if [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+          # working is the default branch for quick merges: its pushes build and upload artifacts but never release.
+          if [ "${{ github.ref }}" = refs/heads/working ]; then ship=false; fi
+          if [ "$ship" = true ] && [ "${{ github.event_name }}" = push ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             changed="$(git diff --name-only "$BEFORE" "$GITHUB_SHA")"
             if [ -n "$changed" ] && ! grep -vE '(^docs/|\.md$)' <<< "$changed" > /dev/null; then ship=false; fi
           fi
@@ -87,7 +122,24 @@ jobs:
       - id: id
         # pull_request => channel 'pr-<number>' (pr-build-version-channel: a PR build is not a pre-release, and the
         # number makes each build's evidence identifiable). push to dev => 'dev'; push to main => '' (no prerelease).
-        run: eng/compute-build-id.sh "${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref == 'refs/heads/dev' && 'dev' || '') }}"
+        run: eng/compute-build-id.sh "${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref == 'refs/heads/dev' && 'dev' || (github.ref == 'refs/heads/working' && 'working' || '')) }}"
+      - name: Capture immutable ordinary CI checkout provenance
+        env:
+          SOURCE_REPOSITORY: ${{ github.repository }}
+          SOURCE_RUN_ID: ${{ github.run_id }}
+          SOURCE_PR: ${{ github.event.pull_request.number || 0 }}
+          SOURCE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          SOURCE_BASE: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/denice-media-source"
+          jq -n --arg repository "$SOURCE_REPOSITORY" --arg run "$SOURCE_RUN_ID" --arg pr "$SOURCE_PR" --arg head "$SOURCE_HEAD" --arg base "$SOURCE_BASE" --arg checkout "$(git rev-parse HEAD)" '{repository:$repository,run_id:$run,pr:$pr,head_sha:$head,base_sha:$base,checkout_sha:$checkout}' > "$RUNNER_TEMP/denice-media-source/source.json"
+      - name: Retain immutable ordinary CI source provenance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-source
+          path: ${{ runner.temp }}/denice-media-source/source.json
+          if-no-files-found: error
+          retention-days: 1
 
   macos:
     needs: version
@@ -172,21 +224,41 @@ jobs:
         # the dev merge of PR #52, run 33440630677). Serializing removes the race; the underlying double-build is
         # issue #56, and this flag comes out when that is fixed.
         run: eng/check-single-platform-lib.sh linux-x64 -m:1 $AG
+      # Per-target coverage (75% independently per OS and CPU): DENICE_COVERAGE_TARGET puts each run's reports under
+      # TestResults/<rid>/ (Directory.Build.props), each target's reports are retained on their own, and the `coverage`
+      # job gates each target separately — the Rosetta (osx-x64) run never pools with the native (osx-arm64) run.
       - name: Test osx-arm64 (native)
+        env:
+          DENICE_COVERAGE_TARGET: osx-arm64
         run: dotnet test -c Release $AG --logger "trx;LogFileName=macos-native.trx"
+      - name: Retain osx-arm64 coverage for the per-target gate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-osx-arm64
+          path: |
+            TestResults/osx-arm64/**/coverage.cobertura.xml
+            !TestResults/osx-arm64/**/In/**
+          if-no-files-found: error
+          retention-days: 30
       - name: Test osx-x64 under Rosetta (must run as X64)
         # The detailed console logger surfaces ProcessArchitectureTests' "ProcessArchitecture=X64" line in the
         # CI log (Acceptance 6); DENICE_EXPECT_ARCH=X64 makes the test itself fail if this leg did not truly
         # land on x64 under Rosetta — teeth beyond a log grep (decision intel-mac-via-rosetta).
         env:
           DENICE_EXPECT_ARCH: X64
+          DENICE_COVERAGE_TARGET: osx-x64
         run: |
           bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --architecture x64 --install-dir "$RUNNER_TEMP/dotnet-x64"
           DOTNET_ROOT="$RUNNER_TEMP/dotnet-x64" arch -x86_64 "$RUNNER_TEMP/dotnet-x64/dotnet" test -c Release $AG -l "console;verbosity=detailed" --logger "trx;LogFileName=macos-rosetta.trx"
-      - name: Coverage gate — macOS implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
-        # `dotnet test` collected cobertura coverage by default (the shared .runsettings). Gate the per-OS macOS
-        # implementation on its own leg; the aggregate is gated once on the Linux leg.
-        run: eng/coverage-gate.sh . Denice.CrossPlatform.MacOS
+      - name: Retain osx-x64 coverage for the per-target gate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-osx-x64
+          path: |
+            TestResults/osx-x64/**/coverage.cobertura.xml
+            !TestResults/osx-x64/**/In/**
+          if-no-files-found: error
+          retention-days: 30
       - name: End-to-end loader test on osx-arm64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
         run: eng/loader-e2e-test.sh osx-arm64 "$RUNNER_TEMP/e2e"
       - name: Install script tests (macOS and the Linux branch; temporary HOME, no network; download verification with a fake cosign; rust/REQUIREMENTS.md I3 I4 I6 I11)
@@ -208,6 +280,9 @@ jobs:
             evidence/*.lcov
             **/TestResults/**/coverage.cobertura.xml
             **/TestResults/**/*.trx
+            tests/Denice.CrossPlatform.Tests/bin/**/TestArtifacts/*/execution.log
+            tests/Denice.CrossPlatform.Tests/bin/**/TestArtifacts/*/hang-sample.txt
+            tests/Denice.CrossPlatform.Tests/bin/**/TestArtifacts/*/hang-sample-status.txt
       - name: Install cosign (keyless signing)
         if: github.event_name == 'push'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
@@ -259,6 +334,16 @@ jobs:
           # signatures.
           for rid in osx-arm64 osx-x64; do
             L="layouts/$rid"; V="$L/versions/$DENICE_ASSET_VERSION"
+            # Seal CEF from the inside out before the release manifest is generated.
+            # Keep the existing .NET and Skia vendor signatures and entry entitlements.
+            CEF="$V/CEF/Chromium Embedded Framework.framework"
+            while IFS= read -r -d '' native; do
+              if file -b "$native" | grep -q 'Mach-O'; then
+                codesign --force --options runtime $TS --keychain "$KC" --sign "$IDENTITY" "$native"
+              fi
+            done < <(find "$CEF/Libraries" -type f -print0)
+            codesign --force --options runtime $TS --keychain "$KC" --sign "$IDENTITY" "$CEF"
+            codesign --verify --deep --strict "$CEF"
             # Sign the root app once and copy it into the version: two separate signatures differ (each carries its
             # own signing time), and ci-stage-layout.sh requires the carried loader to equal the root one.
             # $TS is empty (test) or --timestamp (developer-id), so it is left unquoted on purpose.
@@ -427,14 +512,20 @@ jobs:
         run: |
           eng/build-install-layout.sh win-x64 layouts/win-x64
           eng/build-install-layout.sh win-arm64 layouts/win-arm64
-      - name: Test win-x64 (win-arm64 is build-only, accepted risk)
+      - name: Test win-x64 (win-arm64 runs in the target-tests job)
         shell: bash
+        env:
+          DENICE_COVERAGE_TARGET: win-x64
         run: dotnet test -c Release $AG --logger "trx;LogFileName=windows.trx"
-      - name: Coverage gate — Windows implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
-        # bash so the shared gate script runs identically to the mac/linux legs. It gates the per-OS Windows
-        # implementation on its own leg; the aggregate is gated once on the Linux leg.
-        shell: bash
-        run: eng/coverage-gate.sh . Denice.CrossPlatform.Windows
+      - name: Retain win-x64 coverage for the per-target gate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-win-x64
+          path: |
+            TestResults/win-x64/**/coverage.cobertura.xml
+            !TestResults/win-x64/**/In/**
+          if-no-files-found: error
+          retention-days: 30
       - name: End-to-end loader test on win-x64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
         shell: bash
         run: eng/loader-e2e-test.sh win-x64 "$RUNNER_TEMP/e2e"
@@ -712,8 +803,58 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  linux:
+  linux-media:
     needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            runner: ubuntu-24.04
+          - rid: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Obtain ordinary CI source provenance
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ci-source
+          path: ${{ runner.temp }}/denice-media-source
+      - name: Bind media bytes to the captured checkout
+        run: jq -e --arg sha "$(git rev-parse HEAD)" '.checkout_sha == $sha' "$RUNNER_TEMP/denice-media-source/source.json" >/dev/null
+      - name: Cache pinned native media payload
+        id: media-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: eng/obj/native-media/${{ matrix.rid }}
+          key: linux-media-${{ matrix.rid }}-${{ hashFiles('eng/build-linux-media.sh') }}
+      - name: Build selected stock media dependencies on their native architecture
+        if: steps.media-cache.outputs.cache-hit != 'true'
+        run: bash eng/build-linux-media.sh --rid '${{ matrix.rid }}' --output "$GITHUB_WORKSPACE/eng/obj/native-media/${{ matrix.rid }}"
+      - name: Verify cached or built media payload
+        run: bash eng/build-linux-media.sh --rid '${{ matrix.rid }}' --output "$GITHUB_WORKSPACE/eng/obj/native-media/${{ matrix.rid }}" --verify-output
+      - name: Pass native dependencies to the existing Linux packaging job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-media-${{ matrix.rid }}
+          path: eng/obj/native-media/${{ matrix.rid }}/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Retain exact native-media source provenance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-media-source-${{ matrix.rid }}
+          path: ${{ runner.temp }}/denice-media-source/source.json
+          if-no-files-found: error
+          retention-days: 1
+
+  linux:
+    needs: [version, linux-media]
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -732,6 +873,16 @@ jobs:
       DENICE_VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Obtain native x64 media dependencies
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: linux-media-linux-x64
+          path: eng/obj/native-media/linux-x64
+      - name: Obtain native ARM64 media dependencies
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: linux-media-linux-arm64
+          path: eng/obj/native-media/linux-arm64
       - name: Install pinned .NET SDK (official script, same as local)
         run: |
           curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
@@ -791,15 +942,24 @@ jobs:
           eng/build-install-layout.sh linux-x64 layouts/linux-x64
       - name: The Linux Rust programs need no newer glibc than Denice Runtime's .NET (rust/REQUIREMENTS.md F12)
         run: |
+          # The runner image's package index can name a binutils build the archive has removed (404); refresh it first.
+          sudo apt-get update -q
           sudo apt-get install -y -q binutils-x86-64-linux-gnu
           eng/check-glibc.sh layouts/linux-arm64 linux-arm64
           OBJDUMP=x86_64-linux-gnu-objdump eng/check-glibc.sh layouts/linux-x64 linux-x64
-      - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
+      - name: Test linux-arm64 (linux-x64 runs in the target-tests job)
+        env:
+          DENICE_COVERAGE_TARGET: linux-arm64
         run: dotnet test -c Release $AG --logger "trx;LogFileName=linux.trx"
-      - name: Coverage gate — aggregate + Linux implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
-        # The Linux leg is where the aggregate of Engine + Cli (denice) + CrossPlatform is gated (computed once),
-        # alongside the per-OS Linux implementation. `dotnet test` collected coverage by default.
-        run: eng/coverage-gate.sh . aggregate Denice.CrossPlatform.Linux
+      - name: Retain linux-arm64 coverage for the per-target gate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-linux-arm64
+          path: |
+            TestResults/linux-arm64/**/coverage.cobertura.xml
+            !TestResults/linux-arm64/**/In/**
+          if-no-files-found: error
+          retention-days: 30
       - name: End-to-end loader test on linux-arm64 (install, update, loader replacement, fallback; rust/REQUIREMENTS.md E1)
         run: eng/loader-e2e-test.sh linux-arm64 "$RUNNER_TEMP/e2e"
       - name: Install script tests on Linux (temporary HOME, no network; rust/REQUIREMENTS.md I4 I6)
@@ -853,24 +1013,131 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # The single check branch protection requires. It goes green only if all three OS jobs succeeded — a
-  # skipped or failed OS job cannot green it.
+  # The two targets the OS jobs build but do not test — win-arm64 and linux-x64 — run the same test projects here, each on
+  # a free standard hosted runner of its own architecture (bringing baseline/tests/coverage to completion). Building,
+  # signing, install layouts and the release stay in the OS jobs; DENICE_EXPECT_ARCH makes ProcessArchitectureTests fail
+  # unless the run truly executed on the target's CPU.
+  target-tests:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { rid: win-arm64, runner: windows-11-arm, arch: Arm64 }
+          - { rid: linux-x64, runner: ubuntu-24.04, arch: X64 }
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    env:
+      AG: -p:DeniceDay=${{ needs.version.outputs.day }} -p:DeniceTime=${{ needs.version.outputs.time }} -p:DeniceCombined=${{ needs.version.outputs.combined }} -p:DeniceHash=${{ needs.version.outputs.hash }} -p:DeniceChannel=${{ needs.version.outputs.channel }} -p:DeniceTag=${{ needs.version.outputs.tag }} -p:DeniceVersion=${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install-pinned-dotnet
+      - name: Test ${{ matrix.rid }} (must run as ${{ matrix.arch }})
+        # bash on both hosts so $AG word-splits into separate -p args, as in the OS jobs.
+        shell: bash
+        env:
+          DENICE_COVERAGE_TARGET: ${{ matrix.rid }}
+          DENICE_EXPECT_ARCH: ${{ matrix.arch }}
+        run: dotnet test -c Release $AG --logger "trx;LogFileName=${{ matrix.rid }}.trx"
+      - name: Retain ${{ matrix.rid }} coverage for the per-target gate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-${{ matrix.rid }}
+          path: |
+            TestResults/${{ matrix.rid }}/**/coverage.cobertura.xml
+            !TestResults/${{ matrix.rid }}/**/In/**
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload test evidence (coverage + test results)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: evidence-${{ matrix.rid }}
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            TestResults/${{ matrix.rid }}/**/coverage.cobertura.xml
+            TestResults/${{ matrix.rid }}/**/*.trx
+
+  # Per-target coverage (decisions threshold-75-hard-gate, covered-assemblies; Tim, 2026-11-28: "75% is independently per
+  # OS AND CPU ... no cross-architecture pooling"). One leg per target merges ONLY that target's reports — plus approved
+  # hardware coverage for the same target and exact source tree where the staged GPU policy needs it — and reports each
+  # gated assembly as PASS, FAIL, NOT EVALUATED (hardware not run at this stage; never a pass) or PENDING (blocks).
+  coverage:
+    needs: [version, macos, windows, linux, target-tests]
+    if: always() && github.event.action != 'labeled' && needs.version.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [osx-arm64, osx-x64, win-x64, win-arm64, linux-x64, linux-arm64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read              # hardware coverage lookup and download across runs (eng/find-hardware-coverage.sh)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install-pinned-dotnet  # for the pinned ReportGenerator tool
+      - name: Obtain ${{ matrix.target }} coverage (only this target's reports)
+        id: ordinary
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: coverage-${{ matrix.target }}
+          path: TestResults/${{ matrix.target }}
+      - name: Report a target whose tests produced no coverage
+        if: steps.ordinary.outcome != 'success'
+        run: |
+          echo "::error::NOT EVALUATED per-target ${{ matrix.target }}: its test run produced no coverage (the job that tests it failed or was skipped). Not a pass."
+          echo "NOT EVALUATED per-target ${{ matrix.target }}: no coverage was produced (test job failed or skipped)." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+      - name: Find approved hardware coverage for ${{ matrix.target }} and this exact source tree
+        if: steps.ordinary.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: eng/find-hardware-coverage.sh "${{ matrix.target }}" "$(git rev-parse 'HEAD^{tree}')" "$RUNNER_TEMP/hardware"
+      - name: Gate ${{ matrix.target }} at 75% (PASS / FAIL / NOT EVALUATED / PENDING)
+        if: steps.ordinary.outcome == 'success'
+        env:
+          TARGET: ${{ matrix.target }}
+          STAGE: ${{ needs.version.outputs.stage }}
+        run: |
+          hw=()
+          if [ -d "$RUNNER_TEMP/hardware" ]; then hw=(--hardware "$RUNNER_TEMP/hardware"); fi
+          set +e
+          eng/coverage-gate.sh --target "$TARGET" --stage "$STAGE" "${hw[@]}" "TestResults/$TARGET" > "$RUNNER_TEMP/gate.txt" 2>&1
+          rc=$?
+          set -e
+          cat "$RUNNER_TEMP/gate.txt"
+          grep -E '^(PASS|FAIL|NOT EVALUATED|PENDING) ' "$RUNNER_TEMP/gate.txt" >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$rc" -eq 3 ]; then
+            echo "::error title=Hardware coverage missing::$TARGET is not shown to meet 75% at stage $STAGE (see the PENDING line). Not a pass."
+          fi
+          exit "$rc"
+
+  # The single check branch protection requires. It goes green only if every OS job, both target-test legs and every
+  # per-target coverage leg succeeded — a skipped or failed job cannot green it.
   gate:
-    needs: [macos, windows, linux]
-    if: always()
+    needs: [macos, windows, linux, target-tests, coverage]
+    if: always() && github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
-      - name: Assert every OS job succeeded
+      - name: Assert every OS job, target-test leg and per-target coverage leg succeeded
         run: |
-          echo "macos=${{ needs.macos.result }} windows=${{ needs.windows.result }} linux=${{ needs.linux.result }}"
+          echo "macos=${{ needs.macos.result }} windows=${{ needs.windows.result }} linux=${{ needs.linux.result }} target-tests=${{ needs.target-tests.result }} coverage=${{ needs.coverage.result }}"
           test "${{ needs.macos.result }}" = "success" \
             && test "${{ needs.windows.result }}" = "success" \
-            && test "${{ needs.linux.result }}" = "success"
+            && test "${{ needs.linux.result }}" = "success" \
+            && test "${{ needs.target-tests.result }}" = "success" \
+            && test "${{ needs.coverage.result }}" = "success"
 
   # The loader work's finish line (rust/REQUIREMENTS.md E2), as its own check (Tim, pkg-d4e90c3ce176 first-release:
   # "Publish pre-release"): it stays red, visible on every run, until every requirement row has proof; neither the
   # gate nor the release waits for it, because the release rows can only be proven from a published release.
   requirements:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1184,3 +1451,15 @@ jobs:
         if: ${{ !cancelled() }}
         shell: bash
         run: eng/check-release-runtime.sh win-x64 "$RUNNER_TEMP/assets" "$RUNNER_TEMP/release-runtime"
+
+  gpu-proof:
+    if: github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'denice-first-gpu-proof' && github.event.pull_request.head.repo.full_name == github.repository && format('{0}', github.event.pull_request.number) == vars.DENICE_GPU_PROOF_PR && github.event.pull_request.head.sha == vars.DENICE_GPU_PROOF_HEAD && vars.DENICE_GPU_PROOF_BUILD_RUN != ''
+    uses: ./.github/workflows/desktop-capability.yml
+    permissions:
+      contents: read
+      actions: read
+    with:
+      target: ${{ vars.DENICE_GPU_PROOF_TARGET }}
+      windows_check: hardware-fixtures
+      linux_check: hardware-fixtures
+      build_run_id: ${{ vars.DENICE_GPU_PROOF_BUILD_RUN }}

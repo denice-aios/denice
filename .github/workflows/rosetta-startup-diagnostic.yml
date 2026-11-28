@@ -1,0 +1,88 @@
+# One isolated Rosetta startup diagnostic (approved: one manual workflow, one standard macOS run; cold CEF load at most
+# 15 min, warm 3 min, whole job 40 min; samples per handoff/macos-completion/jarvis-rosetta-diagnostic/diagnostic-spec.md).
+# It changes no existing job, suite bound or release requirement. GitHub registers workflow_dispatch only for workflows on
+# the default branch, so the manual start is one hand-applied label on the pull request, as the GPU proofs already use.
+name: Rosetta startup diagnostic
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rosetta-startup-diagnostic-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  rosetta-startup:
+    if: github.event.label.name == 'denice-rosetta-diagnostic' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the x64 .NET SDK from global.json (as the Rosetta CI step does)
+        run: |
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --architecture x64 --install-dir "$RUNNER_TEMP/dotnet-x64"
+      - name: Build the desktop fixture bundle under Rosetta
+        run: DOTNET_ROOT="$RUNNER_TEMP/dotnet-x64" arch -x86_64 "$RUNNER_TEMP/dotnet-x64/dotnet" build tests/Denice.CrossPlatform.Tests/Denice.CrossPlatform.Tests.csproj -c Release
+      - name: Record host and binary identity
+        run: |
+          set -euo pipefail
+          mkdir -p diagnostic
+          bundle=tests/Denice.CrossPlatform.Tests/bin/Release/net10.0/Denice.CrossPlatform.Tests.app/Contents/MacOS
+          framework="$bundle/CEF/Chromium Embedded Framework.framework/Chromium Embedded Framework"
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            echo "uname_m=$(uname -m)"
+            echo "cpu=$(sysctl -n machdep.cpu.brand_string)"
+            echo "fixture_archs=$(lipo -archs "$bundle/Denice.CrossPlatform.Tests")"
+            echo "cef_archs=$(lipo -archs "$framework")"
+            echo "cef_sha256=$(shasum -a 256 "$framework" | cut -d' ' -f1)"
+          } | tee diagnostic/identity.txt
+      - name: Cold and warm compositor runs, sampled
+        env:
+          DOTNET_ROOT: ${{ runner.temp }}/dotnet-x64
+        # GitHub runs steps with `bash -e`; a sampler or fixture exiting non-zero must not end the measurement (run 46085368486).
+        shell: bash --noprofile --norc {0}
+        run: |
+          set -u +e
+          bundle=tests/Denice.CrossPlatform.Tests/bin/Release/net10.0/Denice.CrossPlatform.Tests.app/Contents/MacOS
+          # bounded_sample <pid> <file>: /usr/bin/sample for 5 s, stopped after 30 s, skipped once the process has exited.
+          bounded_sample() {
+            kill -0 "$1" 2>/dev/null || { echo "process exited before this sample" > "$2.status"; return; }
+            /usr/bin/sample "$1" 5 -file "$2" >/dev/null 2>&1 & local sampler=$!
+            for _ in $(seq 1 30); do kill -0 "$sampler" 2>/dev/null || return 0; sleep 1; done
+            kill -KILL "$sampler" 2>/dev/null; echo "sampler did not finish within 30 s" > "$2.status"
+            return 0
+          }
+          # run_fixture <name> <bound seconds> <sample seconds...>
+          run_fixture() {
+            local name=$1 bound=$2; shift 2
+            local dir="$PWD/diagnostic/$name"; mkdir -p "$dir/artifacts"
+            local started; started=$(date +%s)
+            arch -x86_64 "$bundle/Denice.CrossPlatform.Tests" compositor "$dir/artifacts" > "$dir/stdout.txt" 2> "$dir/stderr.txt" & local pid=$!
+            local marks=("$@") next=0
+            while kill -0 "$pid" 2>/dev/null; do
+              local elapsed=$(( $(date +%s) - started ))
+              if (( elapsed >= bound )); then kill -KILL "$pid" 2>/dev/null; echo "killed at the ${bound} s bound" > "$dir/bound.txt"; break; fi
+              if (( next < ${#marks[@]} && elapsed >= marks[next] )); then bounded_sample "$pid" "$dir/sample-${marks[next]}s.txt"; next=$((next + 1)); continue; fi
+              sleep 1
+            done
+            wait "$pid"; local code=$?
+            printf 'exit=%s\nwall_seconds=%s\n' "$code" "$(( $(date +%s) - started ))" | tee "$dir/result.txt"
+          }
+          run_fixture cold 900 60 180 420 780
+          run_fixture warm 180 30 90
+      - name: Upload the diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rosetta-startup-diagnostic
+          path: diagnostic/
+          if-no-files-found: warn
+          retention-days: 7

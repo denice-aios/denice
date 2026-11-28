@@ -20,7 +20,9 @@ namespace Denice.Analyzers;
 /// blocked). That covers the
 /// STATIC Unix-mode members (<c>File.SetUnixFileMode</c>/<c>GetUnixFileMode</c>), the STATIC symlink members
 /// (<c>File</c>/<c>Directory.CreateSymbolicLink</c>, <c>File</c>/<c>Directory.ResolveLinkTarget</c>), <c>Marshal</c>,
-/// and the call site of a native P/Invoke method (including the native case-sensitivity query). The NATIVE-interop half
+/// and filesystem or unclassified P/Invoke calls (including the native case-sensitivity query). Known desktop
+/// graphics/media interop is separately confined by <see cref="DesktopNativeInterop"/> to the per-OS capability
+/// namespaces and a fixed native-library list; it does not grant filesystem ownership. The NATIVE-interop half
 /// — <c>Marshal</c> and a P/Invoke call site — is recognized through the one <see cref="NativeInteropUse"/> detector. DN0101's shared File/Directory owner
 /// identity (<c>ContractInterfaces.PlatformFileSystem</c>, used by DN0020) is untouched. The interface owner is
 /// resolved structurally (the enclosing type's implemented interfaces), paired with the platform-library assembly
@@ -91,8 +93,8 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
         // The NATIVE-interop family — a P/Invoke call site or a Marshal use — recognized through the one
         // NativeInteropUse detector. It is the raw syscall site (DN0008 catches only the
         // declaration; this confines the native case-sensitivity query too) plus any Marshal use. Banned outside the
-        // filesystem owner.
-        if (NativeInteropUse.IsNativeUse(member, type))
+        // filesystem owner, except bounded desktop media interop recognized independently below.
+        if (NativeInteropUse.IsNativeUse(member, type) && !DesktopNativeInterop.IsAllowed(context, member, type))
         {
             Report(context, member, type);
             return;

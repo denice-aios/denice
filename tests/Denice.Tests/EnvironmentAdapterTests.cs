@@ -8,12 +8,13 @@ using Xunit;
 namespace Denice.Tests;
 
 /// <summary>
-/// Exercises the real <c>EnvironmentAdapter</c> in <c>Denice.Boundaries</c> — where the three adapters stay —
+/// Exercises the real <c>EnvironmentAdapter</c>, owned in <c>Denice.CrossPlatform</c> and handed out by
+/// <c>CrossPlatformAdapters</c> —
 /// through the owned <see cref="IEnvironment"/> off a real container, now built by <c>SystemServices.Create()</c> in
 /// <c>Denice.Engine</c> (<see cref="SystemServicesBuilder.Real"/>) — the only sanctioned
 /// door to the internal adapter — asserting each owned environment read returns the real host value.
 /// </summary>
-public sealed class BoundariesEnvironmentAdapterTests
+public sealed class EnvironmentAdapterTests
 {
     private readonly IEnvironment environment = SystemServicesBuilder.Real().Build().Environment;
 

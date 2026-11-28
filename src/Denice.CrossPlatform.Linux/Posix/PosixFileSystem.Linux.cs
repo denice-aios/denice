@@ -1,7 +1,9 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
 using System.IO;
+using System.Runtime.InteropServices;
 using Denice.Abstractions.Contracts;
+using Microsoft.Win32.SafeHandles;
 
 namespace Denice.CrossPlatform.Posix;
 
@@ -25,6 +27,44 @@ internal sealed partial class PosixFileSystem
     // deliberately not consulted.
     public UserDataFolder UserDataFolder { get; } =
         new(EnvironmentVariable: null, RelativePath: Path.Combine(".config", "denice"));
+
+    /// <summary>Exclusively creates a seekable regular recording file without replacing an existing entry.</summary>
+    /// <param name="path">The new output path.</param>
+    /// <returns>The owned descriptor, retained until the media pipeline releases it.</returns>
+    internal static SafeFileHandle CreateRecordingFile(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        const int create = 0x40;
+        const int exclusive = 0x80;
+
+        // O_CREAT | O_EXCL creates a regular file and rejects existing entries,
+        // including final-component symbolic links. No check-then-open race.
+        SafeFileHandle handle = PosixNativeMethods.OpenCreate(path, OpenReadWrite | create | exclusive | OpenCloseOnExec, 0x1B6);
+        if (handle.IsInvalid)
+        {
+            int error = Marshal.GetLastPInvokeError();
+            handle.Dispose();
+            throw new IOException($"Cannot exclusively create recording '{path}' (errno {error}).");
+        }
+
+        try
+        {
+            // Validate the opened descriptor itself, not its pathname. mp4mux
+            // needs a seekable destination to rewrite its final headers.
+            if (PosixNativeMethods.Seek(handle, 0, 0) != 0)
+            {
+                int error = Marshal.GetLastPInvokeError();
+                throw new IOException($"The recording destination is not seekable (errno {error}).");
+            }
+
+            return handle;
+        }
+        catch
+        {
+            handle.Dispose();
+            throw;
+        }
+    }
 
     // Linux has no native case-sensitivity query (the macOS _PC_CASE_SENSITIVE pathconf name has no Linux meaning), so
     // this reports failure and the shared PosixFileSystem falls back to the OS-uniform read-only probe.

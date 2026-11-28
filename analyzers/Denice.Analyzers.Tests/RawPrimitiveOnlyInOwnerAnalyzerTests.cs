@@ -649,8 +649,18 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     [Fact]
     public async Task EnvironmentAdapterOwner_InOwnerAssembly_IsExempt()
     {
+        // The environment owner lives in Denice.CrossPlatform (approved Windows composition amendment).
         Assert.Empty(
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(EnvironmentAdapterOwnerSource, "Denice.CrossPlatform"));
+    }
+
+    [Fact]
+    public async Task EnvironmentAdapterOwner_InItsFormerBoundariesAssembly_IsReported()
+    {
+        // Once the owner moved, an IEnvironment implementation left behind in Denice.Boundaries no longer self-grants.
+        Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(EnvironmentAdapterOwnerSource, "Denice.Boundaries"));
+        Assert.Equal("DN0011", diagnostic.Id);
     }
 
     [Fact]

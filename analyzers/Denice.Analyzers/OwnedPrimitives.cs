@@ -194,7 +194,7 @@ internal static class OwnedPrimitives
         // by IEnvironment in Boundaries (was DN0012), not by the filesystem interfaces.
         if (FilesystemMembers.IsCurrentDirectoryMember(member))
         {
-            return OwnedPrimitive.OwnedBy(EnvironmentOwner, InBoundaries);
+            return OwnedPrimitive.OwnedBy(EnvironmentOwner, InCrossPlatform);
         }
 
         // Every other File/Directory member → its one filesystem interface (IFileReader/IDirectoryEnumerator/
@@ -213,8 +213,8 @@ internal static class OwnedPrimitives
             : (OwnedPrimitive?)null;
     }
 
-    // Environment, the deployment-path reads, and the version-reflection reads — all owned in Boundaries, split between
-    // IEnvironment (deployment paths) and IBuildInfo (version) and disambiguated by member name where a type carries
+    // Environment, the deployment-path reads, and the version-reflection reads — split between IEnvironment (deployment
+    // paths, owned in CrossPlatform since the Windows desktop consumes it) and IBuildInfo (version, owned in Boundaries) and disambiguated by member name where a type carries
     // both (System.Reflection.Assembly).
     private static OwnedPrimitive? ResolveEnvironmentAndReflection(ISymbol member, INamedTypeSymbol type)
     {
@@ -223,7 +223,7 @@ internal static class OwnedPrimitives
         {
             return TimeMembers.IsEnvironmentClockMember(member)
                 ? (OwnedPrimitive?)null
-                : OwnedPrimitive.OwnedBy(EnvironmentOwner, InBoundaries);
+                : OwnedPrimitive.OwnedBy(EnvironmentOwner, InCrossPlatform);
         }
 
         // System.Reflection.Assembly carries both version reads (the entry points → IBuildInfo) and a deployment-path
@@ -236,7 +236,7 @@ internal static class OwnedPrimitives
             }
 
             return string.Equals(member.Name, "Location", StringComparison.Ordinal)
-                ? OwnedPrimitive.OwnedBy(EnvironmentOwner, InBoundaries)
+                ? OwnedPrimitive.OwnedBy(EnvironmentOwner, InCrossPlatform)
                 : (OwnedPrimitive?)null;
         }
 
@@ -245,7 +245,7 @@ internal static class OwnedPrimitives
             || WellKnownType.Is(type, KnownNamespaces.System, "AppDomain"))
         {
             return string.Equals(member.Name, "BaseDirectory", StringComparison.Ordinal)
-                ? OwnedPrimitive.OwnedBy(EnvironmentOwner, InBoundaries)
+                ? OwnedPrimitive.OwnedBy(EnvironmentOwner, InCrossPlatform)
                 : (OwnedPrimitive?)null;
         }
 
@@ -254,7 +254,7 @@ internal static class OwnedPrimitives
         if (WellKnownType.Is(type, KnownNamespaces.SystemRuntimeInteropServices, "RuntimeInformation"))
         {
             return member.Kind == SymbolKind.Property
-                ? OwnedPrimitive.OwnedBy(EnvironmentOwner, InBoundaries)
+                ? OwnedPrimitive.OwnedBy(EnvironmentOwner, InCrossPlatform)
                 : (OwnedPrimitive?)null;
         }
 

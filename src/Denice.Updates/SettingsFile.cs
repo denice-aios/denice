@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -69,6 +70,37 @@ public sealed class SettingsFile
     {
         IReadOnlyDictionary<string, string> set = Locked(Load);
         return SettingDefinition.All.Select(setting => State(setting, set)).ToList();
+    }
+
+    /// <summary>Resolves the selected browser profile beneath DENICE's per-user settings folder.</summary>
+    /// <returns>The absolute Chromium root cache directory.</returns>
+    public string ReadBrowserCachePath()
+    {
+        IReadOnlyDictionary<string, string> values = Locked(Load);
+        string profile = values.TryGetValue(SettingDefinition.BrowserProfileName, out string? selected)
+            ? selected
+            : SettingDefinition.BrowserProfileDefault;
+        return Path.Combine(Path.GetDirectoryName(FilePath)!, "Browser", profile);
+    }
+
+    /// <summary>Reads the optional localhost browser debugging port, disabled by default.</summary>
+    /// <returns>Zero to disable debugging, or the selected port.</returns>
+    public int ReadBrowserDebugPort()
+    {
+        IReadOnlyDictionary<string, string> values = Locked(Load);
+        return values.TryGetValue(SettingDefinition.BrowserDebugPortName, out string? port)
+            ? int.Parse(port, CultureInfo.InvariantCulture)
+            : 0;
+    }
+
+    /// <summary>Reads how long the Windows browser compositor waits for one GPU frame copy, 10 seconds by default.</summary>
+    /// <returns>The deadline, from 1 to 300 seconds.</returns>
+    public TimeSpan ReadBrowserGpuCopyTimeout()
+    {
+        IReadOnlyDictionary<string, string> values = Locked(Load);
+        return TimeSpan.FromSeconds(values.TryGetValue(SettingDefinition.BrowserGpuCopyTimeoutSecondsName, out string? seconds)
+            ? int.Parse(seconds, CultureInfo.InvariantCulture)
+            : 10);
     }
 
     /// <summary>Reads the typed update settings.</summary>

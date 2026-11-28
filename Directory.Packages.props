@@ -2,7 +2,24 @@
 
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <DeniceCefVersion>156.0.15</DeniceCefVersion>
+    <DeniceSkiaVersion>4.157.0</DeniceSkiaVersion>
   </PropertyGroup>
+
+  <ItemGroup Label="Embedded Chromium">
+    <PackageVersion Include="CefGlue.Next.Core" Version="156.8078.80" />
+    <PackageVersion Include="cef.runtime.osx-x64" Version="$(DeniceCefVersion)" />
+    <PackageVersion Include="cef.runtime.osx-arm64" Version="$(DeniceCefVersion)" />
+    <PackageVersion Include="cef.runtime.win-x64" Version="$(DeniceCefVersion)" />
+    <PackageVersion Include="cef.runtime.win-arm64" Version="$(DeniceCefVersion)" />
+    <PackageVersion Include="cef.runtime.linux-x64" Version="$(DeniceCefVersion)" />
+    <PackageVersion Include="cef.runtime.linux-arm64" Version="$(DeniceCefVersion)" />
+    <PackageVersion Include="SkiaSharp" Version="$(DeniceSkiaVersion)" />
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux" Version="$(DeniceSkiaVersion)" />
+    <PackageVersion Include="Avalonia.Angle.Windows.Natives" Version="2.1.27548.20260419" />
+    <PackageVersion Include="Vortice.Direct3D11" Version="3.8.3" />
+    <PackageVersion Include="Vortice.MediaFoundation" Version="3.8.3" />
+  </ItemGroup>
 
   <ItemGroup Label="Best-practice analyzer suite">
     <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />

@@ -267,4 +267,154 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
 
         Assert.Empty(await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "Denice.Engine"));
     }
+
+    [Theory]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Recording", "/System/Library/Frameworks/AVFoundation.framework/AVFoundation", "AVMakeRectWithAspectRatioInsideRect", false)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Desktop", "/usr/lib/libSystem.B.dylib", "memmove", false)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Desktop", "/usr/lib/libSystem.B.dylib", "unlink", true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Browser", "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox", "AudioOutputUnitStart", false)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Browser", "/usr/lib/libSystem.B.dylib", "vm_protect", false)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Browser", "/usr/lib/libSystem.B.dylib", "_dyld_get_image_header", false)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Browser", "/usr/lib/libSystem.B.dylib", "unlink", true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Desktop", "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox", "AudioOutputUnitStart", true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Desktop", "/usr/lib/libSystem.B.dylib", "vm_protect", true)]
+    [InlineData("Denice.Engine", "Denice.Engine.Browser", "/System/Library/Frameworks/AudioToolbox.framework/AudioToolbox", "AudioOutputUnitStart", true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Desktop", "unknown", "call", true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Sibling", "/System/Library/Frameworks/AVFoundation.framework/AVFoundation", "call", true)]
+    [InlineData("Denice.Engine", "Denice.CrossPlatform.MacOS.Desktop", "/System/Library/Frameworks/Metal.framework/Metal", "call", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Desktop", "av_libglesv2", "EGL_Initialize", false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Desktop", "av_libglesv2", "unknown_entry", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Desktop", "av_libglesv2", "EGL_Initialize", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Desktop", "/System/Library/Frameworks/Metal.framework/Metal", "MTLCreateSystemDefaultDevice", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Desktop", "/usr/lib/libobjc.A.dylib", "objc_msgSend", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Desktop", "/usr/lib/libSystem.B.dylib", "memmove", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Desktop", "/usr/lib/libobjc.A.dylib", "objc_msgSend", true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Desktop", "/usr/lib/libobjc.A.dylib", "objc_msgSend", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Desktop", "libEGL.so.1", "eglInitialize", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libGLESv2.so.2", "glFinish", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Desktop", "libX11.so.6", "XOpenDisplay", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstreamer-1.0.so.0", "gst_plugin_get_filename", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstgl-1.0.so.0", "gst_gl_context_new", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstgl-1.0.so.0", "gst_gl_context_create", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstgl-1.0.so.0", "gst_gl_context_can_share", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstcuda-1.0.so.0", "gst_cuda_allocator_alloc_wrapped", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstvideo-1.0.so.0", "gst_video_info_new", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstvideo-1.0.so.0", "gst_video_info_set_format", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstvideo-1.0.so.0", "unknown_video_symbol", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Recording", "libgstcuda-1.0.so.0", "gst_cuda_allocator_alloc_wrapped", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgobject-2.0.so.0", "g_value_get_uint", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgobject-2.0.so.0", "unknown_gobject_symbol", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Recording", "libgobject-2.0.so.0", "g_value_get_uint", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libcuda.so.1", "cuMemcpy2D_v2", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libcuda.so.1", "unknown_entry", true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Recording", "libcuda.so.1", "cuMemcpy2D_v2", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstreamer-1.0.so.0", "unknown_entry", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Recording", "libgstreamer-1.0.so.0", "gst_plugin_get_filename", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Desktop", "libEGL.so.1", "eglInitialize", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Desktop", "libEGL.so.1", "unknown_entry", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Filesystem", "libEGL.so.1", "eglInitialize", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Filesystem", "av_libglesv2", "EGL_Initialize", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstapp-1.0.so.0", "gst_app_src_push_buffer", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstapp-1.0.so.0", "unknown_app_symbol", true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Recording", "libgstapp-1.0.so.0", "gst_app_src_push_buffer", true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgstreamer-1.0.so.0", "gst_buffer_new", false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Recording", "libgobject-2.0.so.0", "g_value_set_int", false)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Recording", "libgobject-2.0.so.0", "g_value_set_int", true)]
+    public async Task DesktopNativeInterop_EnforcesLibraryAndCapabilityBoundary(string assembly, string area, string library, string entryPoint, bool reported)
+    {
+        string source = $$"""
+            using System.Runtime.InteropServices;
+            namespace {{area}}
+            {
+                public sealed class Capability
+                {
+                    [DllImport("{{library}}", EntryPoint = "{{entryPoint}}")]
+                    private static extern void Native();
+                    public void Run() => Native();
+                }
+            }
+            """;
+        var diagnostics = await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, assembly);
+        if (reported)
+        {
+            Assert.Equal("DN0101", Assert.Single(diagnostics).Id);
+        }
+        else
+        {
+            Assert.Empty(diagnostics);
+        }
+    }
+
+    [Theory]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "dl_iterate_phdr", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "dl_iterate_phdr", false, true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "mprotect", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "getpagesize", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "setenv", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libc.so.6", "unlink", true, true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libpulse.so.0", "pa_stream_new", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libpulse.so.0", "pa_stream_new", false, true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Desktop", "libpulse.so.0", "pa_stream_new", true, true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libasound.so.2", "snd_pcm_writei", true, false)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libasound.so.2", "snd_pcm_writei", false, true)]
+    [InlineData("Denice.CrossPlatform.Linux", "Denice.CrossPlatform.Linux.Browser", "libasound.so.2", "snd_device_name_hint", true, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "libpulse.so.0", "pa_stream_new", true, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "VirtualProtect", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "VirtualProtect", false, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "GetProcAddress", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "SetEvent", true, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "ole32", "CoCreateInstance", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "ole32", "CoTaskMemAlloc", true, false)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Desktop", "ole32", "CoCreateInstance", true, true)]
+    [InlineData("Denice.CrossPlatform.Windows", "Denice.CrossPlatform.Windows.Browser", "kernel32", "DeleteFileW", true, true)]
+    [InlineData("Denice.CrossPlatform.MacOS", "Denice.CrossPlatform.MacOS.Browser", "libc.so.6", "mprotect", true, true)]
+    public async Task AudioRedirectionProofImports_AreAllowedOnlyInTheProofBuildsBrowserArea(string assembly, string area, string library, string entryPoint, bool proofBuild, bool reported)
+    {
+        string source = $$"""
+            using System.Runtime.InteropServices;
+            namespace {{area}}
+            {
+                public sealed class Capability
+                {
+                    [DllImport("{{library}}", EntryPoint = "{{entryPoint}}")]
+                    private static extern void Native();
+                    public void Run() => Native();
+                }
+            }
+            """;
+        string[] symbols = proofBuild ? ["DENICE_AUDIO_REDIRECTION_PROOF"] : [];
+        var diagnostics = await AnalyzerRunner.RunWithSymbolsAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, assembly, symbols);
+        if (reported)
+        {
+            Assert.Equal("DN0101", Assert.Single(diagnostics).Id);
+        }
+        else
+        {
+            Assert.Empty(diagnostics);
+        }
+    }
+
+    [Fact]
+    public async Task DesktopCapability_DoesNotAcquireFilesystemOrLastErrorOwnership()
+    {
+        const string source = """
+            using System.IO;
+            using System.Runtime.InteropServices;
+            namespace Denice.CrossPlatform.MacOS.Desktop
+            {
+                public sealed class Capability
+                {
+                    public void Run(string path)
+                    {
+                        File.SetUnixFileMode(path, UnixFileMode.UserRead);
+                        _ = Marshal.GetLastPInvokeError();
+                        _ = Marshal.ReadIntPtr(System.IntPtr.Zero);
+                    }
+                }
+            }
+            """;
+        var diagnostics = await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "Denice.CrossPlatform.MacOS");
+        Assert.Equal(2, diagnostics.Length);
+        Assert.All(diagnostics, diagnostic => Assert.Equal("DN0101", diagnostic.Id));
+    }
 }

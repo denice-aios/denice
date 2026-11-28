@@ -59,6 +59,29 @@ internal static class AnalyzerRunner
     }
 
     /// <summary>
+    /// Compiles <paramref name="source"/> with the given preprocessor symbols defined for the whole compilation, as a
+    /// project's DefineConstants defines them, runs <typeparamref name="TAnalyzer"/> over it, and returns its
+    /// diagnostics. Rules that apply only in a compile-selected build turn on these symbols.
+    /// </summary>
+    /// <typeparam name="TAnalyzer">The analyzer to run.</typeparam>
+    /// <param name="source">The C# source to analyze.</param>
+    /// <param name="assemblyName">The assembly name to compile the source into.</param>
+    /// <param name="preprocessorSymbols">The symbols defined for the compilation.</param>
+    /// <returns>The diagnostics the analyzer reported.</returns>
+    internal static async Task<ImmutableArray<Diagnostic>> RunWithSymbolsAsync<TAnalyzer>(string source, string assemblyName, IEnumerable<string> preprocessorSymbols)
+        where TAnalyzer : DiagnosticAnalyzer, new()
+    {
+        ImmutableArray<MetadataReference> references = await ResolveReferencesAsync().ConfigureAwait(false);
+        CSharpCompilation compilation = CSharpCompilation.Create(
+            assemblyName: assemblyName,
+            syntaxTrees: new[] { CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(preprocessorSymbols: preprocessorSymbols)) },
+            references: references,
+            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        return await RunAnalyzerAsync<TAnalyzer>(compilation, Array.Empty<string>()).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Compiles <paramref name="referenceSource"/> into a separate assembly named
     /// <paramref name="referenceAssemblyName"/>, references it from a compilation of <paramref name="source"/> named
     /// <paramref name="assemblyName"/>, runs <typeparamref name="TAnalyzer"/> over the latter, and returns its

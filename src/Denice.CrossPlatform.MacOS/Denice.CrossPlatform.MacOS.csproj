@@ -11,10 +11,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <!-- Browser audio diagnostics build (event log, cycle ring, per-stream counters); never set in the normal build. -->
+  <PropertyGroup Condition="'$(DeniceAudioDiagnostics)' == 'true'">
+    <DefineConstants>$(DefineConstants);DENICE_AUDIO_DIAGNOSTICS</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="../Denice.Abstractions/Denice.Abstractions.csproj" />
     <ProjectReference Include="../Denice.CrossPlatform/Denice.CrossPlatform.csproj" />
   </ItemGroup>
+
 
   <!-- PlatformServices.Create() is internal (platform-create-internal); Denice.Engine reaches this one door
        through the grant, and only from SystemServices.Create() (DN0029); the grant moved here from
@@ -22,6 +28,12 @@
        on a signed build. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Denice.Engine" />
+    <InternalsVisibleTo Include="Denice.CrossPlatform.Tests" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <DeniceDesktopPlatform>osx</DeniceDesktopPlatform>
+  </PropertyGroup>
+  <Import Project="../../eng/desktop-native.targets" />
 
 </Project>
