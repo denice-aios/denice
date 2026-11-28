@@ -33,15 +33,11 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
 
     /// <summary>The local debugging port the recovery-audio driver uses to call play() with a user gesture.</summary>
     private const int RecoveryAudioDebugPort = 9224;
-
-    private static readonly TimeSpan FixtureTimeout = TimeSpan.FromSeconds(90);
-    private static readonly TimeSpan CleanupTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan SamplerTimeout = TimeSpan.FromSeconds(30);
 
-    // Set once at the start of the fixture child's Main, so its stage markers carry elapsed time.
-    private static long fixtureStart;
+    // The fixture child starts without the inherited DYLD_LIBRARY_PATH.
+    private static readonly string[] RemovedEnvironment = ["DYLD_LIBRARY_PATH"];
 
-    [SuppressMessage("Denice.Architecture", "DN0011", Justification = "This native integration fixture owns a bounded child process so Cocoa executes on its OS main thread; no product process interface exists. All other environment, file and clock operations use Systemservices.")]
     [Theory]
     [InlineData("browser-audio")]
     [InlineData("compositor")]
@@ -50,52 +46,9 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     public async Task NativeDesktopCompletesWithRenderedContent(string scenario)
     {
         ISystemServices services = SystemServicesBuilder.Real().Build();
-        string executable = Path.Combine(services.Environment.GetBaseDirectory(), "Denice.CrossPlatform.Tests");
-        string directory = Path.Combine(Path.GetDirectoryName(executable)!, "TestArtifacts", "desktop-" + scenario);
-        services.FileSystem.GetDirectoryWriter().CreateDirectory(directory);
-        var start = new ProcessStartInfo(executable)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-        start.ArgumentList.Add(scenario);
-        start.ArgumentList.Add(directory);
-        _ = start.Environment.Remove("DYLD_LIBRARY_PATH");
-        using Process process = Process.Start(start) ?? throw new InvalidOperationException("Cannot start the native desktop fixture.");
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-        Task<string> stderr = process.StandardError.ReadToEndAsync();
-        try
-        {
-            await process.WaitForExitAsync().WaitAsync(FixtureTimeout, services.Clock);
-        }
-        catch (TimeoutException timeout)
-        {
-            Exception? cleanupFailure = await SampleAndStopAsync(services, process, directory);
-            if (cleanupFailure is not null)
-            {
-                throw new AggregateException("The native fixture timed out and could not be stopped.", timeout, cleanupFailure);
-            }
-
-            throw;
-        }
-        finally
-        {
-            string log;
-            try
-            {
-                log = await stdout.WaitAsync(CleanupTimeout, services.Clock) + "\n" + await stderr.WaitAsync(CleanupTimeout, services.Clock);
-            }
-            catch (TimeoutException)
-            {
-                log = "The native fixture's output did not close after it was stopped.";
-            }
-
-            await services.FileSystem.GetFileWriter().WriteAllBytesAsync(Path.Combine(directory, "execution.log"), Encoding.UTF8.GetBytes(log), CancellationToken.None);
-            output.WriteLine(log);
-        }
-
-        Assert.Equal(0, process.ExitCode);
+        string directory = Path.Combine(services.Environment.GetBaseDirectory(), "TestArtifacts", "desktop-" + scenario);
+        int exitCode = await FixtureChildProcess.RunAsync(services, output, scenario, directory, RemovedEnvironment, (processId, artifacts) => CaptureHangSampleAsync(services, processId, artifacts));
+        Assert.Equal(0, exitCode);
     }
 
     /// <summary>
@@ -107,36 +60,6 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     /// <returns>The fixture run.</returns>
     [Fact(Skip = "Audible: plays two one-second 440 Hz tones on the default output device; run only with Tim's approval.")]
     public Task RecordingCarriesAudioAcrossARecovery() => NativeDesktopCompletesWithRenderedContent("recovery-audio");
-
-    /// <summary>Writes a fixture progress marker so a timed-out child shows the last stage it reached.</summary>
-    private static void Stage(ISystemServices services, string stage) =>
-        services.Console.WriteLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Fixture stage at {services.Clock.GetElapsedTime(fixtureStart).TotalSeconds:F2} s: {stage}"));
-
-    /// <summary>Samples a timed-out fixture, then always stops it, whatever happened to the best-effort sample.</summary>
-    /// <returns>The failure to stop the fixture, or null when it exited.</returns>
-    [SuppressMessage("Denice.Architecture", "DN0011", Justification = "Stops this bounded native fixture's own child process; no product process interface exists.")]
-    private static async Task<Exception?> SampleAndStopAsync(ISystemServices services, Process process, string directory)
-    {
-        Exception? stopFailure = null;
-        try
-        {
-            await CaptureHangSampleAsync(services, process.Id, directory).ConfigureAwait(false);
-        }
-        finally
-        {
-            try
-            {
-                process.Kill(entireProcessTree: true);
-                await process.WaitForExitAsync().WaitAsync(CleanupTimeout, services.Clock).ConfigureAwait(false);
-            }
-            catch (Exception exception) when (exception is InvalidOperationException or TimeoutException or System.ComponentModel.Win32Exception)
-            {
-                stopFailure = exception;
-            }
-        }
-
-        return stopFailure;
-    }
 
     /// <summary>Records the timed-out child's thread stacks with the system sampler before it is killed. Best effort: it never
     /// throws, it always stops and drains the sampler within its bound, and a failure is written beside the report.</summary>
@@ -168,10 +91,10 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
                 if (!sampler.HasExited)
                 {
                     sampler.Kill(entireProcessTree: true);
-                    await sampler.WaitForExitAsync().WaitAsync(CleanupTimeout, services.Clock).ConfigureAwait(false);
+                    await sampler.WaitForExitAsync().WaitAsync(FixtureChildProcess.CleanupTimeout, services.Clock).ConfigureAwait(false);
                 }
 
-                _ = await Task.WhenAll(samplerOutput, samplerError).WaitAsync(CleanupTimeout, services.Clock).ConfigureAwait(false);
+                _ = await Task.WhenAll(samplerOutput, samplerError).WaitAsync(FixtureChildProcess.CleanupTimeout, services.Clock).ConfigureAwait(false);
             }
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -198,7 +121,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     private static int Main(string[] args)
     {
         ISystemServices services = SystemServicesBuilder.Real().Build();
-        fixtureStart = services.Clock.GetTimestamp();
+        FixtureChildProcess.Begin(services);
         if (args.Length == 2 && string.Equals(args[0], "audio-verdict", StringComparison.Ordinal))
         {
             // Offline: re-scores recorded Windows/Linux proof evidence; no browser or device runs.
@@ -211,10 +134,10 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
             return 2;
         }
 
-        Stage(services, $"start {args[0]}, process architecture {services.Environment.GetProcessArchitecture()}");
+        FixtureChildProcess.Stage(services, $"start {args[0]}, process architecture {services.Environment.GetProcessArchitecture()}");
         if (string.Equals(args[0], "browser-audio", StringComparison.Ordinal))
         {
-            BrowserAudioFixture.Run(services, args[1], stage => Stage(services, stage));
+            BrowserAudioFixture.Run(services, args[1], stage => FixtureChildProcess.Stage(services, stage));
         }
         else if (string.Equals(args[0], "compositor", StringComparison.Ordinal))
         {
@@ -239,7 +162,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         string cache = Path.Combine(directory, "cache-" + services.Random.NewGuid().ToString("N"));
         const string html = "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Native fixture</button></body></html>";
         var desktop = MacDesktop.Create();
-        Stage(services, "desktop run");
+        FixtureChildProcess.Stage(services, "desktop run");
         int exit = desktop.Run(FixedApplicationSession.Create(new Uri("data:text/html," + Uri.EscapeDataString(html))), recording, 2, services.Clock, cache, 0, TimeSpan.FromSeconds(10));
         Assert.Equal(0, exit);
         Assert.Null(desktop.LastRecordingError);
@@ -259,7 +182,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         string html = tone ? RecoveryTonePage : "<html><body style='margin:0;background:transparent'><button style='background:red;width:150px;height:80px'>Recovery fixture</button></body></html>";
         IApplicationSession session = ScriptedOutageSession.Create(new Uri("data:text/html," + Uri.EscapeDataString(html)), services.Clock, TimeSpan.FromSeconds(2.5), TimeSpan.FromSeconds(4));
         var desktop = MacDesktop.Create();
-        Stage(services, "recovery run");
+        FixtureChildProcess.Stage(services, "recovery run");
         long started = services.Clock.GetTimestamp();
         int exit = desktop.Run(session, recording, 6, services.Clock, cache, tone ? RecoveryAudioDebugPort : 0, TimeSpan.FromSeconds(10));
         double seconds = services.Clock.GetElapsedTime(started).TotalSeconds;
@@ -287,9 +210,9 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         try
         {
             _ = MacApplication.Create();
-            Stage(services, "application created");
+            FixtureChildProcess.Stage(services, "application created");
             using var window = MacGpuWindow.Create();
-            Stage(services, "GPU window created");
+            FixtureChildProcess.Stage(services, "GPU window created");
             byte[] first = ReadRenderedFrame(window, 0);
             byte[] second = ReadRenderedFrame(window, 1);
             Assert.True(
@@ -299,7 +222,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
             Assert.False(
                 first.AsSpan(center, 3).SequenceEqual(first.AsSpan(0, 3)),
                 "The center of the rendered orb must differ from the background.");
-            Stage(services, "native frames rendered");
+            FixtureChildProcess.Stage(services, "native frames rendered");
             AssertBrowserContent(services, window, directory);
             services.Console.WriteLine($"Native rendered content: {window.RecordingWidth}x{window.RecordingHeight}.");
         }
@@ -312,7 +235,7 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
     private static void AssertBrowserContent(ISystemServices services, MacGpuWindow window, string directory)
     {
         const string html = "<html><body style='margin:0;background:transparent'><button onclick=\"this.style.background='lime'\" style='border:0;background:red;width:150px;height:80px'>Click</button></body></html>";
-        Stage(services, "browser create");
+        FixtureChildProcess.Stage(services, "browser create");
 
         // The macOS browser needs its audio mixer; this scenario never starts its output, so nothing reaches a device.
         using var mixer = MacOS.Browser.BrowserAudioMixer.Create();
@@ -323,9 +246,9 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
         try
         {
             browser.Start(new Uri("data:text/html," + Uri.EscapeDataString(html)), MacGpuWindow.Width, MacGpuWindow.Height, frames, (IPlatformBrowserAudioSink)MacDesktop.Create(), cache, 0);
-            Stage(services, "browser started");
+            FixtureChildProcess.Stage(services, "browser started");
             WaitForColor(services, browser, window, frameStats, red: true);
-            Stage(services, "browser content rendered");
+            FixtureChildProcess.Stage(services, "browser content rendered");
             Assert.True(browser.IsReady);
             browser.MouseMove(40, 40, false);
             browser.MouseClick(40, 40, 0, false, 1);
@@ -359,13 +282,13 @@ public sealed class DesktopExecutionTests(ITestOutputHelper output)
             if (!sawFrame && frameStats.Frames > 0)
             {
                 sawFrame = true;
-                Stage(services, $"{(red ? "red" : "green")} wait: accelerated frame seen, {frameStats.Frames} so far, last {frameStats.LastWidth}x{frameStats.LastHeight}");
+                FixtureChildProcess.Stage(services, $"{(red ? "red" : "green")} wait: accelerated frame seen, {frameStats.Frames} so far, last {frameStats.LastWidth}x{frameStats.LastHeight}");
             }
 
             if (!sawReady && browser.IsReady)
             {
                 sawReady = true;
-                Stage(services, $"{(red ? "red" : "green")} wait: page ready");
+                FixtureChildProcess.Stage(services, $"{(red ? "red" : "green")} wait: page ready");
             }
 
             byte[] pixels = ReadRenderedFrame(window, 1);

@@ -1,5 +1,7 @@
 // Copyright (c) Denice.ai. All rights reserved.
 
+using System.Globalization;
+using System.Text;
 using Denice.Abstractions.Contracts;
 using Denice.CrossPlatform.Browser;
 using Denice.CrossPlatform.Desktop;
@@ -17,6 +19,9 @@ namespace Denice.CrossPlatform.Tests;
 /// <summary>Explicitly selected Linux hardware tests preceding browser and recording integration.</summary>
 public sealed class DesktopGpuTests
 {
+    private const string CefImportScenario = "cef-import";
+    private const string ProcessInformationRoot = "/proc";
+
     private readonly ITestOutputHelper _output;
 
     /// <summary>Initializes a new instance of the <see cref="DesktopGpuTests"/> class.</summary>
@@ -120,29 +125,54 @@ public sealed class DesktopGpuTests
 
     [Fact]
     [Trait("Category", "GpuHardware")]
-    public void CefDmaBufFramesImportThroughLinuxSharedFrameAndKeepTheirColors()
+    public async Task CefDmaBufFramesImportThroughLinuxSharedFrameAndKeepTheirColors()
+    {
+        // CEF must run on the main application thread, so the scenario runs in a bounded child of this executable.
+        ISystemServices services = SystemServicesBuilder.Real().Build();
+        string directory = Path.Combine(services.Environment.GetBaseDirectory(), "hardware-fixture-output");
+        int exitCode = await FixtureChildProcess.RunAsync(services, _output, CefImportScenario, directory, [], (processId, artifacts) => CaptureThreadStatesAsync(services, processId, artifacts));
+        Assert.Equal(0, exitCode);
+    }
+
+    /// <summary>Runs only the selected CEF fixture, on the OS main thread.</summary>
+    private static int Main(string[] args)
+    {
+        ISystemServices services = SystemServicesBuilder.Real().Build();
+        FixtureChildProcess.Begin(services);
+        if (args.Length != 2 || !string.Equals(args[0], CefImportScenario, StringComparison.Ordinal))
+        {
+            return 2;
+        }
+
+        FixtureChildProcess.Stage(services, "start " + args[0]);
+        AssertCefImport(services, args[1]);
+        services.Console.WriteLine("Native fixture completed: " + args[0]);
+        return 0;
+    }
+
+    private static void AssertCefImport(ISystemServices services, string output)
     {
         // Real CEF offscreen with shared textures: every accelerated frame goes through the published LinuxSharedFrame
         // import (DMA-BUF to EGLImage to an owned GLES texture), and the imported pixels are read back and checked.
         const string html = "<html><body style='margin:0;background:#000'><button onclick=\"this.style.background='lime'\" style='border:0;background:red;width:150px;height:80px'>Click</button></body></html>";
-        ISystemServices services = SystemServicesBuilder.Real().Build();
-        string output = Path.Combine(services.Environment.GetBaseDirectory(), "hardware-fixture-output");
-        services.FileSystem.GetDirectoryWriter().CreateDirectory(output);
         using var graphics = LinuxGpuContext.Create(OrbScene.Width, OrbScene.Height);
         using var importer = new LinuxSharedFrame(graphics);
         var stats = new ImportStats();
+        FixtureChildProcess.Stage(services, "browser create");
         IPlatformBrowser browser = CefPlatformBrowser.Create();
         try
         {
             browser.Start(new Uri("data:text/html," + Uri.EscapeDataString(html)), OrbScene.Width, OrbScene.Height, ImportingFrameSink.Create(importer, stats), SilentAudioSink.Create(), Path.Combine(output, "cef-import-cache"), 0);
+            FixtureChildProcess.Stage(services, "browser started");
             WaitForImportedColor(services, graphics, browser, importer, stats, red: true, Path.Combine(output, "cef-import-red.png"));
+            FixtureChildProcess.Stage(services, "red button imported");
             Assert.True(browser.IsReady);
             browser.MouseMove(40, 40, false);
             browser.MouseClick(40, 40, 0, false, 1);
             browser.MouseClick(40, 40, 0, true, 1);
             WaitForImportedColor(services, graphics, browser, importer, stats, red: false, Path.Combine(output, "cef-import-green.png"));
-            _output.WriteLine($"CEF DMA-BUF frames imported through LinuxSharedFrame: {stats.Imports}; last coded size {stats.LastWidth}x{stats.LastHeight}, CEF format {stats.LastFormat}, planes {stats.LastPlanes}, modifier 0x{stats.LastModifier:x}.");
-            _output.WriteLine("Imported pixels read back: the page's red button, then green after a click. Displayed scanout, audio and encoding of browser frames were not tested.");
+            services.Console.WriteLine($"CEF DMA-BUF frames imported through LinuxSharedFrame: {stats.Imports}; last coded size {stats.LastWidth}x{stats.LastHeight}, CEF format {stats.LastFormat}, planes {stats.LastPlanes}, modifier 0x{stats.LastModifier:x}.");
+            services.Console.WriteLine("Imported pixels read back: the page's red button, then green after a click. Displayed scanout, audio and encoding of browser frames were not tested.");
         }
         finally
         {
@@ -150,6 +180,43 @@ public sealed class DesktopGpuTests
         }
 
         Assert.Null(stats.Failure);
+    }
+
+    /// <summary>Records every thread of the timed-out child (its <c>/proc/&lt;pid&gt;/task/*/stat</c> line: name, state and
+    /// CPU times) before it is killed. Best effort: it never throws, and a failure is written into the report.</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031", Justification = "Capturing thread states is best effort and must never replace the fixture's timeout failure or prevent its cleanup.")]
+    private static async Task CaptureThreadStatesAsync(ISystemServices services, int processId, string directory)
+    {
+        var report = new StringBuilder();
+        try
+        {
+            string tasks = Path.Combine(ProcessInformationRoot, processId.ToString(CultureInfo.InvariantCulture), "task");
+            foreach (string task in services.FileSystem.GetDirectoryReader().EnumerateChildren(tasks).Select(child => child.FullPath).Order(StringComparer.Ordinal))
+            {
+                try
+                {
+                    _ = report.Append(await services.FileSystem.GetFileReader().ReadAllTextAsync(Path.Combine(task, "stat"), CancellationToken.None).ConfigureAwait(false));
+                }
+                catch (IOException exception)
+                {
+                    // A thread can exit between listing and reading; the others are still recorded.
+                    _ = report.Append(task).Append(": ").Append(exception.Message).Append('\n');
+                }
+            }
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            _ = report.Append("Reading the thread states failed: ").Append(exception.Message).Append('\n');
+        }
+
+        try
+        {
+            await services.FileSystem.GetFileWriter().WriteAllBytesAsync(Path.Combine(directory, "thread-states.txt"), Encoding.UTF8.GetBytes(report.ToString()), CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            // The report is diagnostic only; the timeout failure and fixture cleanup proceed without it.
+        }
     }
 
     private static void CloseBrowser(ISystemServices services, LinuxGpuContext graphics, IPlatformBrowser browser)

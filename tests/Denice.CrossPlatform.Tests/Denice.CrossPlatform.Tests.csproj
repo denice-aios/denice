@@ -104,6 +104,18 @@
     <Compile Remove="DesktopGpuTests.Linux.cs" />
   </ItemGroup>
 
+  <!-- The Linux CEF fixture executes on a child process main thread within this test assembly, as the Cocoa fixtures do;
+       ordinary Linux test builds stay a library. -->
+  <PropertyGroup Condition="'$(DeniceDesktopGpuTests)' == 'true' and $(DenicePlatformRid.StartsWith('linux'))">
+    <OutputType>Exe</OutputType>
+    <StartupObject>Denice.CrossPlatform.Tests.DesktopGpuTests</StartupObject>
+  </PropertyGroup>
+
+  <!-- The bounded child-process fixture runner serves the macOS fixtures and the Linux GPU fixture only. -->
+  <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('osx')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX'))) and !('$(DeniceDesktopGpuTests)' == 'true' and $(DenicePlatformRid.StartsWith('linux')))">
+    <Compile Remove="FixtureChildProcess.cs" />
+  </ItemGroup>
+
   <!-- Linux unit tests that need no graphics device run on every Linux test leg (RID first, build-host OS fallback). -->
   <ItemGroup Condition="!$(DenicePlatformRid.StartsWith('linux')) and !('$(DenicePlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Linux')))">
     <Compile Remove="DmaBufAttributesTests.Linux.cs" />
